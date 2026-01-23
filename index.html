@@ -161,7 +161,36 @@
             animation: spin 6s linear infinite;
             box-shadow: 0 0 50px var(--cyan-g);
             position: relative;
-            overflow: visible
+            overflow: visible;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .avatar.pressed {
+            transform: scale(0.92);
+            box-shadow: 0 0 80px var(--cyan-g), inset 0 0 20px rgba(0, 243, 255, 0.3);
+        }
+
+        .avatar.pulse-tap {
+            animation: tapPulse 0.15s ease-out;
+        }
+
+        @keyframes tapPulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 50px var(--cyan-g);
+            }
+
+            50% {
+                transform: scale(0.95);
+                box-shadow: 0 0 70px var(--cyan-g), 0 0 100px var(--cyan);
+            }
+
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 50px var(--cyan-g);
+            }
         }
 
         .avatar img {
@@ -1111,6 +1140,73 @@
                     setTimeout(() => hint.classList.remove('show'), 8000);
                 }
             }, 20000);
+
+            // ========== MOBILE 7-TAP TRIGGER (Developer Mode Pattern) ==========
+            const avatarEl = document.getElementById('avatarContainer');
+            let tapCount = 0;
+            let tapTimer = null;
+            const TAP_WINDOW = 2000; // 2 seconds to complete 7 taps
+            const REQUIRED_TAPS = 7;
+
+            function vibrate(ms) {
+                if (navigator.vibrate) navigator.vibrate(ms);
+            }
+
+            avatarEl.addEventListener('touchstart', (e) => {
+                if (redteam) return;
+                e.preventDefault(); // Prevent double-tap zoom
+
+                // Visual feedback - press
+                avatarEl.classList.add('pressed');
+
+                // Haptic feedback on each tap
+                vibrate(20);
+
+                tapCount++;
+
+                // Pulse animation
+                avatarEl.classList.remove('pulse-tap');
+                void avatarEl.offsetWidth; // Trigger reflow
+                avatarEl.classList.add('pulse-tap');
+
+                // Reset timer on each tap
+                if (tapTimer) clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => {
+                    tapCount = 0;
+                }, TAP_WINDOW);
+
+                // Check for success
+                if (tapCount >= REQUIRED_TAPS) {
+                    vibrate(200); // Success haptic
+                    tapCount = 0;
+                    clearTimeout(tapTimer);
+                    triggerRedTeam();
+                }
+            });
+
+            avatarEl.addEventListener('touchend', () => {
+                avatarEl.classList.remove('pressed');
+            });
+
+            // Also support click for desktop testing
+            avatarEl.addEventListener('click', (e) => {
+                if (redteam || e.sourceCapabilities?.firesTouchEvents) return;
+
+                avatarEl.classList.remove('pulse-tap');
+                void avatarEl.offsetWidth;
+                avatarEl.classList.add('pulse-tap');
+
+                tapCount++;
+
+                if (tapTimer) clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => { tapCount = 0; }, TAP_WINDOW);
+
+                if (tapCount >= REQUIRED_TAPS) {
+                    tapCount = 0;
+                    clearTimeout(tapTimer);
+                    triggerRedTeam();
+                }
+            });
         })();
     </script>
 </body>
