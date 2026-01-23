@@ -860,6 +860,60 @@
             font-weight: 600;
         }
 
+        /* RESET BUTTON */
+        .reset-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 0, 51, 0.2);
+            border: 1px solid #ff0033;
+            color: #ff0033;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-family: var(--font-m);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            z-index: 10001;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .reset-btn.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .reset-btn:hover {
+            background: rgba(255, 0, 51, 0.4);
+            box-shadow: 0 0 20px rgba(255, 0, 51, 0.5);
+        }
+
+        /* CRACK GAME OVERLAY */
+        .crack-game {
+            background: rgba(0, 0, 0, 0.95);
+            border: 1px solid var(--cyan);
+            padding: 20px;
+            margin: 10px 0;
+            font-family: var(--font-m);
+        }
+
+        .crack-bar {
+            font-size: 1.2rem;
+            letter-spacing: 0.1em;
+        }
+
+        .crack-bar .cursor {
+            color: #ff0;
+            font-weight: bold;
+        }
+
+        .crack-bar .sweet-spot {
+            color: #0f0;
+        }
+
         @media(max-width:768px) {
             .glass {
                 padding: 22px
@@ -908,6 +962,8 @@
         <span class="hint-icon">🔐</span>
         <span class="hint-text"><strong>ACCESS RESTRICTED.</strong><br>KONAMI PROTOCOL REQUIRED.</span>
     </a>
+    <!-- RESET BUTTON (Returns to Blue Mode) -->
+    <button class="reset-btn" id="resetBtn" onclick="resetToBlueMode()">⟲ EXIT RED TEAM</button>
     <canvas id="void"></canvas>
     <main>
         <section class="hero">
@@ -972,8 +1028,8 @@
             <div class="cli-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span
                     class="cli-title">darkcore@terminal</span></div>
             <div class="cli-out" id="out">Type <span class="ok">'help'</span> for commands...</div>
-            <div class="cli-in"><span>root@darkcore:~#</span><input type="text" id="in" autocomplete="off"
-                    spellcheck="false"></div>
+            <div class="cli-in"><span id="promptSpan">hkmodd@darkcore:~$</span><input type="text" id="in"
+                    autocomplete="off" spellcheck="false"></div>
         </div>
     </main>
     <script>
@@ -1049,9 +1105,30 @@
             document.querySelectorAll('.magnetic').forEach(el => { el.addEventListener('mousemove', e => { const rect = el.getBoundingClientRect(), x = e.clientX - rect.left - rect.width / 2, y = e.clientY - rect.top - rect.height / 2; el.style.transform = `translate(${x * .15}px,${y * .15}px)` }); el.addEventListener('mouseleave', () => el.style.transform = '') });
 
             // ========== BOOT SEQUENCE ==========
-            const bootMsgs = ['DARKCORE://INIT', 'LOADING PROTOCOLS...', 'DECRYPTING...', 'READY'];
+            const savedRedTeam = localStorage.getItem('darkcore_redteam') === 'true';
+            const bootMsgs = savedRedTeam ?
+                ['SYSTEM BREACH DETECTED', 'RESTORING SESSION...', 'RED TEAM: ACTIVE', 'WELCOME BACK, OPERATIVE'] :
+                ['DARKCORE://INIT', 'LOADING PROTOCOLS...', 'DECRYPTING...', 'READY'];
             let bi = 0; const bootEl = document.getElementById('bootTxt'), bootScreen = document.getElementById('boot');
-            function boot() { if (bi < bootMsgs.length) { bootEl.textContent = bootMsgs[bi++]; setTimeout(boot, 250) } else setTimeout(() => bootScreen.classList.add('off'), 200) }
+
+            function boot() {
+                if (bi < bootMsgs.length) {
+                    bootEl.textContent = bootMsgs[bi++];
+                    setTimeout(boot, 250);
+                } else {
+                    setTimeout(() => bootScreen.classList.add('off'), 200);
+                    // Restore red team mode from localStorage
+                    if (savedRedTeam) {
+                        redteam = true;
+                        speedMult = 5;
+                        document.body.classList.add('redteam');
+                        document.getElementById('resetBtn').classList.add('show');
+                        document.getElementById('profileImg').src = 'foto_profilo_red.png';
+                        nameEl.textContent = 'HKMODD';
+                        nameEl.dataset.text = 'HKMODD';
+                    }
+                }
+            }
             boot();
 
             // ========== GLITCH TEXT ==========
@@ -1062,10 +1139,649 @@
             const obs = new IntersectionObserver(e => e.forEach(x => { if (x.isIntersecting) x.target.classList.add('vis') }), { threshold: .1 });
             document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
 
-            // ========== CLI TERMINAL ==========
-            const cliIn = document.getElementById('in'), cliOut = document.getElementById('out');
-            const cmds = { help: `<span class="ok">Commands:</span> help, about, email, github, linkedin, cv, clear`, about: `<span class="ok">Sebastiano Gelmetti</span>\nJunior SOC Analyst | Blue Team Specialist`, email: `<span class="ok">Contact:</span> sebastiano.gelmetti@proton.me`, github: '<span class="ok">Opening GitHub...</span>', linkedin: '<span class="ok">Opening LinkedIn...</span>', cv: '<span class="ok">Downloading CV...</span>', clear: '' };
-            cliIn.addEventListener('keydown', e => { if (e.key === 'Enter') { const c = cliIn.value.trim().toLowerCase(); if (c === 'github') open('https://github.com/hkmodd', '_blank'); else if (c === 'linkedin') open('https://www.linkedin.com/in/gelmetti-sebastiano/', '_blank'); else if (c === 'cv') open('CV_Sebastiano_Gelmetti.pdf', '_blank'); else if (c === 'clear') { cliOut.innerHTML = ''; cliIn.value = ''; return } cliOut.innerHTML = cmds[c] || `<span class="warn">Unknown: ${c}</span>`; cliIn.value = '' } });
+            // ========== TERMINAL OS - VIRTUAL OPERATING SYSTEM ==========
+            class TerminalOS {
+                constructor(inputEl, outputEl) {
+                    this.input = inputEl;
+                    this.output = outputEl;
+                    this.historyIndex = -1;
+                    this.cwd = '/home/hkmodd';
+                    this.topMode = false;
+                    this.topInterval = null;
+                    this.crackMode = false;
+                    this.crackInterval = null;
+                    this.matrixMode = false;
+                    this.currentUser = 'hkmodd';
+                    this.isRoot = false;
+                    this.flagUnlocked = false;
+
+                    // Load from localStorage
+                    this.history = JSON.parse(localStorage.getItem('darkcore_history') || '[]');
+                    if (localStorage.getItem('darkcore_user') === 'root') {
+                        this.isRoot = true;
+                        this.currentUser = 'root';
+                    }
+                    if (localStorage.getItem('darkcore_flag') === 'true') {
+                        this.flagUnlocked = true;
+                    }
+
+                    // Virtual File System
+                    this.vfs = {
+                        '/': { type: 'dir', children: ['home', 'bin', 'var', 'projects', 'etc', 'root'] },
+                        '/home': { type: 'dir', children: ['hkmodd'] },
+                        '/home/hkmodd': { type: 'dir', children: ['bio.txt', 'skills.json', '.secrets'] },
+                        '/home/hkmodd/bio.txt': {
+                            type: 'file', content: `SEBASTIANO GELMETTI
+═══════════════════════════════════════
+Role: Junior SOC Analyst | Blue Team Specialist
+Location: Italy
+Status: OPERATIONAL
+
+Mission: Defending critical infrastructure through 
+proactive threat hunting and secure architecture.
+Blending operational leadership with technical precision.
+
+Contact: sebastiano.gelmetti@proton.me
+GitHub: github.com/hkmodd
+LinkedIn: linkedin.com/in/gelmetti-sebastiano` },
+                        '/home/hkmodd/skills.json': {
+                            type: 'file', content: `{
+  "languages": ["Rust", "Python", "TypeScript", "Bash"],
+  "security": ["SIEM", "Splunk", "Wireshark", "Threat Intel"],
+  "expertise": ["Incident Response", "Malware Analysis", "Blue Team Ops"],
+  "certifications": ["In Progress..."],
+  "threat_level": "MAXIMUM"
+}` },
+                        '/home/hkmodd/.secrets': {
+                            type: 'file', hidden: true, content: `╔══════════════════════════════════════╗
+║  CLASSIFIED - EYES ONLY              ║
+╠══════════════════════════════════════╣
+║  Project: DARKCORE                   ║
+║  Status: ACTIVE                      ║
+║  Clearance: OVERLORD                 ║
+║                                      ║
+║  "The shadow knows all."             ║
+╚══════════════════════════════════════╝` },
+                        '/bin': { type: 'dir', children: ['ls', 'cd', 'cat', 'pwd', 'top', 'nmap', 'whois'] },
+                        '/var': { type: 'dir', children: ['logs'] },
+                        '/var/logs': { type: 'dir', children: ['sys.log', 'auth.log'] },
+                        '/var/logs/sys.log': {
+                            type: 'file', content: `[2026-01-23 03:14:15] SYSTEM: Kernel initialized
+[2026-01-23 03:14:16] DARKCORE: Neural network online
+[2026-01-23 03:14:17] SECURITY: Firewall rules loaded
+[2026-01-23 03:14:18] NETWORK: Interface eth0 UP
+[2026-01-23 03:14:19] AUTH: Session started for hkmodd
+[2026-01-23 03:14:20] MONITOR: Threat detection active` },
+                        '/var/logs/auth.log': {
+                            type: 'file', content: `[ENCRYPTED] 4a6f686e20446f650a
+[ENCRYPTED] 50617373776f72643a202a2a2a2a2a2a
+[DECRYPTED] Unauthorized access attempt blocked
+[ALERT] Konami sequence detected - OVERLORD mode available` },
+                        '/projects': { type: 'dir', children: ['darkcore.md', 'instafollows.md', 'calcologas.md'] },
+                        '/projects/darkcore.md': {
+                            type: 'file', content: `# DarkCore-Manager
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Language: Rust
+Status: ACTIVE
+
+High-performance orchestration for compatibility layers.
+Rust-native memory safety & VDF virtualization.
+
+Repository: github.com/hkmodd/DarkCore-Manager` },
+                        '/projects/instafollows.md': {
+                            type: 'file', content: `# INSTAFollows-Ultimate
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Language: Rust + Tauri
+Status: ACTIVE
+
+Elite OSINT & Surveillance Tool.
+Local privacy architecture with mass-management capabilities.
+
+Repository: github.com/hkmodd/INSTAFollows-Ultimate` },
+                        '/projects/calcologas.md': {
+                            type: 'file', content: `# Calcologas
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Language: TypeScript
+Status: DEPLOYED
+
+Cinematic Utility WebApp.
+Fallout-style aesthetics with synthesized sound engine.
+
+Repository: github.com/hkmodd/Calcologas` },
+                        '/etc': { type: 'dir', children: ['shadow', 'passwd', 'hosts'] },
+                        '/etc/shadow': {
+                            type: 'file', hidden: true, content: `root:$6$splunk$Xk3mZq:19000:0:99999:7:::
+hkmodd:$6$locked$:19000:0:99999:7:::
+# HINT: The password is the name of your favorite SIEM tool (lowercase)` },
+                        '/etc/passwd': {
+                            type: 'file', content: `root:x:0:0:root:/root:/bin/bash
+hkmodd:x:1000:1000:Sebastiano:/home/hkmodd:/bin/bash` },
+                        '/etc/hosts': {
+                            type: 'file', content: `127.0.0.1   localhost
+127.0.0.1   darkcore
+192.168.1.1 gateway` },
+                        '/root': { type: 'dir', protected: true, children: ['secrets'] },
+                        '/root/secrets': { type: 'dir', protected: true, children: ['flag.txt', 'mission.md'] },
+                        '/root/secrets/flag.txt': {
+                            type: 'file', protected: true, content: `
+╔══════════════════════════════════════════════════╗
+║                                                  ║
+║   🚩 FLAG{H4CK_TH3_PL4N3T_D4RKC0R3_2026}        ║
+║                                                  ║
+║   Congratulations, you've completed the CTF!     ║
+║   You are now a certified DARKCORE Operative.    ║
+║                                                  ║
+╚══════════════════════════════════════════════════╝` },
+                        '/root/secrets/mission.md': {
+                            type: 'file', protected: true, content: `# CLASSIFIED MISSION BRIEF
+Status: EYES ONLY
+Clearance: OVERLORD
+
+Your next mission: Secure the perimeter.
+Contact HQ for extraction coordinates.` },
+                        '/bin/crack': { type: 'file', executable: true, content: '[BINARY - Execute with ./crack]' }
+                    };
+
+                    this.commands = {
+                        help: () => this.cmdHelp(),
+                        ls: (args) => this.cmdLs(args),
+                        cd: (args) => this.cmdCd(args),
+                        cat: (args) => this.cmdCat(args),
+                        pwd: () => this.cmdPwd(),
+                        clear: () => this.cmdClear(),
+                        history: () => this.cmdHistory(),
+                        whoami: () => this.isRoot ? 'root' : (redteam ? 'OVERLORD' : 'hkmodd'),
+                        whois: () => this.cmdWhois(),
+                        top: () => this.cmdTop(),
+                        nmap: (args) => this.cmdNmap(args),
+                        sudo: (args) => this.cmdSudo(args),
+                        login: (args) => this.cmdLogin(args),
+                        matrix: () => this.cmdMatrix(),
+                        './crack': () => this.cmdCrack(),
+                        crack: () => '<span class="warn">Try: ./crack</span>',
+                        echo: (args) => args.join(' '),
+                        date: () => new Date().toLocaleString(),
+                        uname: () => 'DarkCore OS 1.0.0 x86_64 GNU/Linux',
+                        id: () => this.isRoot ? 'uid=0(root) gid=0(root) groups=0(root)' : 'uid=1000(hkmodd) gid=1000(hkmodd)',
+                        logout: () => this.cmdLogout(),
+                        github: () => { open('https://github.com/hkmodd', '_blank'); return '<span class="ok">Opening GitHub...</span>'; },
+                        linkedin: () => { open('https://www.linkedin.com/in/gelmetti-sebastiano/', '_blank'); return '<span class="ok">Opening LinkedIn...</span>'; },
+                        cv: () => { open('CV_Sebastiano_Gelmetti.pdf', '_blank'); return '<span class="ok">Downloading CV...</span>'; },
+                        exit: () => '<span class="warn">Nice try. There is no escape.</span>',
+                        rm: () => '<span class="warn">Permission denied: readonly filesystem</span>',
+                        vi: () => '<span class="ok">vim: command not found. Try: nano</span>',
+                        nano: () => '<span class="warn">nano: readonly filesystem</span>',
+                        neofetch: () => this.cmdNeofetch(),
+                        flag: () => this.flagUnlocked ? 'FLAG{H4CK_TH3_PL4N3T_D4RKC0R3_2026}' : '<span class="warn">Access denied. Complete the challenge first.</span>'
+                    };
+
+                    this.init();
+                }
+
+                init() {
+                    this.print('<span class="ok">DarkCore OS v1.0.0</span> - Type <span class="ok">help</span> for commands');
+                    this.input.addEventListener('keydown', (e) => this.handleKeydown(e));
+                }
+
+                getPrompt() {
+                    const user = this.isRoot ? 'root' : (redteam ? 'OVERLORD' : 'hkmodd');
+                    const host = redteam ? 'DARKCORE' : 'darkcore';
+                    const path = this.cwd === '/home/hkmodd' ? '~' : this.cwd;
+                    const symbol = this.isRoot ? '#' : '$';
+                    return `${user}@${host}:${path}${symbol} `;
+                }
+
+                updatePrompt() {
+                    const promptEl = this.input.previousElementSibling;
+                    if (promptEl) promptEl.textContent = this.getPrompt();
+                }
+
+                handleKeydown(e) {
+                    // Handle crack game spacebar
+                    if (this.crackMode && e.code === 'Space') {
+                        e.preventDefault();
+                        this.handleCrackInput();
+                        return;
+                    }
+
+                    if (this.topMode && e.key.toLowerCase() === 'q') {
+                        this.exitTop();
+                        e.preventDefault();
+                        return;
+                    }
+
+                    if (e.key === 'Enter') {
+                        const cmd = this.input.value.trim();
+                        if (cmd) {
+                            this.history.push(cmd);
+                            this.historyIndex = this.history.length;
+                            this.saveHistory();
+                            this.execute(cmd);
+                        }
+                        this.input.value = '';
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowUp') {
+                        if (this.historyIndex > 0) {
+                            this.historyIndex--;
+                            this.input.value = this.history[this.historyIndex];
+                        }
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowDown') {
+                        if (this.historyIndex < this.history.length - 1) {
+                            this.historyIndex++;
+                            this.input.value = this.history[this.historyIndex];
+                        } else {
+                            this.historyIndex = this.history.length;
+                            this.input.value = '';
+                        }
+                        e.preventDefault();
+                    } else if (e.key === 'Tab') {
+                        e.preventDefault();
+                        // Basic tab completion
+                        const partial = this.input.value.trim();
+                        const matches = Object.keys(this.commands).filter(c => c.startsWith(partial));
+                        if (matches.length === 1) this.input.value = matches[0] + ' ';
+                    }
+                }
+
+                execute(cmdLine) {
+                    const parts = cmdLine.split(/\s+/);
+                    const cmd = parts[0].toLowerCase();
+                    const args = parts.slice(1);
+
+                    this.print(`<span class="muted">${this.getPrompt()}${this.escapeHtml(cmdLine)}</span>`);
+
+                    if (this.commands[cmd]) {
+                        const result = this.commands[cmd](args);
+                        if (result) this.print(result);
+                    } else {
+                        this.print(`<span class="warn">bash: ${cmd}: command not found</span>`);
+                    }
+
+                    this.updatePrompt();
+                    this.scrollToBottom();
+                }
+
+                print(html) {
+                    this.output.innerHTML += html + '\n';
+                }
+
+                scrollToBottom() {
+                    this.output.scrollTop = this.output.scrollHeight;
+                }
+
+                escapeHtml(str) {
+                    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                }
+
+                resolvePath(path) {
+                    if (!path) return this.cwd;
+                    if (path === '~') return '/home/hkmodd';
+                    if (path.startsWith('~/')) return '/home/hkmodd' + path.slice(1);
+                    if (path.startsWith('/')) return path;
+
+                    let parts = this.cwd.split('/').filter(Boolean);
+                    for (const part of path.split('/')) {
+                        if (part === '..') parts.pop();
+                        else if (part !== '.') parts.push(part);
+                    }
+                    return '/' + parts.join('/') || '/';
+                }
+
+                // ===== COMMANDS =====
+                cmdHelp() {
+                    return `<span class="ok">DarkCore Terminal v1.0</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<span class="ok">Navigation:</span>
+  ls [-la]      List directory contents
+  cd &lt;dir&gt;      Change directory
+  pwd           Print working directory
+  cat &lt;file&gt;    Display file contents
+
+<span class="ok">System:</span>
+  clear         Clear terminal
+  history       Command history
+  whoami        Current user
+  uname         System info
+  date          Current date/time
+
+<span class="ok">Apps:</span>
+  top           Process viewer (q to exit)
+  whois         Identity card
+  nmap &lt;host&gt;   Port scanner
+  neofetch      System info
+
+<span class="ok">Links:</span>
+  github        Open GitHub
+  linkedin      Open LinkedIn
+  cv            Download CV`;
+                }
+
+                cmdLs(args) {
+                    const showAll = args.includes('-a') || args.includes('-la') || args.includes('-al');
+                    const longFormat = args.includes('-l') || args.includes('-la') || args.includes('-al');
+                    const targetPath = args.find(a => !a.startsWith('-')) || this.cwd;
+                    const resolved = this.resolvePath(targetPath);
+                    const node = this.vfs[resolved];
+
+                    if (!node) return `<span class="warn">ls: cannot access '${targetPath}': No such file or directory</span>`;
+                    if (node.type !== 'dir') return `<span class="warn">ls: ${targetPath}: Not a directory</span>`;
+
+                    let items = node.children.filter(name => {
+                        const itemPath = resolved === '/' ? '/' + name : resolved + '/' + name;
+                        const item = this.vfs[itemPath];
+                        if (!showAll && (name.startsWith('.') || (item && item.hidden))) return false;
+                        if (!redteam && item && item.hidden) return false;
+                        return true;
+                    });
+
+                    // Add hidden files in red team mode
+                    if (redteam && showAll) {
+                        if (!items.includes('.passwords')) items.push('.passwords');
+                    }
+
+                    if (longFormat) {
+                        let output = `total ${items.length}\n`;
+                        output += items.map(name => {
+                            const itemPath = resolved === '/' ? '/' + name : resolved + '/' + name;
+                            const item = this.vfs[itemPath];
+                            const isDir = item && item.type === 'dir';
+                            const perms = isDir ? 'drwxr-xr-x' : '-rw-r--r--';
+                            const size = item && item.content ? item.content.length : 4096;
+                            const color = isDir ? 'ok' : (name.startsWith('.') ? 'warn' : '');
+                            const nameHtml = color ? `<span class="${color}">${name}</span>` : name;
+                            return `${perms}  1 hkmodd hkmodd ${String(size).padStart(5)} Jan 23 03:14 ${nameHtml}`;
+                        }).join('\n');
+                        return output;
+                    }
+
+                    return items.map(name => {
+                        const itemPath = resolved === '/' ? '/' + name : resolved + '/' + name;
+                        const item = this.vfs[itemPath];
+                        const isDir = item && item.type === 'dir';
+                        if (isDir) return `<span class="ok">${name}/</span>`;
+                        if (name.startsWith('.')) return `<span class="warn">${name}</span>`;
+                        return name;
+                    }).join('  ');
+                }
+
+                cmdCd(args) {
+                    const target = args[0] || '/home/hkmodd';
+                    const resolved = this.resolvePath(target);
+                    const node = this.vfs[resolved];
+
+                    if (!node) return `<span class="warn">bash: cd: ${target}: No such file or directory</span>`;
+                    if (node.type !== 'dir') return `<span class="warn">bash: cd: ${target}: Not a directory</span>`;
+                    if (node.protected && !this.isRoot && !this.flagUnlocked) return `<span class="warn">bash: cd: ${target}: Permission denied</span>`;
+
+                    this.cwd = resolved;
+                    return '';
+                }
+
+                cmdCat(args) {
+                    if (!args[0]) return '<span class="warn">cat: missing operand</span>';
+                    const resolved = this.resolvePath(args[0]);
+                    const node = this.vfs[resolved];
+
+                    if (!node) return `<span class="warn">cat: ${args[0]}: No such file or directory</span>`;
+                    if (node.type === 'dir') return `<span class="warn">cat: ${args[0]}: Is a directory</span>`;
+                    if (node.hidden && !redteam) return `<span class="warn">cat: ${args[0]}: Permission denied</span>`;
+                    if (node.protected && !this.isRoot && !this.flagUnlocked) return `<span class="warn">cat: ${args[0]}: Permission denied (root access required)</span>`;
+
+                    return this.escapeHtml(node.content);
+                }
+
+                cmdPwd() { return this.cwd; }
+
+                cmdClear() { this.output.innerHTML = ''; return ''; }
+
+                cmdHistory() {
+                    return this.history.map((cmd, i) => `  ${String(i + 1).padStart(3)}  ${cmd}`).join('\n');
+                }
+
+                cmdWhois() {
+                    const border = redteam ? '═' : '─';
+                    const status = redteam ? '<span class="warn">OVERLORD</span>' : '<span class="ok">OPERATIVE</span>';
+                    return `
+╔${'═'.repeat(42)}╗
+║  <span class="ok">IDENTITY CARD</span>                           ║
+╠${'═'.repeat(42)}╣
+║  Name: Sebastiano Gelmetti               ║
+║  Alias: HKMODD                           ║
+║  Role: SOC Analyst | Blue Team           ║
+║  Status: ${status}                        ║
+║  Clearance: ${redteam ? 'MAXIMUM' : 'STANDARD'}                       ║
+╚${'═'.repeat(42)}╝`;
+                }
+
+                cmdTop() {
+                    this.topMode = true;
+                    this.output.innerHTML = '';
+                    this.input.disabled = true;
+                    this.input.placeholder = "Press 'q' to exit";
+
+                    const updateTop = () => {
+                        const cpu = (Math.random() * 30 + 10).toFixed(1);
+                        const mem = (Math.random() * 20 + 40).toFixed(1);
+                        const procs = [
+                            { pid: 1, user: 'root', cpu: '0.1', mem: '0.5', cmd: 'systemd' },
+                            { pid: 847, user: 'hkmodd', cpu: (Math.random() * 5).toFixed(1), mem: '2.3', cmd: 'splunkd' },
+                            { pid: 923, user: 'hkmodd', cpu: (Math.random() * 8).toFixed(1), mem: '4.1', cmd: 'rustc --edition 2021' },
+                            { pid: 1024, user: 'root', cpu: (Math.random() * 3).toFixed(1), mem: '1.2', cmd: 'nmap -sS' },
+                            { pid: 1337, user: 'hkmodd', cpu: (Math.random() * 2).toFixed(1), mem: '3.7', cmd: 'python3 threat_hunt.py' },
+                            { pid: 2048, user: 'hkmodd', cpu: (Math.random() * 4).toFixed(1), mem: '5.2', cmd: redteam ? 'darkcore --overlord' : 'darkcore' }
+                        ];
+
+                        this.output.innerHTML = `<span class="ok">top</span> - ${new Date().toLocaleTimeString()} up 42 days, load: ${cpu}%
+Tasks: ${procs.length} total, 1 running
+%Cpu(s): <span class="ok">${cpu}</span> us | %Mem: <span class="ok">${mem}</span>
+
+<span class="muted">  PID USER      %CPU  %MEM  COMMAND</span>
+${procs.map(p => `${String(p.pid).padStart(5)} ${p.user.padEnd(9)} ${p.cpu.padStart(5)}  ${p.mem.padStart(4)}  ${p.cmd}`).join('\n')}
+
+<span class="muted">Press 'q' to exit</span>`;
+                    };
+
+                    updateTop();
+                    this.topInterval = setInterval(updateTop, 1000);
+                    return '';
+                }
+
+                exitTop() {
+                    this.topMode = false;
+                    clearInterval(this.topInterval);
+                    this.input.disabled = false;
+                    this.input.placeholder = '';
+                    this.output.innerHTML = '';
+                    this.print('<span class="ok">Exited top</span>');
+                    this.input.focus();
+                }
+
+                cmdNmap(args) {
+                    const target = args[0] || '127.0.0.1';
+                    setTimeout(() => {
+                        this.print(`Starting Nmap scan on ${target}...`);
+                        setTimeout(() => this.print('Scanning ports 1-1000...'), 300);
+                        setTimeout(() => this.print('Discovering services...'), 600);
+                        setTimeout(() => this.print('Running scripts...'), 900);
+                        setTimeout(() => {
+                            this.print(`
+<span class="ok">Nmap scan report for ${target}</span>
+Host is up (0.0012s latency).
+Not shown: 997 closed ports
+
+PORT    STATE SERVICE
+<span class="ok">22/tcp  open  ssh</span>
+<span class="ok">80/tcp  open  http</span>
+<span class="ok">443/tcp open  https</span>
+${redteam ? '<span class="warn">1337/tcp open  darkcore</span>' : ''}
+
+Nmap done: 1 IP address (1 host up)`);
+                            this.scrollToBottom();
+                        }, 1500);
+                    }, 100);
+                    return '';
+                }
+
+                cmdSudo(args) {
+                    if (redteam) {
+                        return `<span class="ok">[sudo] ROOT ACCESS CONFIRMED</span>
+Executing: ${args.join(' ') || 'bash'}`;
+                    }
+                    return `<span class="warn">[sudo] password for hkmodd: 
+hkmodd is not in the sudoers file. This incident will be reported.</span>`;
+                }
+
+                cmdNeofetch() {
+                    const os = redteam ? 'DarkCore OS (OVERLORD Edition)' : 'DarkCore OS 1.0.0';
+                    return `
+<span class="ok">       ▄▄▄▄▄▄▄▄▄▄▄▄▄</span>       <span class="ok">hkmodd</span>@<span class="ok">darkcore</span>
+<span class="ok">     ▄▀░░░░░░░░░░░░▀▄</span>     ──────────────────
+<span class="ok">    █░░░░░░░░░░░░░░░█</span>     <span class="ok">OS:</span> ${os}
+<span class="ok">   █░░░░░░░░░░░░░░░░█</span>     <span class="ok">Host:</span> GitHub Pages
+<span class="ok">   █░░▀▄░░░░░░▄▀░░░█</span>      <span class="ok">Kernel:</span> JavaScript ES2024
+<span class="ok">   █░░░░░░░░░░░░░░░█</span>      <span class="ok">Shell:</span> TerminalOS 1.0
+<span class="ok">   █░░░░░░░░░░░░░░░█</span>      <span class="ok">Theme:</span> ${redteam ? 'DARKCORE [RED]' : 'DarkCore Cyan'}
+<span class="ok">    █░░░░░░░░░░░░░█</span>       <span class="ok">CPU:</span> Neural Network v2
+<span class="ok">     ▀▄░░░░░░░░░▄▀</span>        <span class="ok">Memory:</span> 1337MB / ∞
+<span class="ok">       ▀▀▀▀▀▀▀▀▀</span>          <span class="ok">Status:</span> ${redteam ? 'OVERLORD MODE' : 'OPERATIONAL'}`;
+                }
+
+                // ===== CTF COMMANDS =====
+                cmdLogin(args) {
+                    if (args.length < 2) return '<span class="warn">Usage: login <user> <password></span>';
+                    const [user, pass] = args;
+                    if (user === 'root' && pass === 'splunk') {
+                        this.isRoot = true;
+                        this.currentUser = 'root';
+                        localStorage.setItem('darkcore_user', 'root');
+                        this.updatePrompt();
+                        return `<span class="ok">Authentication successful.</span>
+Welcome, root. Full system access granted.
+<span class="warn">WARNING: All actions are logged.</span>`;
+                    }
+                    return '<span class="warn">Authentication failed: Invalid credentials</span>';
+                }
+
+                cmdLogout() {
+                    if (!this.isRoot) return '<span class="muted">Not logged in as root.</span>';
+                    this.isRoot = false;
+                    this.currentUser = 'hkmodd';
+                    localStorage.removeItem('darkcore_user');
+                    this.updatePrompt();
+                    return '<span class="ok">Logged out. Session terminated.</span>';
+                }
+
+                cmdMatrix() {
+                    this.matrixMode = true;
+                    const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789';
+                    let frames = 0;
+                    const maxFrames = 50;
+
+                    const interval = setInterval(() => {
+                        let line = '';
+                        for (let i = 0; i < 60; i++) {
+                            const c = chars[Math.floor(Math.random() * chars.length)];
+                            line += Math.random() > 0.7 ? `<span class="ok">${c}</span>` : `<span class="muted">${c}</span>`;
+                        }
+                        this.print(line);
+                        this.scrollToBottom();
+                        if (++frames >= maxFrames) {
+                            clearInterval(interval);
+                            this.matrixMode = false;
+                            this.print('<span class="ok">Wake up, Neo...</span>');
+                        }
+                    }, 100);
+                    return '<span class="ok">Entering the Matrix...</span>';
+                }
+
+                cmdCrack() {
+                    if (this.flagUnlocked) return '<span class="ok">Flag already unlocked! Check /root/secrets</span>';
+                    this.crackMode = true;
+                    this.crackStage = 1;
+                    this.crackPos = 0;
+                    this.crackDir = 1;
+                    this.crackSpeed = 80;
+                    this.input.disabled = true;
+                    this.input.placeholder = "Press SPACE at the sweet spot!";
+
+                    this.print('<span class="ok">╔════════════════════════════════════╗</span>');
+                    this.print('<span class="ok">║  CRACK v1.0 - Password Breaker     ║</span>');
+                    this.print('<span class="ok">╠════════════════════════════════════╣</span>');
+                    this.print(`<span class="muted">Stage ${this.crackStage}/3 - Press SPACE at the green zone!</span>`);
+
+                    this.updateCrackGame();
+                    return '';
+                }
+
+                updateCrackGame() {
+                    const width = 30;
+                    const sweetSpot = 14;
+
+                    this.crackInterval = setInterval(() => {
+                        this.crackPos += this.crackDir;
+                        if (this.crackPos >= width - 1 || this.crackPos <= 0) this.crackDir *= -1;
+
+                        let bar = '';
+                        for (let i = 0; i < width; i++) {
+                            if (i === this.crackPos) bar += '<span style="color:#ff0">█</span>';
+                            else if (i >= sweetSpot - 1 && i <= sweetSpot + 1) bar += '<span style="color:#0f0">▓</span>';
+                            else bar += '░';
+                        }
+
+                        // Update last line
+                        const lines = this.output.innerHTML.split('\n');
+                        lines[lines.length - 1] = `[${bar}]`;
+                        this.output.innerHTML = lines.join('\n');
+                    }, this.crackSpeed);
+                }
+
+                handleCrackInput() {
+                    const sweetSpot = 14;
+                    const hit = Math.abs(this.crackPos - sweetSpot) <= 1;
+
+                    clearInterval(this.crackInterval);
+
+                    if (hit) {
+                        this.print(`<span class="ok">✓ Stage ${this.crackStage} COMPLETE!</span>`);
+                        if (this.crackStage >= 3) {
+                            this.crackMode = false;
+                            this.flagUnlocked = true;
+                            localStorage.setItem('darkcore_flag', 'true');
+                            this.input.disabled = false;
+                            this.input.placeholder = '';
+                            this.print('<span class="ok">╔════════════════════════════════════╗</span>');
+                            this.print('<span class="ok">║  ACCESS GRANTED - FLAG UNLOCKED!   ║</span>');
+                            this.print('<span class="ok">╚════════════════════════════════════╝</span>');
+                            this.print('<span class="warn">🚩 FLAG{H4CK_TH3_PL4N3T_D4RKC0R3_2026}</span>');
+                            this.print('<span class="muted">/root/secrets is now accessible!</span>');
+                            this.input.focus();
+                        } else {
+                            this.crackStage++;
+                            this.crackSpeed = Math.max(30, this.crackSpeed - 20);
+                            this.print(`<span class="muted">Stage ${this.crackStage}/3 - Speed increased!</span>`);
+                            this.updateCrackGame();
+                        }
+                    } else {
+                        this.crackMode = false;
+                        this.input.disabled = false;
+                        this.input.placeholder = '';
+                        this.print('<span class="warn">✗ FAILED! Security lockout triggered.</span>');
+                        this.print('<span class="muted">Try again with ./crack</span>');
+                        this.input.focus();
+                    }
+                }
+
+                saveHistory() {
+                    localStorage.setItem('darkcore_history', JSON.stringify(this.history.slice(-50)));
+                }
+            }
+
+            // Initialize Terminal
+            const terminal = new TerminalOS(
+                document.getElementById('in'),
+                document.getElementById('out')
+            );
 
             // ========== KONAMI CODE - RED TEAM ACTIVATION ==========
             const konami = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
@@ -1116,11 +1832,38 @@
                 redteam = true;
                 speedMult = 5;
                 document.body.classList.add('redteam');
+                localStorage.setItem('darkcore_redteam', 'true');
+                document.getElementById('resetBtn').classList.add('show');
+                terminal.updatePrompt();
 
                 // 8. Show alert
                 const al = document.getElementById('alert');
                 al.classList.add('show');
                 setTimeout(() => al.classList.remove('show'), 3000);
+            }
+
+            // ========== RESET TO BLUE MODE (Global for onclick) ==========
+            window.resetToBlueMode = function () {
+                redteam = false;
+                speedMult = 1;
+                document.body.classList.remove('redteam');
+                // Clear ALL localStorage states
+                localStorage.removeItem('darkcore_redteam');
+                localStorage.removeItem('darkcore_user');
+                localStorage.removeItem('darkcore_flag');
+                localStorage.removeItem('darkcore_history');
+                // Reset terminal state
+                if (terminal) {
+                    terminal.isRoot = false;
+                    terminal.currentUser = 'hkmodd';
+                    terminal.flagUnlocked = false;
+                    terminal.updatePrompt();
+                }
+                document.getElementById('resetBtn').classList.remove('show');
+                document.getElementById('profileImg').src = 'foto_profilo.png';
+                nameEl.textContent = 'Sebastiano Gelmetti';
+                nameEl.dataset.text = 'Sebastiano Gelmetti';
+                sfxAmbiance?.pause();
             }
 
             addEventListener('keydown', e => {
@@ -1188,25 +1931,8 @@
                 avatarEl.classList.remove('pressed');
             });
 
-            // Also support click for desktop testing
-            avatarEl.addEventListener('click', (e) => {
-                if (redteam || e.sourceCapabilities?.firesTouchEvents) return;
-
-                avatarEl.classList.remove('pulse-tap');
-                void avatarEl.offsetWidth;
-                avatarEl.classList.add('pulse-tap');
-
-                tapCount++;
-
-                if (tapTimer) clearTimeout(tapTimer);
-                tapTimer = setTimeout(() => { tapCount = 0; }, TAP_WINDOW);
-
-                if (tapCount >= REQUIRED_TAPS) {
-                    tapCount = 0;
-                    clearTimeout(tapTimer);
-                    triggerRedTeam();
-                }
-            });
+            // Desktop click DISABLED - easter egg is mobile-only (7 taps)
+            // Use Konami code on desktop instead
         })();
     </script>
 </body>
