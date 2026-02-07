@@ -36,7 +36,9 @@
         }
 
         html {
-            scroll-behavior: smooth
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+            width: 100%;
         }
 
         body {
@@ -1415,6 +1417,42 @@
 
             .dossier-card.full-width strong {
                 color: var(--orange);
+            }
+
+            @media(max-width: 768px) {
+
+                /* FORCE SINGLE COLUMN FOR DOSSIER */
+                .dossier-grid {
+                    grid-template-columns: 1fr !important;
+                }
+
+                /* ADJUST PADDING TO PREVENT OVERFLOW */
+                .glass,
+                .dossier-card {
+                    padding: 18px !important;
+                }
+
+                .hero {
+                    padding: 40px 15px !important;
+                }
+
+                /* SAFEGUARD TERMINAL */
+                .cli {
+                    overflow-x: auto;
+                }
+
+                /* ADJUST LANG TOGGLE POSITION */
+                .lang-toggle {
+                    right: 20px;
+                    top: 15px;
+                }
+
+                /* PREVENT OVERLAP WITH RESET BTN */
+                .reset-btn {
+                    top: 60px;
+                    right: 20px;
+                    padding: 8px 12px;
+                }
             }
         </style>
 
