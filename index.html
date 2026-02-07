@@ -152,6 +152,70 @@
             padding: 80px 20px
         }
 
+        /* Cinematic Grain Overlay */
+        .grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9998;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            animation: grainAnim 8s steps(10) infinite;
+        }
+
+        @keyframes grainAnim {
+
+            0%,
+            100% {
+                transform: translate(0, 0);
+            }
+
+            10% {
+                transform: translate(-5%, -5%);
+            }
+
+            20% {
+                transform: translate(-10%, 5%);
+            }
+
+            30% {
+                transform: translate(5%, -10%);
+            }
+
+            40% {
+                transform: translate(-5%, 15%);
+            }
+
+            50% {
+                transform: translate(-10%, 5%);
+            }
+
+            60% {
+                transform: translate(15%, 0);
+            }
+
+            70% {
+                transform: translate(0, 10%);
+            }
+
+            80% {
+                transform: translate(-15%, 0);
+            }
+
+            90% {
+                transform: translate(10%, 5%);
+            }
+        }
+
+        /* Scramble Text Effect Class */
+        .scramble-hover {
+            display: inline-block;
+            cursor: default;
+        }
+
         .avatar {
             width: 160px;
             height: 160px;
@@ -622,61 +686,218 @@
             gap: 25px
         }
 
+        /* ========== HOLOGRAPHIC CARDS (2026) ========== */
         .card {
-            background: var(--bg-card);
-            border: 1px solid var(--glass);
-            border-radius: 14px;
-            padding: 28px;
-            transition: all .3s;
-            position: relative
+            background: rgba(10, 10, 10, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.1s ease-out, box-shadow 0.3s ease;
+            transform-style: preserve-3d;
+            will-change: transform;
+            backdrop-filter: blur(10px);
         }
 
-        .card::after {
-            content: '🔐 CLASSIFIED';
+        /* Dynamic Spotlight (controlled by JS --x, --y) */
+        .card::before {
+            content: '';
             position: absolute;
-            top: 12px;
-            right: 12px;
-            font-size: .65rem;
-            color: var(--orange);
-            opacity: .5
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 16px;
+            padding: 1.5px;
+            background: radial-gradient(800px circle at var(--x, 0px) var(--y, 0px),
+                    rgba(0, 243, 255, 0.4),
+                    transparent 40%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            z-index: 2;
         }
 
-        .card:hover {
-            border-color: var(--orange);
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px var(--orange-g)
+        .grid:hover .card::before {
+            opacity: 1;
+        }
+
+        /* Inner Sheen */
+        .card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(600px circle at var(--x, 0px) var(--y, 0px),
+                    rgba(255, 255, 255, 0.06),
+                    transparent 40%);
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .card:hover::after {
+            opacity: 1;
+        }
+
+        .card content-wrapper {
+            transform: translateZ(20px);
         }
 
         .card h3 {
             font-family: var(--font-d);
-            font-size: 1.15rem;
-            margin-bottom: 8px
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transform: translateZ(20px);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+
+        .card .classified {
+            font-size: 0.65rem;
+            color: var(--orange);
+            border: 1px solid var(--orange);
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.8;
+            background: rgba(255, 77, 0, 0.1);
+            transform: translateZ(15px);
         }
 
         .card .lang {
-            font-size: .75rem;
+            font-size: 0.75rem;
             color: var(--cyan);
-            margin-bottom: 12px;
             text-transform: uppercase;
-            letter-spacing: .1em
+            letter-spacing: 2px;
+            margin-bottom: 1rem;
+            font-weight: 700;
+            transform: translateZ(15px);
+            display: block;
         }
 
         .card p {
             color: var(--muted);
-            font-size: .9rem;
+            font-size: 0.95rem;
             line-height: 1.6;
-            margin-bottom: 15px
+            margin-bottom: 1.5rem;
+            transform: translateZ(10px);
         }
 
         .card a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
             color: var(--cyan);
             text-decoration: none;
-            font-size: .85rem;
-            transition: color .2s
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            transform: translateZ(25px);
+            padding: 8px 16px;
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            border-radius: 4px;
+            background: rgba(0, 243, 255, 0.05);
         }
 
         .card a:hover {
-            color: var(--orange)
+            background: rgba(0, 243, 255, 0.15);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            transform: translateZ(30px) translateY(-2px);
+        }
+
+
+
+        /* CUSTOM BUTTON STYLES */
+        /* CS0724 - Education (Green/Cyan) */
+        .btn-edu {
+            border-color: #00ff88 !important;
+            color: #00ff88 !important;
+            background: rgba(0, 255, 136, 0.05) !important;
+        }
+
+        .btn-edu:hover {
+            background: rgba(0, 255, 136, 0.15) !important;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.4) !important;
+        }
+
+        /* DarkCore - Rust (Orange) */
+        .btn-rust {
+            border-color: #ff4d00 !important;
+            color: #ff4d00 !important;
+            background: rgba(255, 77, 0, 0.05) !important;
+        }
+
+        .btn-rust:hover {
+            background: rgba(255, 77, 0, 0.15) !important;
+            box-shadow: 0 0 15px rgba(255, 77, 0, 0.4) !important;
+        }
+
+        /* INSTAFollows - OSINT (Purple/Pink) */
+        .btn-osint {
+            border-color: #ff00ff !important;
+            color: #ff00ff !important;
+            background: rgba(255, 0, 255, 0.05) !important;
+        }
+
+        .btn-osint:hover {
+            background: rgba(255, 0, 255, 0.15) !important;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.4) !important;
+        }
+
+        /* INSTASTREAM - Broadcast (Cyan/Blue) */
+        .btn-stream {
+            border-color: #0088ff !important;
+            color: #0088ff !important;
+            background: rgba(0, 136, 255, 0.05) !important;
+        }
+
+        .btn-stream:hover {
+            background: rgba(0, 136, 255, 0.15) !important;
+            box-shadow: 0 0 15px rgba(0, 136, 255, 0.4) !important;
+        }
+
+        /* Calcologas - Flux (Yellow/Toxic) */
+        .btn-flux {
+            border-color: #ccff00 !important;
+            color: #ccff00 !important;
+            background: rgba(204, 255, 0, 0.05) !important;
+        }
+
+        .btn-flux:hover {
+            background: rgba(204, 255, 0, 0.15) !important;
+            box-shadow: 0 0 15px rgba(204, 255, 0, 0.4) !important;
+            color: #fff !important;
+        }
+
+        /* Red Team Override */
+        body.redteam .card {
+            border-color: rgba(255, 0, 0, 0.2);
+            background: rgba(20, 0, 0, 0.6);
+        }
+
+        body.redteam .card::before {
+            background: radial-gradient(800px circle at var(--x, 0px) var(--y, 0px),
+                    rgba(255, 50, 50, 0.6),
+                    transparent 40%);
+        }
+
+        body.redteam .card h3 {
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+
+        body.redteam .card a {
+            color: #ff3333;
+            border-color: rgba(255, 50, 50, 0.3);
+            background: rgba(255, 0, 0, 0.1);
         }
 
         .cli {
@@ -996,34 +1217,169 @@
         <section class="glass reveal">
             <h2 class="sec-h">Operations</h2>
             <div class="projects">
+                <!-- CS0724IT -->
                 <div class="card magnetic">
-                    <h3>DarkCore-Manager</h3>
-                    <div class="lang">Rust</div>
-                    <p>High-performance orchestration for compatibility layers. Rust-native memory safety & VDF
-                        virtualization.</p>
-                    <a href="https://github.com/hkmodd/DarkCore-Manager" target="_blank">View Repository →</a>
+                    <h3><span>CS0724IT</span>
+                        <div class="classified">BOOTCAMP</div>
+                    </h3>
+                    <div class="lang">PYTHON / CYBERSECURITY</div>
+                    <p>Epicode Cybersecurity Specialist Bootcamp. Advanced network defense, penetration testing
+                        methodologies, and Python automation scripts.</p>
+                    <a href="https://github.com/hkmodd/CS0724IT" target="_blank" class="btn-edu"><span>View Bootcamp
+                            →</span></a>
                 </div>
+
+                <!-- DarkCore-Manager -->
                 <div class="card magnetic">
-                    <h3>INSTAFollows-Ultimate</h3>
-                    <div class="lang">Rust + Tauri</div>
-                    <p>Elite OSINT & Surveillance Tool. Local privacy architecture with mass-management capabilities.
-                    </p>
-                    <a href="https://github.com/hkmodd/INSTAFollows-Ultimate" target="_blank">View Repository →</a>
+                    <h3><span>DarkCore-Manager</span></h3>
+                    <div class="lang">RUST / SYSTEM</div>
+                    <p>High-performance orchestration tool for Steam layers. Rust-native memory safety, VDF
+                        virtualization, and advanced local library management.</p>
+                    <a href="https://github.com/hkmodd/DarkCore-Manager" target="_blank" class="btn-rust"><span>View
+                            System Core →</span></a>
                 </div>
+
+                <!-- INSTAFollows-Ultimate -->
                 <div class="card magnetic">
-                    <h3>Calcologas</h3>
-                    <div class="lang">TypeScript</div>
-                    <p>Cinematic Utility WebApp. Fallout-style aesthetics with synthesized sound engine.</p>
-                    <a href="https://github.com/hkmodd/Calcologas" target="_blank">View Repository →</a>
+                    <h3><span>INSTAFollows-Ult.</span></h3>
+                    <div class="lang">RUST + TAURI</div>
+                    <p>Elite OSINT & Surveillance Tool. Stealth surveillance, traitor detection & mass management with
+                        100% local privacy architecture.</p>
+                    <a href="https://github.com/hkmodd/INSTAFollows-Ultimate" target="_blank"
+                        class="btn-osint"><span>View Surveillance →</span></a>
                 </div>
+
+                <!-- INSTASTREAM-Ultimate -->
                 <div class="card magnetic">
-                    <h3>hkmodd</h3>
-                    <div class="lang">Markdown / Config</div>
-                    <p>Security Research Hub & Dotfiles.</p>
-                    <a href="https://github.com/hkmodd" target="_blank">View Repository →</a>
+                    <h3><span>INSTASTREAM-Ult.</span></h3>
+                    <div class="lang">RUST + RTMP</div>
+                    <p>Next-gen Instagram Live broadcast tool. Secure cookies.json auth, auto-key negotiation, and
+                        cyberpunk glassmorphism UI.</p>
+                    <a href="https://github.com/hkmodd/INSTASTREAM-Ultimate" target="_blank"
+                        class="btn-stream"><span>View Broadcast →</span></a>
+                </div>
+
+                <!-- Calcologas -->
+                <div class="card magnetic">
+                    <h3><span>Calcologas</span></h3>
+                    <div class="lang">TYPESCRIPT / MEME</div>
+                    <p>Meme Premium gas bill calculator. Fallout-style aesthetics, cinematic effects, and synthesized
+                        sound engine. Made for grandpa.</p>
+                    <a href="https://github.com/hkmodd/Calcologas" target="_blank" class="btn-flux"><span>View Anomaly
+                            →</span></a>
                 </div>
             </div>
         </section>
+
+        <!-- IDENTITY RECORD (Psychological Profile) -->
+        <section class="glass reveal profile-dossier">
+            <h2 class="sec-h">Identity Record <span class="blink">_</span></h2>
+            <div class="dossier-grid">
+                <div class="dossier-card">
+                    <div class="dossier-header">
+                        <span class="icon">ROOT ACCESS // ORIGIN</span>
+                    </div>
+                    <h3>The Hacker Mindset</h3>
+                    <p>Non sono nato in un'aula. La mia curiosità è iniziata smontando firmware e aggirando protezioni
+                        hardware (Xbox/XGD3) per capire <em>come</em> funzionano le cose. Questo background da
+                        autodidatta nel Reverse Engineering mi dà un vantaggio tattico: <strong>penso come
+                            l'attaccante.</strong></p>
+                </div>
+
+                <div class="dossier-card">
+                    <div class="dossier-header">
+                        <span class="icon">PROTOCOL // EVOLUTION</span>
+                    </div>
+                    <h3>Cybersecurity Specialist</h3>
+                    <p>Certificato <strong>Epicode (+600h)</strong>. Ho trasformato la passione in metodologia offensiva
+                        e difensiva. Dal Penetration Testing all'Hardening di sistemi Linux/Windows. Non eseguo solo
+                        tool, analizzo i vettori di attacco e mitigo le vulnerabilità critiche (OWASP Top 10).</p>
+                </div>
+
+                <div class="dossier-card full-width">
+                    <div class="dossier-header">
+                        <span class="icon">HUMAN INTEL // LEADERSHIP</span>
+                    </div>
+                    <h3>Operational Integrity</h3>
+                    <p>3+ anni di gestione Team in ambienti ad alta pressione (Hospitality Management). So coordinare
+                        risorse sotto stress, prendere decisioni critiche in tempo reale e mantenere l'integrità
+                        operativa. Un SOC Analyst con la <strong>freddezza gestionale</strong> di un Team Leader.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CSS for Dossier -->
+        <style>
+            .dossier-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 25px;
+            }
+
+            .dossier-card {
+                background: rgba(0, 20, 20, 0.6);
+                border: 1px solid rgba(0, 243, 255, 0.1);
+                padding: 25px;
+                border-radius: 4px;
+                position: relative;
+                transition: all 0.3s ease;
+            }
+
+            .dossier-card:hover {
+                border-color: var(--cyan);
+                background: rgba(0, 243, 255, 0.05);
+                box-shadow: 0 0 20px rgba(0, 243, 255, 0.1);
+            }
+
+            .dossier-card.full-width {
+                grid-column: 1 / -1;
+                border: 1px solid rgba(255, 77, 0, 0.2);
+                background: rgba(20, 10, 0, 0.4);
+            }
+
+            .dossier-card.full-width:hover {
+                border-color: var(--orange);
+                background: rgba(255, 77, 0, 0.05);
+                box-shadow: 0 0 20px rgba(255, 77, 0, 0.1);
+            }
+
+            .dossier-header {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 15px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                padding-bottom: 8px;
+            }
+
+            .dossier-header .icon {
+                font-family: var(--font-m);
+                font-size: 0.75rem;
+                color: var(--muted);
+                letter-spacing: 2px;
+            }
+
+            .dossier-card h3 {
+                color: var(--white);
+                font-family: var(--font-d);
+                font-size: 1.2rem;
+                margin-bottom: 15px;
+            }
+
+            .dossier-card p {
+                color: var(--muted);
+                font-size: 0.95rem;
+                line-height: 1.6;
+            }
+
+            .dossier-card strong {
+                color: var(--cyan);
+            }
+
+            .dossier-card.full-width strong {
+                color: var(--orange);
+            }
+        </style>
+
         <div class="cli reveal">
             <div class="cli-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span
                     class="cli-title">darkcore@terminal</span></div>
@@ -1321,6 +1677,9 @@ Contact HQ for extraction coordinates.` },
                 init() {
                     this.print('<span class="ok">DarkCore OS v1.0.0</span> - Type <span class="ok">help</span> for commands');
                     this.input.addEventListener('keydown', (e) => this.handleKeydown(e));
+                    // Ensure input is visible on focus/click (mobile keyboard)
+                    this.input.addEventListener('focus', () => setTimeout(() => this.scrollToBottom(), 300));
+                    this.input.addEventListener('click', () => setTimeout(() => this.scrollToBottom(), 300));
                 }
 
                 getPrompt() {
@@ -1408,6 +1767,10 @@ Contact HQ for extraction coordinates.` },
 
                 scrollToBottom() {
                     this.output.scrollTop = this.output.scrollHeight;
+                    // Ensure the input line is visible in the main viewport
+                    setTimeout(() => {
+                        this.input.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 10);
                 }
 
                 escapeHtml(str) {
@@ -1933,6 +2296,114 @@ Welcome, root. Full system access granted.
 
             // Desktop click DISABLED - easter egg is mobile-only (7 taps)
             // Use Konami code on desktop instead
+
+            // ========== HOLOGRAPHIC TILT & SPOTLIGHT ==========
+            const cards = document.querySelectorAll('.card');
+
+            document.addEventListener('mousemove', e => {
+                cards.forEach(card => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+
+                    // Spotlight Position
+                    card.style.setProperty('--x', `${x}px`);
+                    card.style.setProperty('--y', `${y}px`);
+                });
+            });
+
+            // ========== TEXT SCRAMBLE EFFECT ==========
+            class ScrambleText {
+                constructor(el) {
+                    this.el = el;
+                    this.chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&';
+                    this.originalText = el.innerText;
+                    this.frameRequest = null;
+                    this.frame = 0;
+                    this.queue = [];
+                    this.resolve = this.resolve.bind(this);
+
+                    this.updateQueue();
+
+                    this.el.addEventListener('mouseenter', () => {
+                        this.frame = 0;
+                        this.updateQueue();
+                        cancelAnimationFrame(this.frameRequest);
+                        this.frameRequest = requestAnimationFrame(this.resolve);
+                    });
+                }
+
+                updateQueue() {
+                    this.queue = [];
+                    for (let i = 0; i < this.originalText.length; i++) {
+                        const from = this.originalText[i];
+                        const to = this.originalText[i];
+                        const start = Math.floor(Math.random() * 10); // Random start
+                        const end = start + Math.floor(Math.random() * 10) + 5; // Duration
+                        this.queue.push({ from, to, start, end });
+                    }
+                }
+
+                resolve() {
+                    let complete = 0;
+                    let output = '';
+
+                    for (let i = 0; i < this.queue.length; i++) {
+                        let { from, to, start, end, char } = this.queue[i];
+
+                        if (this.frame >= end) {
+                            complete++;
+                            output += to;
+                        } else if (this.frame >= start) {
+                            if (!char || Math.random() < 0.28) {
+                                char = this.chars[Math.floor(Math.random() * this.chars.length)];
+                                this.queue[i].char = char;
+                            }
+                            output += char;
+                        } else {
+                            output += from;
+                        }
+                    }
+
+                    this.el.innerText = output;
+
+                    if (complete === this.queue.length) {
+                        return;
+                    }
+
+                    this.frame++;
+                    this.frameRequest = requestAnimationFrame(this.resolve);
+                }
+            }
+
+            // Apply Scramble to Skills (target span to preserve style) and Card Titles
+            document.querySelectorAll('h3 span').forEach(el => new ScrambleText(el));
+            document.querySelectorAll('.skill span').forEach(el => new ScrambleText(el));
+
+            // ========== CINEMATIC GRAIN INIT ==========
+            const grain = document.createElement('div');
+            grain.classList.add('grain');
+            document.body.appendChild(grain);
+
+            // Tilt only on hover to prevent dizziness
+            cards.forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+
+                    const rotateX = ((y - centerY) / centerY) * -2;
+                    const rotateY = ((x - centerX) / centerX) * 2;
+
+                    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+                });
+
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)';
+                });
+            });
         })();
     </script>
 </body>
