@@ -880,6 +880,19 @@
             color: #fff !important;
         }
 
+        /* Projects-TO-LLMs - AI (Neural Purple) */
+        .btn-ai {
+            border-color: #8a2be2 !important;
+            color: #8a2be2 !important;
+            background: rgba(138, 43, 226, 0.05) !important;
+        }
+
+        .btn-ai:hover {
+            background: rgba(138, 43, 226, 0.15) !important;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.4) !important;
+            color: #fff !important;
+        }
+
         /* Red Team Override */
         body.redteam .card {
             border-color: rgba(255, 0, 0, 0.2);
@@ -1257,6 +1270,15 @@
         <section class="glass reveal">
             <h2 class="sec-h">Operations</h2>
             <div class="projects">
+                <!-- Projects-TO-LLMs -->
+                <div class="card magnetic">
+                    <h3><span>Projects-TO-LLMs</span></h3>
+                    <div class="lang">RUST / TAURI / AI</div>
+                    <p>Rust + Tauri tool converting full codebases into structured XML context for LLMs.</p>
+                    <a href="https://github.com/hkmodd/Projects-TO-LLMs" target="_blank" class="btn-ai"><span>View
+                            Context Tool →</span></a>
+                </div>
+
                 <!-- CS0724IT -->
                 <div class="card magnetic">
                     <h3><span>CS0724IT</span>
@@ -1536,11 +1558,189 @@
 
             document.querySelectorAll('.magnetic').forEach(el => { el.addEventListener('mousemove', e => { const rect = el.getBoundingClientRect(), x = e.clientX - rect.left - rect.width / 2, y = e.clientY - rect.top - rect.height / 2; el.style.transform = `translate(${x * .15}px,${y * .15}px)` }); el.addEventListener('mouseleave', () => el.style.transform = '') });
 
+            // ========== INTERNATIONALIZATION (I18N) ==========
+            const translations = {
+                en: {
+                    role: "SOC Analyst | Blue Team Specialist",
+                    bio: "Defending critical infrastructure through proactive threat hunting and secure architecture. Blending operational leadership with technical precision.",
+                    links: { cv: "↓ Resume" },
+                    sections: {
+                        arsenal: "Arsenal",
+                        operations: "Operations",
+                        identity: "Identity Record"
+                    },
+                    dossier: {
+                        hacker_title: "The Hacker Mindset",
+                        hacker_text: "I wasn't born in a classroom. My curiosity started by dismantling firmware and bypassing hardware protections (Xbox/XGD3) to understand <em>how</em> things work. This self-taught background gives me a tactical edge: <strong>I think like the attacker.</strong>",
+                        growth_title: "Cybersecurity Specialist",
+                        growth_text: "<strong>Epicode Certified (+600h)</strong>. I transformed passion into offensive and defensive methodology. From Penetration Testing to Linux/Windows Hardening. I don't just run tools; I analyze attack vectors and mitigate critical vulnerabilities (OWASP Top 10).",
+                        lead_title: "Operational Integrity",
+                        lead_text: "3+ years of Team Management in high-pressure environments. I coordinate resources under stress, make critical decisions in real-time, and maintain operational integrity. A SOC Analyst with the <strong>managerial composure</strong> of a Team Leader."
+                    },
+                    projects: {
+                        projects_to_llms: "Rust + Tauri tool converting full codebases into structured XML context for LLMs.",
+                        cs0724: "Advanced network defense, penetration testing methodologies, and Python automation scripts.",
+                        darkcore: "High-performance orchestration tool for Steam layers. Rust-native memory safety, VDF virtualization, and advanced local library management.",
+                        instafollows: "Elite OSINT & Surveillance Tool. Stealth surveillance, traitor detection & mass management with 100% local privacy architecture.",
+                        instastream: "Next-gen Instagram Live broadcast tool. Secure cookies.json auth, auto-key negotiation, and cyberpunk glassmorphism UI.",
+                        calcologas: "Meme Premium gas bill calculator. Fallout-style aesthetics, cinematic effects, and synthesized sound engine. Made for grandpa."
+                    },
+                    terminal: {
+                        boot: ['DARKCORE://INIT', 'LOADING PROTOCOLS...', 'DECRYPTING...', 'READY'],
+                        role: "Role: Junior SOC Analyst | Blue Team Specialist",
+                        status: "Status: OPERATIONAL",
+                        mission: "Mission: Defending critical infrastructure through proactive threat hunting."
+                    }
+                },
+                it: {
+                    role: "SOC Analyst | Blue Team Specialist",
+                    bio: "Protezione di infrastrutture critiche tramite threat hunting proattivo e architetture sicure. Unisco leadership operativa e precisione tecnica.",
+                    links: { cv: "↓ CV" },
+                    sections: {
+                        arsenal: "Arsenale",
+                        operations: "Operazioni",
+                        identity: "Profilo Identità"
+                    },
+                    dossier: {
+                        hacker_title: "The Hacker Mindset",
+                        hacker_text: "Non sono nato in un'aula. La mia curiosità è iniziata smontando firmware e aggirando protezioni hardware (Xbox/XGD3) per capire <em>come</em> funzionano le cose. Questo background da autodidatta nel Reverse Engineering mi dà un vantaggio tattico: <strong>penso come l'attaccante.</strong>",
+                        growth_title: "Cybersecurity Specialist",
+                        growth_text: "Certificato <strong>Epicode (+600h)</strong>. Ho trasformato la passione in metodologia offensiva e difensiva. Dal Penetration Testing all'Hardening di sistemi Linux/Windows. Non eseguo solo tool, analizzo i vettori di attacco e mitigo le vulnerabilità critiche (OWASP Top 10).",
+                        lead_title: "Operational Integrity",
+                        lead_text: "3+ anni di gestione Team in ambienti ad alta pressione. So coordinare risorse sotto stress, prendere decisioni critiche in tempo reale e mantenere l'integrità operativa. Un SOC Analyst con la <strong>freddezza gestionale</strong> di un Team Leader."
+                    },
+                    projects: {
+                        projects_to_llms: "Tool Rust + Tauri per trasformare intere codebase in XML strutturato per LLM.",
+                        cs0724: "Bootcamp Specialistico in Cybersecurity. Difesa di rete avanzata, metodologie di penetration testing e automazione Python.",
+                        darkcore: "Strumento di orchestrazione ad alte prestazioni per Steam. Sicurezza della memoria Rust-native, virtualizzazione VDF e gestione avanzata della libreria locale.",
+                        instafollows: "Tool Elite OSINT & Sorveglianza. Monitoraggio stealth, rilevamento traditori e gestione di massa con architettura privacy 100% locale.",
+                        instastream: "Tool Next-gen per dirette Instagram. Autenticazione sicura cookies.json, negoziazione auto-key e interfaccia cyberpunk glassmorphism.",
+                        calcologas: "Calcolatore bollette gas Meme Premium. Estetica Fallout, effetti cinematici e motore sonoro sintetizzato. Fatto per il nonno."
+                    },
+                    terminal: {
+                        boot: ['DARKCORE://INIT', 'CARICAMENTO PROTOCOLLI...', 'DECRITTAZIONE...', 'PRONTO'],
+                        role: "Ruolo: Junior SOC Analyst | Blue Team Specialist",
+                        status: "Stato: OPERATIVO",
+                        mission: "Missione: Difendere infrastrutture critiche tramite threat hunting proattivo."
+                    }
+                }
+            };
+
+            class LanguageManager {
+                constructor() {
+                    this.lang = localStorage.getItem('hk_lang') || (navigator.language.startsWith('it') ? 'it' : 'en');
+                    this.toggleBtn = document.createElement('button');
+                    this.initToggle();
+                    this.applyLanguage(this.lang);
+                }
+
+                initToggle() {
+                    this.toggleBtn.className = 'lang-toggle magnetic';
+                    // Insert into DOM (top right)
+                    document.body.appendChild(this.toggleBtn);
+                    this.updateBtnState();
+
+                    this.toggleBtn.addEventListener('click', () => {
+                        this.lang = this.lang === 'en' ? 'it' : 'en';
+                        localStorage.setItem('hk_lang', this.lang);
+                        this.applyLanguage(this.lang);
+                        this.updateBtnState();
+                        // Play sound if available
+                        if (typeof sfxTrigger !== 'undefined' && sfxTrigger) {
+                            sfxTrigger.currentTime = 0; sfxTrigger.play().catch(() => { });
+                        }
+                    });
+                }
+
+                updateBtnState() {
+                    this.toggleBtn.innerHTML = this.lang === 'en'
+                        ? '<span class="active">EN</span> <span class="dim">IT</span>'
+                        : '<span class="dim">EN</span> <span class="active">IT</span>';
+                }
+
+                applyLanguage(lang) {
+                    const t = translations[lang];
+
+                    // Simple text replacements
+                    document.querySelector('.sub.reveal').textContent = t.role;
+                    document.querySelector('.bio.reveal').textContent = t.bio;
+
+                    // Sections
+                    document.querySelectorAll('.sec-h').forEach(el => {
+                        if (el.textContent.includes('Arsenal') || el.textContent.includes('Arsenale')) el.innerHTML = `${t.sections.arsenal}`;
+                        if (el.textContent.includes('Operations') || el.textContent.includes('Operazioni')) el.innerHTML = `${t.sections.operations}`;
+                        if (el.textContent.includes('Identity') || el.textContent.includes('Profilo')) el.innerHTML = `${t.sections.identity} <span class="blink">_</span>`;
+                    });
+
+                    // Links
+                    const cvLink = document.querySelector('a[href$="CV_Sebastiano_Gelmetti.pdf"] span');
+                    if (cvLink) cvLink.textContent = t.links.cv;
+
+                    // Identity Record (Dossier)
+                    // We identify cards by index since they don't have IDs
+                    const dossierCards = document.querySelectorAll('.dossier-card');
+                    if (dossierCards.length >= 3) {
+                        dossierCards[0].querySelector('h3').textContent = t.dossier.hacker_title;
+                        dossierCards[0].querySelector('p').innerHTML = t.dossier.hacker_text;
+
+                        dossierCards[1].querySelector('h3').textContent = t.dossier.growth_title;
+                        dossierCards[1].querySelector('p').innerHTML = t.dossier.growth_text;
+
+                        dossierCards[2].querySelector('h3').textContent = t.dossier.lead_title;
+                        dossierCards[2].querySelector('p').innerHTML = t.dossier.lead_text;
+                    }
+
+                    // Projects (Operations)
+                    // Identify by H3 content or order
+                    const projects = document.querySelectorAll('.projects .card');
+                    if (projects.length >= 6) {
+                        // Projects-TO-LLMs (Index 0)
+                        projects[0].querySelector('p').textContent = t.projects.projects_to_llms;
+                        // CS0724 (Index 1)
+                        projects[1].querySelector('p').textContent = t.projects.cs0724;
+                        // DarkCore (Index 2)
+                        projects[2].querySelector('p').textContent = t.projects.darkcore;
+                        // INSTAFollows (Index 3)
+                        projects[3].querySelector('p').textContent = t.projects.instafollows;
+                        // INSTASTREAM (Index 4)
+                        projects[4].querySelector('p').textContent = t.projects.instastream;
+                        // Calcologas (Index 5)
+                        projects[5].querySelector('p').textContent = t.projects.calcologas;
+                    }
+
+                    // Update Terminal Boot Messages (for next reload)
+                    if (typeof bootMsgs !== 'undefined' && !document.body.classList.contains('redteam')) {
+                        // bootMsgs is const, so we can't reassign, but we can mutate if logic allows. 
+                        // Actually boot logic runs once. We just update the VFS.
+                        if (typeof terminal !== 'undefined' && terminal && terminal.vfs) {
+                            terminal.vfs['/home/hkmodd/bio.txt'].content = `SEBASTIANO GELMETTI
+═══════════════════════════════════════
+${t.terminal.role}
+Location: Italy
+${t.terminal.status}
+
+${t.terminal.mission}
+
+Contact: sebastiano.gelmetti@proton.me
+GitHub: github.com/hkmodd
+LinkedIn: linkedin.com/in/gelmetti-sebastiano`;
+                        }
+                    }
+                }
+            }
+
+            // Init Language Manager
+            new LanguageManager();
+
             // ========== BOOT SEQUENCE ==========
+
             const savedRedTeam = localStorage.getItem('darkcore_redteam') === 'true';
+            // Determine language for boot
+            const bootLang = localStorage.getItem('hk_lang') || (navigator.language.startsWith('it') ? 'it' : 'en');
+            // Ensure translations are available
             const bootMsgs = savedRedTeam ?
                 ['SYSTEM BREACH DETECTED', 'RESTORING SESSION...', 'RED TEAM: ACTIVE', 'WELCOME BACK, OPERATIVE'] :
-                ['DARKCORE://INIT', 'LOADING PROTOCOLS...', 'DECRYPTING...', 'READY'];
+                translations[bootLang].terminal.boot;
             let bi = 0; const bootEl = document.getElementById('bootTxt'), bootScreen = document.getElementById('boot');
 
             function boot() {
@@ -2452,175 +2652,10 @@ Welcome, root. Full system access granted.
                 }
             }
 
-            // ========== INTERNATIONALIZATION (I18N) ==========
-            const translations = {
-                en: {
-                    role: "SOC Analyst | Blue Team Specialist",
-                    bio: "Defending critical infrastructure through proactive threat hunting and secure architecture. Blending operational leadership with technical precision.",
-                    links: { cv: "↓ Resume" },
-                    sections: {
-                        arsenal: "Arsenal",
-                        operations: "Operations",
-                        identity: "Identity Record"
-                    },
-                    dossier: {
-                        hacker_title: "The Hacker Mindset",
-                        hacker_text: "I wasn't born in a classroom. My curiosity started by dismantling firmware and bypassing hardware protections (Xbox/XGD3) to understand <em>how</em> things work. This self-taught background gives me a tactical edge: <strong>I think like the attacker.</strong>",
-                        growth_title: "Cybersecurity Specialist",
-                        growth_text: "<strong>Epicode Certified (+600h)</strong>. I transformed passion into offensive and defensive methodology. From Penetration Testing to Linux/Windows Hardening. I don't just run tools; I analyze attack vectors and mitigate critical vulnerabilities (OWASP Top 10).",
-                        lead_title: "Operational Integrity",
-                        lead_text: "3+ years of Team Management in high-pressure environments. I coordinate resources under stress, make critical decisions in real-time, and maintain operational integrity. A SOC Analyst with the <strong>managerial composure</strong> of a Team Leader."
-                    },
-                    projects: {
-                        cs0724: "Advanced network defense, penetration testing methodologies, and Python automation scripts.",
-                        darkcore: "High-performance orchestration tool for Steam layers. Rust-native memory safety, VDF virtualization, and advanced local library management.",
-                        instafollows: "Elite OSINT & Surveillance Tool. Stealth surveillance, traitor detection & mass management with 100% local privacy architecture.",
-                        instastream: "Next-gen Instagram Live broadcast tool. Secure cookies.json auth, auto-key negotiation, and cyberpunk glassmorphism UI.",
-                        calcologas: "Meme Premium gas bill calculator. Fallout-style aesthetics, cinematic effects, and synthesized sound engine. Made for grandpa."
-                    },
-                    terminal: {
-                        boot: ['DARKCORE://INIT', 'LOADING PROTOCOLS...', 'DECRYPTING...', 'READY'],
-                        role: "Role: Junior SOC Analyst | Blue Team Specialist",
-                        status: "Status: OPERATIONAL",
-                        mission: "Mission: Defending critical infrastructure through proactive threat hunting."
-                    }
-                },
-                it: {
-                    role: "SOC Analyst | Blue Team Specialist",
-                    bio: "Protezione di infrastrutture critiche tramite threat hunting proattivo e architetture sicure. Unisco leadership operativa e precisione tecnica.",
-                    links: { cv: "↓ CV" },
-                    sections: {
-                        arsenal: "Arsenale",
-                        operations: "Operazioni",
-                        identity: "Profilo Identità"
-                    },
-                    dossier: {
-                        hacker_title: "The Hacker Mindset",
-                        hacker_text: "Non sono nato in un'aula. La mia curiosità è iniziata smontando firmware e aggirando protezioni hardware (Xbox/XGD3) per capire <em>come</em> funzionano le cose. Questo background da autodidatta nel Reverse Engineering mi dà un vantaggio tattico: <strong>penso come l'attaccante.</strong>",
-                        growth_title: "Cybersecurity Specialist",
-                        growth_text: "Certificato <strong>Epicode (+600h)</strong>. Ho trasformato la passione in metodologia offensiva e difensiva. Dal Penetration Testing all'Hardening di sistemi Linux/Windows. Non eseguo solo tool, analizzo i vettori di attacco e mitigo le vulnerabilità critiche (OWASP Top 10).",
-                        lead_title: "Operational Integrity",
-                        lead_text: "3+ anni di gestione Team in ambienti ad alta pressione. So coordinare risorse sotto stress, prendere decisioni critiche in tempo reale e mantenere l'integrità operativa. Un SOC Analyst con la <strong>freddezza gestionale</strong> di un Team Leader."
-                    },
-                    projects: {
-                        cs0724: "Bootcamp Specialistico in Cybersecurity. Difesa di rete avanzata, metodologie di penetration testing e automazione Python.",
-                        darkcore: "Strumento di orchestrazione ad alte prestazioni per Steam. Sicurezza della memoria Rust-native, virtualizzazione VDF e gestione avanzata della libreria locale.",
-                        instafollows: "Tool Elite OSINT & Sorveglianza. Monitoraggio stealth, rilevamento traditori e gestione di massa con architettura privacy 100% locale.",
-                        instastream: "Tool Next-gen per dirette Instagram. Autenticazione sicura cookies.json, negoziazione auto-key e interfaccia cyberpunk glassmorphism.",
-                        calcologas: "Calcolatore bollette gas Meme Premium. Estetica Fallout, effetti cinematici e motore sonoro sintetizzato. Fatto per il nonno."
-                    },
-                    terminal: {
-                        boot: ['DARKCORE://INIT', 'CARICAMENTO PROTOCOLLI...', 'DECRITTAZIONE...', 'PRONTO'],
-                        role: "Ruolo: Junior SOC Analyst | Blue Team Specialist",
-                        status: "Stato: OPERATIVO",
-                        mission: "Missione: Difendere infrastrutture critiche tramite threat hunting proattivo."
-                    }
-                }
-            };
 
-            class LanguageManager {
-                constructor() {
-                    this.lang = localStorage.getItem('hk_lang') || (navigator.language.startsWith('it') ? 'it' : 'en');
-                    this.toggleBtn = document.createElement('button');
-                    this.initToggle();
-                    this.applyLanguage(this.lang);
-                }
 
-                initToggle() {
-                    this.toggleBtn.className = 'lang-toggle magnetic';
-                    // Insert into DOM (top right)
-                    document.body.appendChild(this.toggleBtn);
-                    this.updateBtnState();
 
-                    this.toggleBtn.addEventListener('click', () => {
-                        this.lang = this.lang === 'en' ? 'it' : 'en';
-                        localStorage.setItem('hk_lang', this.lang);
-                        this.applyLanguage(this.lang);
-                        this.updateBtnState();
-                        // Play sound if available
-                        if (typeof sfxTrigger !== 'undefined' && sfxTrigger) {
-                            sfxTrigger.currentTime = 0; sfxTrigger.play().catch(() => { });
-                        }
-                    });
-                }
 
-                updateBtnState() {
-                    this.toggleBtn.innerHTML = this.lang === 'en'
-                        ? '<span class="active">EN</span> <span class="dim">IT</span>'
-                        : '<span class="dim">EN</span> <span class="active">IT</span>';
-                }
-
-                applyLanguage(lang) {
-                    const t = translations[lang];
-
-                    // Simple text replacements
-                    document.querySelector('.sub.reveal').textContent = t.role;
-                    document.querySelector('.bio.reveal').textContent = t.bio;
-
-                    // Sections
-                    document.querySelectorAll('.sec-h').forEach(el => {
-                        if (el.textContent.includes('Arsenal') || el.textContent.includes('Arsenale')) el.innerHTML = `${t.sections.arsenal}`;
-                        if (el.textContent.includes('Operations') || el.textContent.includes('Operazioni')) el.innerHTML = `${t.sections.operations}`;
-                        if (el.textContent.includes('Identity') || el.textContent.includes('Profilo')) el.innerHTML = `${t.sections.identity} <span class="blink">_</span>`;
-                    });
-
-                    // Links
-                    const cvLink = document.querySelector('a[href$=".pdf"] span');
-                    if (cvLink) cvLink.textContent = t.links.cv;
-
-                    // Identity Record (Dossier)
-                    // We identify cards by index since they don't have IDs
-                    const dossierCards = document.querySelectorAll('.dossier-card');
-                    if (dossierCards.length >= 3) {
-                        dossierCards[0].querySelector('h3').textContent = t.dossier.hacker_title;
-                        dossierCards[0].querySelector('p').innerHTML = t.dossier.hacker_text;
-
-                        dossierCards[1].querySelector('h3').textContent = t.dossier.growth_title;
-                        dossierCards[1].querySelector('p').innerHTML = t.dossier.growth_text;
-
-                        dossierCards[2].querySelector('h3').textContent = t.dossier.lead_title;
-                        dossierCards[2].querySelector('p').innerHTML = t.dossier.lead_text;
-                    }
-
-                    // Projects (Operations)
-                    // Identify by H3 content or order
-                    const projects = document.querySelectorAll('.projects .card');
-                    if (projects.length >= 5) {
-                        // CS0724
-                        projects[0].querySelector('p').textContent = t.projects.cs0724;
-                        // DarkCore
-                        projects[1].querySelector('p').textContent = t.projects.darkcore;
-                        // INSTAFollows
-                        projects[2].querySelector('p').textContent = t.projects.instafollows;
-                        // INSTASTREAM
-                        projects[3].querySelector('p').textContent = t.projects.instastream;
-                        // Calcologas
-                        projects[4].querySelector('p').textContent = t.projects.calcologas;
-                    }
-
-                    // Update Terminal Boot Messages (for next reload)
-                    if (typeof bootMsgs !== 'undefined' && !document.body.classList.contains('redteam')) {
-                        // bootMsgs is const, so we can't reassign, but we can mutate if logic allows. 
-                        // Actually boot logic runs once. We just update the VFS.
-                        if (terminal && terminal.vfs) {
-                            terminal.vfs['/home/hkmodd/bio.txt'].content = `SEBASTIANO GELMETTI
-═══════════════════════════════════════
-${t.terminal.role}
-Location: Italy
-${t.terminal.status}
-
-${t.terminal.mission}
-
-Contact: sebastiano.gelmetti@proton.me
-GitHub: github.com/hkmodd
-LinkedIn: linkedin.com/in/gelmetti-sebastiano`;
-                        }
-                    }
-                }
-            }
-
-            // Init Language Manager
-            new LanguageManager();
 
             // ========== CINEMATIC GRAIN INIT ==========
             const grain = document.createElement('div');
