@@ -189,20 +189,53 @@ export default function Hero() {
             className="w-full"
           >
             {/* Profile image - spinning conic gradient ring + float + glitch + dopamine tap */}
+            {/* Ring uses REAL DOM elements (not CSS pseudo-elements) for iOS Safari compatibility */}
             <motion.div variants={item} className="flex justify-center mb-14 sm:mb-12">
               <motion.div
-                className="profile-ring relative"
+                className="relative"
                 onClick={handleAvatarTap}
                 style={{ cursor: 'pointer', borderRadius: '50%', ...ringGlowStyle }}
                 key={`bounce-${tapBounce}`}
                 initial={{ scale: 1 }}
-                animate={{ scale: [1, 1.12, 0.95, 1] }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                animate={{
+                  scale: [1, 1.12, 0.95, 1],
+                  y: [0, -6, 0, 4, 0],
+                }}
+                transition={{
+                  scale: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+                  y: { duration: 5, ease: 'easeInOut', repeat: Infinity },
+                }}
               >
+                {/* Spinning conic-gradient ring - REAL DOM element */}
+                <motion.div
+                  aria-hidden
+                  className="absolute rounded-full pointer-events-none"
+                  style={{
+                    inset: -4,
+                    background: `conic-gradient(from 0deg, ${accent}, transparent 30%, ${theme === 'redteam' ? '#00d4ff' : '#ff0033'} 50%, transparent 70%, ${accent} 100%)`,
+                    opacity: 0.7,
+                  }}
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 6, ease: 'linear', repeat: Infinity }}
+                />
+
+                {/* Soft outer glow - REAL DOM element */}
+                <motion.div
+                  aria-hidden
+                  className="absolute rounded-full pointer-events-none"
+                  style={{
+                    inset: -12,
+                    background: `radial-gradient(circle, ${accentGlow} 0%, transparent 70%)`,
+                  }}
+                  animate={{ opacity: [0.3, 0.6, 0.3] }}
+                  transition={{ duration: 4, ease: 'easeInOut', repeat: Infinity }}
+                />
+
+                {/* Actual avatar image */}
                 <img
                   src={avatarSrc}
                   alt={t.hero.name}
-                  className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full object-cover grayscale-[20%] transition-all duration-300 ${
+                  className={`relative z-10 w-32 h-32 sm:w-40 sm:h-40 rounded-full object-cover grayscale-[20%] transition-all duration-300 ${
                     avatarGlitch ? 'hero-avatar-glitch' : ''
                   }`}
                   style={{
@@ -213,11 +246,11 @@ export default function Hero() {
 
                 {/* Tap progress dots - appear around the ring as user taps */}
                 {ringPulse > 0 && (
-                  <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute inset-0 pointer-events-none z-20">
                     {Array.from({ length: Math.min(ringPulse, 6) }).map((_, i) => {
-                      const angle = -90 + i * 60; // distribute around circle
+                      const angle = -90 + i * 60;
                       const rad = (angle * Math.PI) / 180;
-                      const r = 58; // radius from center (slightly outside ring on mobile)
+                      const r = 58;
                       const color = theme === 'redteam' ? '#00d4ff' : '#ff0033';
                       return (
                         <motion.span
@@ -259,16 +292,36 @@ export default function Hero() {
             </motion.div>
 
             {/* Name - animated gradient text, morphs in red team */}
+            {/* Name - gradient animated via Framer Motion (not CSS background-position, which iOS Safari ignores on background-clip:text) */}
             <motion.h1
               variants={item}
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08]"
             >
               <motion.span
                 key={firstName}
-                className="text-gradient-animate inline-block"
+                className="inline-block"
+                style={{
+                  background: theme === 'redteam'
+                    ? 'linear-gradient(90deg, #ff0033 0%, #ff6b35 30%, #ff0033 60%, #ff6b35 80%, #ff0033 100%)'
+                    : 'linear-gradient(90deg, #00d4ff 0%, #ff0033 30%, #00d4ff 60%, #00ff88 80%, #00d4ff 100%)',
+                  backgroundSize: '300% 100%',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
                 initial={transitioning ? { opacity: 0, y: -10, filter: 'blur(6px)' } : false}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  filter: 'blur(0px)',
+                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+                }}
+                transition={{
+                  opacity: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+                  y: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+                  filter: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+                  backgroundPosition: { duration: 6, ease: 'easeInOut', repeat: Infinity },
+                }}
               >
                 {firstName}
               </motion.span>

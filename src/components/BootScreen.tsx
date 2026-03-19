@@ -63,7 +63,7 @@ export default function BootScreen() {
       {!done && (
         <motion.div
           className="boot-screen"
-          style={{ background: '#030304' }}
+          style={{ background: '#000000' }}
           exit={{ opacity: 0, scale: 1.02, filter: 'blur(6px)' }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
         >
