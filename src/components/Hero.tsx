@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { motion, useScroll, useTransform } from 'motion/react';
+import { motion } from 'motion/react';
 import { Github, Linkedin, Download, ChevronDown } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
@@ -18,15 +18,32 @@ export default function Hero() {
 
   const scrambledTitle = useScrambleText(t.hero.title, { speed: 40, delay: 1800 });
 
-  // --- Scroll-driven fadeout (track the spacer div for scroll progress) ---
+  // --- Scroll-driven fadeout via rAF (synced with NeuralMesh bg) ---
   const spacerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: spacerRef,
-    offset: ['start start', 'end start'],
-  });
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
-  const heroY = useTransform(scrollYProgress, [0, 0.7], [0, -80]);
-  const heroScale = useTransform(scrollYProgress, [0, 0.7], [1, 0.95]);
+  const heroScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let rafId = 0;
+    const update = () => {
+      const el = heroScrollRef.current;
+      if (!el) { rafId = requestAnimationFrame(update); return; }
+
+      const scrollY = window.scrollY;
+      const vh = window.innerHeight;
+      const progress = Math.min(scrollY / vh, 1);
+      const t = Math.min(progress / 0.7, 1); // 0→1 over 70% of scroll
+
+      const opacity = 1 - t;
+      const yShift = t * -120; // matches NeuralMesh shift
+
+      el.style.opacity = String(Math.max(opacity, 0));
+      el.style.transform = `translateY(${yShift}px)`;
+
+      rafId = requestAnimationFrame(update);
+    };
+    rafId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   // --- Avatar glitch state ---
   const [avatarGlitch, setAvatarGlitch] = useState(false);
@@ -147,8 +164,8 @@ export default function Hero() {
           style={{ top: '10%', left: '50%', transform: 'translateX(-50%)' }}
         />
 
-        <motion.div
-          style={{ opacity: heroOpacity, y: heroY, scale: heroScale }}
+        <div
+          ref={heroScrollRef}
           className="max-w-3xl w-full text-center relative z-10 will-change-transform"
         >
           <motion.div
@@ -326,7 +343,7 @@ export default function Hero() {
               </motion.div>
             </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
       </section>
 
       {/* ── Scroll spacer — occupies 100vh of document flow ──── */}

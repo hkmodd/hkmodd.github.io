@@ -624,11 +624,10 @@ export default function NeuralMesh() {
       // Match Hero's [0, 0.7] range mapping
       const t = Math.min(progress / 0.7, 1); // 0→1 over 70% of scroll
       const opacity = 0.8 * (1 - t); // 0.8 base dimming × scroll fade
-      const yShift = t * -80;
-      const scale = 1 - t * 0.05; // 1 → 0.95
+      const yShift = t * -120; // slide up (no scale — scale causes desktop shrink bug)
 
       el.style.opacity = String(Math.max(opacity, 0));
-      el.style.transform = `translateY(${yShift}px) scale(${scale})`;
+      el.style.transform = `translateY(${yShift}px)`;
 
       rafId = requestAnimationFrame(update);
     };
