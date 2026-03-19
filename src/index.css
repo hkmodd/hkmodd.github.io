@@ -217,9 +217,18 @@ html.cyber-cursor-active * {
 }
 
 /* ── NEW: Animated gradient text ─────────────────────────────── */
+/* Uses transform on a pseudo-element to work on iOS Safari,
+   which doesn't animate background-position on -webkit-background-clip:text */
 @keyframes text-gradient-shift {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
+}
+
+/* Fallback: force GPU compositing for the gradient animation */
+@keyframes gradient-hue-cycle {
+  0%   { filter: hue-rotate(0deg); }
+  50%  { filter: hue-rotate(30deg); }
+  100% { filter: hue-rotate(0deg); }
 }
 
 /* ── NEW: Border breathing glow ──────────────────────────────── */
@@ -807,6 +816,7 @@ html.cyber-cursor-active * {
    ══════════════════════════════════════════════════════════════════ */
 
 .text-gradient-animate {
+  position: relative;
   background: linear-gradient(
     90deg,
     #00d4ff 0%,
@@ -820,6 +830,22 @@ html.cyber-cursor-active * {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   animation: text-gradient-shift 6s ease-in-out infinite;
+  /* Force GPU layer for iOS Safari background-position animation */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: background-position;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* iOS Safari fallback: if background-position doesn't animate,
+   the hue-rotate filter gives a visible color shift */
+@supports (-webkit-touch-callout: none) {
+  .text-gradient-animate {
+    animation:
+      text-gradient-shift 6s ease-in-out infinite,
+      gradient-hue-cycle 8s ease-in-out infinite;
+  }
 }
 
 [data-theme="redteam"] .text-gradient-animate {
@@ -974,6 +1000,7 @@ html.cyber-cursor-active * {
 
 /* ══════════════════════════════════════════════════════════════════
    PROFILE IMAGE GLOW RING - ENHANCED
+   Mobile-safe: no negative z-index (fails in fixed containers on iOS)
    ══════════════════════════════════════════════════════════════════ */
 
 .profile-ring {
@@ -981,6 +1008,8 @@ html.cyber-cursor-active * {
   display: inline-block;
   border-radius: 50%;
   animation: float-subtle 5s ease-in-out infinite;
+  /* Establish stacking context so children with z-index work */
+  isolation: isolate;
 }
 
 .profile-ring::before {
@@ -998,7 +1027,14 @@ html.cyber-cursor-active * {
   );
   animation: spin-slow 6s linear infinite;
   opacity: 0.7;
-  z-index: -1;
+  /* Use z-index: 0 instead of -1; the img sits on z-index: 1 via profile-ring */
+  z-index: 0;
+  /* Force GPU compositing on mobile */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .profile-ring::after {
@@ -1012,13 +1048,24 @@ html.cyber-cursor-active * {
     transparent 70%
   );
   opacity: 0.5;
-  z-index: -2;
+  z-index: 0;
   animation: pulse-glow 4s ease-in-out infinite;
+  /* Force GPU compositing on mobile */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: opacity;
+}
+
+/* Ensure the actual avatar image stays above the ring pseudo-elements */
+.profile-ring > img,
+.profile-ring > div {
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes spin-slow {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% { transform: rotate(0deg) translateZ(0); }
+  100% { transform: rotate(360deg) translateZ(0); }
 }
 
 /* ══════════════════════════════════════════════════════════════════
