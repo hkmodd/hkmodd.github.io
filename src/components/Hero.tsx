@@ -59,6 +59,25 @@ export default function Hero() {
     };
   }, []);
 
+  // --- Gradient text animation via raw rAF (bypasses CSS/WAAPI limits on iOS Safari) ---
+  const gradientRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    let rafId = 0;
+    const duration = 6000; // 6s full cycle
+
+    const tick = (now: number) => {
+      const el = gradientRef.current;
+      if (el) {
+        // Sine wave: smoothly oscillate 0% → 100% → 0% over `duration` ms
+        const progress = (Math.sin((now / duration) * Math.PI * 2 - Math.PI / 2) + 1) / 2;
+        el.style.backgroundPosition = `${progress * 100}% 50%`;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
   // --- Avatar glitch state ---
   const [avatarGlitch, setAvatarGlitch] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState(
@@ -291,14 +310,14 @@ export default function Hero() {
               </div>
             </motion.div>
 
-            {/* Name - animated gradient text, morphs in red team */}
-            {/* Name - gradient animated via Framer Motion (not CSS background-position, which iOS Safari ignores on background-clip:text) */}
+            {/* Name - gradient animated via raw rAF loop (CSS animations & WAAPI both fail on iOS Safari with background-clip:text) */}
             <motion.h1
               variants={item}
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08]"
             >
               <motion.span
                 key={firstName}
+                ref={(el: HTMLSpanElement | null) => { gradientRef.current = el; }}
                 className="inline-block"
                 style={{
                   background: theme === 'redteam'
@@ -310,17 +329,11 @@ export default function Hero() {
                   backgroundClip: 'text',
                 }}
                 initial={transitioning ? { opacity: 0, y: -10, filter: 'blur(6px)' } : false}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  filter: 'blur(0px)',
-                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
-                }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                 transition={{
                   opacity: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
                   y: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
                   filter: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
-                  backgroundPosition: { duration: 6, ease: 'easeInOut', repeat: Infinity },
                 }}
               >
                 {firstName}
