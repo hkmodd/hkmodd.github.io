@@ -992,7 +992,7 @@ html.cyber-cursor-active * {
     from 0deg,
     var(--color-accent),
     transparent 30%,
-    var(--color-magenta) 50%,
+    var(--color-red-accent) 50%,
     transparent 70%,
     var(--color-accent) 100%
   );

@@ -499,9 +499,9 @@ export default function NeuralMesh() {
         }}
         dpr={[1, 1.5]}
         flat
-        performance={{ min: 0.5 }}
+        performance={{ min: 0.8 }}
         gl={{
-          antialias: false,
+          antialias: true,
           alpha: true,
           powerPreference: 'high-performance',
           stencil: false,
