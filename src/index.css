@@ -810,7 +810,7 @@ html.cyber-cursor-active * {
   background: linear-gradient(
     90deg,
     #00d4ff 0%,
-    #d946ef 30%,
+    #ff0033 30%,
     #00d4ff 60%,
     #00ff88 80%,
     #00d4ff 100%
@@ -828,7 +828,7 @@ html.cyber-cursor-active * {
     #ff0033 0%,
     #ff6b35 30%,
     #ff0033 60%,
-    #d946ef 80%,
+    #ff6b35 80%,
     #ff0033 100%
   );
   background-size: 300% 100%;
