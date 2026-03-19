@@ -13,10 +13,10 @@ const isMobile =
   (window.innerWidth <= 768 ||
     ((navigator as { deviceMemory?: number }).deviceMemory ?? 8) < 4);
 
-const NODE_COUNT = isMobile ? 250 : 700;
-const MAX_CONNECTIONS = isMobile ? 700 : 2000;
+const NODE_COUNT = isMobile ? 150 : 700;
+const MAX_CONNECTIONS = isMobile ? 350 : 2000;
 const CONNECTION_DIST = isMobile ? 2.6 : 2.4;
-const PULSE_COUNT = isMobile ? 16 : 40;
+const PULSE_COUNT = isMobile ? 8 : 40;
 const FIELD_SIZE = isMobile ? 16 : 20;
 
 // ── Depth configuration — 3 discrete z-planes for parallax ────────
@@ -253,7 +253,13 @@ function Connections({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.
 
     let lineIdx = 0;
     const connDist = CONNECTION_DIST;
-    const stride = isMobile ? 2 : 1; // skip every 2nd node on mobile for O(n²/2)
+    const stride = isMobile ? 3 : 1; // skip every 3rd node on mobile for O(n²/3)
+
+    // Mobile: only recompute connections every 2nd frame (halves CPU cost)
+    if (isMobile) {
+      (lines as any).__frameSkip = ((lines as any).__frameSkip || 0) + 1;
+      if ((lines as any).__frameSkip % 2 !== 0) return;
+    }
 
     for (let i = 0; i < NODE_COUNT && lineIdx < MAX_CONNECTIONS; i += stride) {
       const ax = nodePos[i * 3], ay = nodePos[i * 3 + 1], az = nodePos[i * 3 + 2];
@@ -578,17 +584,19 @@ function NeuralMeshScene() {
 
   return (
     <>
-      {/* Invisible hit-test plane for pointer tracking */}
-      <mesh visible={false} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
-        <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial />
-      </mesh>
+      {/* Invisible hit-test plane for pointer tracking — desktop only */}
+      {!isMobile && (
+        <mesh visible={false} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
+          <planeGeometry args={[100, 100]} />
+          <meshBasicMaterial />
+        </mesh>
+      )}
 
       {/* Deep background fog plane */}
       <DepthFog />
 
-      {/* Perspective grid (beneath neural mesh) */}
-      <PerspectiveGrid pointerRef={pointerRef} />
+      {/* Perspective grid (beneath neural mesh) — desktop only (too heavy for mobile GPUs) */}
+      {!isMobile && <PerspectiveGrid pointerRef={pointerRef} />}
 
       {/* Neural network group with parallax */}
       <group ref={groupRef}>
@@ -607,32 +615,42 @@ function NeuralMeshScene() {
 export default function NeuralMesh() {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // ── Scroll-synced fade — matches Hero's scroll transforms exactly ──
-  // Hero uses scrollYProgress [0, 0.7] → opacity [1, 0], y [0, -80], scale [1, 0.95]
-  // We replicate the same curve here by reading window.scrollY directly.
+  // ── Scroll-synced fade — passive scroll listener (not continuous rAF) ──
+  // Only runs when scroll actually changes → saves battery on mobile
   useEffect(() => {
     let rafId = 0;
-    const update = () => {
+    let ticking = false;
+
+    const applyScroll = () => {
       const el = wrapperRef.current;
-      if (!el) { rafId = requestAnimationFrame(update); return; }
+      if (!el) return;
 
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
-      // scrollYProgress equivalent: 0 when at top, 1 when scrolled past one viewport
       const progress = Math.min(scrollY / vh, 1);
-
-      // Match Hero's [0, 0.7] range mapping
-      const t = Math.min(progress / 0.7, 1); // 0→1 over 70% of scroll
-      const opacity = 0.8 * (1 - t); // 0.8 base dimming × scroll fade
-      const yShift = t * -120; // slide up (no scale — scale causes desktop shrink bug)
+      const t = Math.min(progress / 0.7, 1);
+      const opacity = 0.8 * (1 - t);
+      const yShift = t * -120;
 
       el.style.opacity = String(Math.max(opacity, 0));
       el.style.transform = `translateY(${yShift}px)`;
-
-      rafId = requestAnimationFrame(update);
+      ticking = false;
     };
-    rafId = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(rafId);
+
+    const onScroll = () => {
+      if (!ticking) {
+        rafId = requestAnimationFrame(applyScroll);
+        ticking = true;
+      }
+    };
+
+    // Initial apply
+    applyScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return (
@@ -647,7 +665,7 @@ export default function NeuralMesh() {
           near: 0.1,
           far: 50,
         }}
-        dpr={isMobile ? [1, 1.5] : [1, 1.5]}
+        dpr={isMobile ? [1, 1] : [1, 1.5]}
         gl={{
           antialias: true,
           alpha: true,

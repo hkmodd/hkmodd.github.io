@@ -56,45 +56,12 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
 
   const onMouseLeave = useCallback(() => resetTilt(), [resetTilt]);
 
-  /* ── Mobile: global passive touch observer ─────────────────── */
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    // Only on coarse-pointer (touch) devices
-    const isTouch = window.matchMedia('(pointer: coarse)').matches;
-    if (!isTouch) return;
-
-    const handleTouchMove = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      if (!touch) return;
-
-      const rect = el.getBoundingClientRect();
-      const insideX = touch.clientX >= rect.left && touch.clientX <= rect.right;
-      const insideY = touch.clientY >= rect.top && touch.clientY <= rect.bottom;
-
-      if (insideX && insideY) {
-        applyTilt(touch.clientX, touch.clientY);
-      } else if (activeRef.current) {
-        resetTilt();
-      }
-    };
-
-    const handleTouchEnd = () => {
-      resetTilt();
-    };
-
-    // Global listeners — `passive: true` never blocks scrolling
-    document.addEventListener('touchmove', handleTouchMove, { passive: true });
-    document.addEventListener('touchend', handleTouchEnd, { passive: true });
-    document.addEventListener('touchcancel', handleTouchEnd, { passive: true });
-
-    return () => {
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-      document.removeEventListener('touchcancel', handleTouchEnd);
-    };
-  }, [applyTilt, resetTilt]);
+  /* ── Mobile: global passive touch observer ───────────────────
+     DISABLED — the global touchmove listener calls getBoundingClientRect()
+     on every touch move, causing layout thrash during scroll. The tilt
+     effect via scrolling also feels unnatural on touch. If a deliberate
+     tap-tilt is ever desired, use touch-start on the element itself. */
+  // (no global touch listeners — desktop onMouseMove/onMouseLeave are enough)
 
   return { ref, onMouseMove, onMouseLeave };
 }

@@ -24,25 +24,39 @@ export default function Hero() {
 
   useEffect(() => {
     let rafId = 0;
-    const update = () => {
+    let ticking = false;
+
+    const applyScroll = () => {
       const el = heroScrollRef.current;
-      if (!el) { rafId = requestAnimationFrame(update); return; }
+      if (!el) return;
 
       const scrollY = window.scrollY;
       const vh = window.innerHeight;
       const progress = Math.min(scrollY / vh, 1);
-      const t = Math.min(progress / 0.7, 1); // 0→1 over 70% of scroll
+      const t = Math.min(progress / 0.7, 1);
 
       const opacity = 1 - t;
-      const yShift = t * -120; // matches NeuralMesh shift
+      const yShift = t * -120;
 
       el.style.opacity = String(Math.max(opacity, 0));
       el.style.transform = `translateY(${yShift}px)`;
-
-      rafId = requestAnimationFrame(update);
+      ticking = false;
     };
-    rafId = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(rafId);
+
+    const onScroll = () => {
+      if (!ticking) {
+        rafId = requestAnimationFrame(applyScroll);
+        ticking = true;
+      }
+    };
+
+    // Initial apply
+    applyScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(rafId);
+    };
   }, []);
 
   // --- Avatar glitch state ---

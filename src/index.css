@@ -1259,6 +1259,38 @@ html.cyber-cursor-active * {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE GPU PERFORMANCE — kill paint-heavy animations on mobile
+   Everything here is mobile-only; desktop is 100% untouched.
+   ══════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* ── Grain overlay: SVG feTurbulence composited on every paint — invisible at 3% opacity on small screens ── */
+  .grain-overlay { display: none !important; }
+
+  /* ── CRT scanline: 2px animated line across full viewport — not worth the GPU cost ── */
+  .crt-scanline { display: none !important; }
+
+  /* ── border-breathe: animates box-shadow (triggers PAINT every frame) → freeze it ── */
+  .border-breathe,
+  [data-theme="redteam"] .border-breathe { animation: none !important; }
+
+  /* ── text-gradient-shift: animates background-size (triggers LAYOUT + PAINT) → freeze gradient ── */
+  .text-gradient-animate { animation: none !important; }
+
+  /* ── shimmer: paint-heavy pseudo-element sweep → disable ── */
+  .shimmer-line::after { animation: none !important; }
+
+  /* ── Profile ring: float-subtle = layout animation, spin-slow = paint animation → freeze both ── */
+  .profile-ring { animation: none !important; }
+  .profile-ring::before { animation: none !important; }
+
+  /* ── Navbar backdrop-filter: reduce blur radius (still frosted, half the GPU work) ── */
+  .navbar-blur {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+}
+
 /* ── Small screens: tighten spacing & typography ────────────────── */
 @media (max-width: 640px) {
   /* AI Intel section — tighter vertical rhythm */
