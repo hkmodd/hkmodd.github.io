@@ -6,7 +6,7 @@ import type { NeuralEngine, InitOutput } from '@/wasm/pkg/neural_engine';
    ═══════════════════════════════════════════════════════════════════ */
 
 // Configuration — now that WASM handles the math, we can push these higher
-const NODE_COUNT = 700;
+const NODE_COUNT = 450;
 const MAX_CONNECTIONS = 2000;
 const PULSE_COUNT = 40;
 const CONNECTION_DIST = 2.8;

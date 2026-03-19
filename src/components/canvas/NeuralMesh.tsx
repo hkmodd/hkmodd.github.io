@@ -356,26 +356,13 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
 // ═══════════════════════════════════════════════════════════════════
 
 function DepthFog() {
-  const matRef = useRef<THREE.MeshBasicMaterial>(null!);
-  const colorRef = useRef(new THREE.Color('#000814'));
-
-  useFrame(() => {
-    if (!matRef.current) return;
-    // Read store inside frame loop — avoids React re-render on theme change
-    const theme = useAppStore.getState().theme;
-    const targetColor = theme === 'redteam' ? '#0a0002' : '#000814';
-    colorRef.current.lerp(tmpColor.set(targetColor), 0.03);
-    matRef.current.color.copy(colorRef.current);
-  });
-
   return (
     <mesh position={[0, 0, -10]}>
       <planeGeometry args={[80, 80]} />
       <meshBasicMaterial
-        ref={matRef}
         transparent
         opacity={0.6}
-        color="#000814"
+        color="#000000"
         depthWrite={false}
       />
     </mesh>
