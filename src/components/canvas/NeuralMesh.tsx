@@ -13,10 +13,10 @@ const isMobile =
   (window.innerWidth <= 768 ||
     ((navigator as { deviceMemory?: number }).deviceMemory ?? 8) < 4);
 
-const NODE_COUNT = isMobile ? 250 : 700;
-const MAX_CONNECTIONS = isMobile ? 700 : 2000;
-const CONNECTION_DIST = isMobile ? 2.6 : 2.4;
-const PULSE_COUNT = isMobile ? 16 : 40;
+const NODE_COUNT = isMobile ? 150 : 700;
+const MAX_CONNECTIONS = isMobile ? 350 : 2000;
+const CONNECTION_DIST = isMobile ? 2.8 : 2.4;
+const PULSE_COUNT = isMobile ? 8 : 40;
 const FIELD_SIZE = isMobile ? 16 : 20;
 
 // ── Depth configuration - 3 discrete z-planes for parallax ────────
@@ -253,13 +253,7 @@ function Connections({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.
 
     let lineIdx = 0;
     const connDist = CONNECTION_DIST;
-    const stride = isMobile ? 3 : 1; // skip every 3rd node on mobile for O(n²/3)
-
-    // Mobile: only recompute connections every 2nd frame (halves CPU cost)
-    if (isMobile) {
-      (lines as any).__frameSkip = ((lines as any).__frameSkip || 0) + 1;
-      if ((lines as any).__frameSkip % 2 !== 0) return;
-    }
+    const stride = isMobile ? 5 : 1; // skip 4/5 nodes on mobile → O(n²/25)
 
     for (let i = 0; i < NODE_COUNT && lineIdx < MAX_CONNECTIONS; i += stride) {
       const ax = nodePos[i * 3], ay = nodePos[i * 3 + 1], az = nodePos[i * 3 + 2];

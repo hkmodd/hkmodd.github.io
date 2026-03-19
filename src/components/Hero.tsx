@@ -189,7 +189,7 @@ export default function Hero() {
             className="w-full"
           >
             {/* Profile image - spinning conic gradient ring + float + glitch + dopamine tap */}
-            <motion.div variants={item} className="flex justify-center mb-10 sm:mb-8">
+            <motion.div variants={item} className="flex justify-center mb-14 sm:mb-12">
               <motion.div
                 className="profile-ring relative"
                 onClick={handleAvatarTap}
@@ -241,7 +241,7 @@ export default function Hero() {
             </motion.div>
 
             {/* Status badge */}
-            <motion.div variants={item} className="flex justify-center mb-8 sm:mb-6">
+            <motion.div variants={item} className="flex justify-center mb-10 sm:mb-8">
               <div
                 className="inline-flex items-center gap-2 px-3 py-1 rounded-full font-mono text-[9px] sm:text-[10px] tracking-widest uppercase"
                 style={{
@@ -291,7 +291,7 @@ export default function Hero() {
             {/* Title (scrambled) */}
             <motion.p
               variants={item}
-              className="font-mono text-xs sm:text-sm md:text-base mt-6 sm:mt-5 tracking-[0.2em] sm:tracking-[0.25em] uppercase"
+              className="font-mono text-xs sm:text-sm md:text-base mt-8 sm:mt-7 tracking-[0.2em] sm:tracking-[0.25em] uppercase"
               style={{ color: `${accent}cc` }}
             >
               {scrambledTitle}
@@ -310,7 +310,7 @@ export default function Hero() {
             {/* CTA row */}
             <motion.div
               variants={item}
-              className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-4 sm:gap-4 mt-10 sm:mt-10 w-full max-w-sm sm:max-w-none mx-auto"
+              className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-4 sm:gap-4 mt-14 sm:mt-12 w-full max-w-sm sm:max-w-none mx-auto"
             >
               <a
                 href="https://github.com/hkmodd"
@@ -346,7 +346,7 @@ export default function Hero() {
             {/* Scroll indicator */}
             <motion.div
               variants={item}
-              className="mt-16 sm:mt-16 flex flex-col items-center gap-2"
+              className="mt-20 sm:mt-20 flex flex-col items-center gap-2"
             >
               <span className="font-mono text-[9px] sm:text-[10px] tracking-widest uppercase text-text-dim">
                 {t.hero.scroll}
