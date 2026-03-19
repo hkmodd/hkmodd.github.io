@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import React, { memo } from 'react';
 import { motion } from 'motion/react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
@@ -24,7 +24,7 @@ const svgProps = {
   height: 20,
 };
 
-const ICON_MAP: Record<string, JSX.Element> = {
+const ICON_MAP: Record<string, React.ReactNode> = {
   /* Recon & Analysis */
   ghidra: (
     <svg {...svgProps}>
@@ -134,7 +134,7 @@ const ICON_MAP: Record<string, JSX.Element> = {
   ),
 };
 
-function getIcon(key: string): JSX.Element {
+function getIcon(key: string): React.ReactNode {
   return ICON_MAP[key] ?? (
     <svg {...svgProps}>
       <circle cx="12" cy="12" r="4" />
