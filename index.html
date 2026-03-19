@@ -20,6 +20,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <!-- Prevent browser from caching this HTML (avoids stale JS/CSS chunk refs) -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <!--
+      Anti-FOUC: load CSS via native <link> instead of only relying on
+      Vite's JS-based injection (import './index.css').
+      <link> is RENDER-BLOCKING: the browser won't paint until this CSS
+      is loaded & parsed. On F5, the browser correctly re-applies cached
+      CSS from a 304, unlike JS modules whose side-effects may not re-run.
+      Vite intercepts this in dev & processes it through Tailwind;
+      in production build it bundles + hashes the file automatically.
+    -->
+    <link rel="stylesheet" href="/src/index.css" />
   </head>
   <body>
     <div id="root"></div>
