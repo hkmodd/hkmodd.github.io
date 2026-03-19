@@ -143,8 +143,15 @@ const it: Translations = {
     prompt: 'hkmodd@darkcore',
   },
 
+  nav: {
+    hero: 'Home',
+    arsenal: 'Arsenale',
+    operations: 'Operazioni',
+    identity: 'Identità',
+    terminal: 'Terminale',
+  },
+
   footer: {
-    rights: '© 2026 HKModd. Tutti i diritti riservati.',
     madeWith: 'Progettato con React + TypeScript + Three.js',
     backToTop: "Torna all'inizio",
   },

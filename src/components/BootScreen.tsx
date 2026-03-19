@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
@@ -12,6 +12,7 @@ export default function BootScreen() {
   const [done, setDone] = useState(false);
 
   const accentColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+  const sessionId = useRef(String(Math.floor(Math.random() * 9000) + 1000));
 
   // Lock body scroll while boot screen is visible
   useEffect(() => {
@@ -116,7 +117,7 @@ export default function BootScreen() {
 
             {/* Session ID */}
             <div className="visitor-counter mt-4 sm:mt-5 text-right" style={{ color: accentColor }}>
-              Session #{String(Math.floor(Math.random() * 9000) + 1000)}
+              Session #{sessionId.current}
             </div>
           </div>
         </motion.div>

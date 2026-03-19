@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
 import { useHolographicTilt } from '@/hooks/useHolographicTilt';
+import { parseInlineMarkup } from '@/lib/parseInlineMarkup';
 
 function IdentityCard({
   header,
@@ -96,7 +97,7 @@ function IdentityCard({
         {title}
       </h3>
 
-      {/* Body with HTML support */}
+      {/* Body with safe inline markup */}
       <div
         className="leading-relaxed"
         style={{
@@ -104,13 +105,9 @@ function IdentityCard({
           fontSize: '0.92rem',
           lineHeight: '1.7',
         }}
-        dangerouslySetInnerHTML={{
-          __html: body.replace(
-            /<strong>/g,
-            `<strong style="color:${strongColor}">`
-          ),
-        }}
-      />
+      >
+        {parseInlineMarkup(body, { color: strongColor })}
+      </div>
     </motion.div>
   );
 }

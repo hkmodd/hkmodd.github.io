@@ -160,8 +160,8 @@ export class TerminalEngine {
       case 'socials':
         this.out([
           'GitHub:   https://github.com/HKModd',
-          'LinkedIn: https://linkedin.com/in/hkmodd',
-          'Email:    hkmodd@proton.me',
+          'LinkedIn: https://linkedin.com/in/gelmetti-sebastiano/',
+          'Email:    sebastiano.gelmetti@gmail.com',
         ]);
         break;
 

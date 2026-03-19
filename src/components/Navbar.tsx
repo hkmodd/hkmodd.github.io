@@ -4,13 +4,16 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
 
-const navLinks = [
-  { id: 'hero', label: 'Home' },
-  { id: 'arsenal', label: 'Arsenal' },
-  { id: 'operations', label: 'Operations' },
-  { id: 'identity', label: 'Identity' },
-  { id: 'terminal', label: 'Terminal' },
-];
+const navLinkIds = ['hero', 'arsenal', 'operations', 'identity', 'terminal'] as const;
+
+// Fallback labels when nav key not yet in i18n
+const fallbackLabels: Record<string, string> = {
+  hero: 'Home',
+  arsenal: 'Arsenal',
+  operations: 'Operations',
+  identity: 'Identity',
+  terminal: 'Terminal',
+};
 
 export default function Navbar() {
   const { t } = useTranslation();
@@ -27,7 +30,7 @@ export default function Navbar() {
 
   // Scroll progress + active section tracking (rAF-guarded)
   useEffect(() => {
-    const sectionIds = navLinks.map((l) => l.id);
+    const sectionIds = [...navLinkIds];
     let rafId = 0;
 
     const onScroll = () => {
@@ -85,7 +88,9 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-1">
-            {navLinks.map(({ id, label }) => (
+            {navLinkIds.map((id) => {
+              const label = t.nav[id] ?? fallbackLabels[id];
+              return (
               <button
                 key={id}
                 onClick={() => scrollTo(id)}
@@ -104,7 +109,8 @@ export default function Navbar() {
                   />
                 )}
               </button>
-            ))}
+              );
+            })}
           </div>
 
           {/* Controls */}
@@ -161,7 +167,9 @@ export default function Navbar() {
             className="fixed top-14 left-0 right-0 z-[9997] glass border-b border-border md:hidden"
           >
             <div className="flex flex-col p-4 gap-2">
-              {navLinks.map(({ id, label }) => (
+              {navLinkIds.map((id) => {
+                const label = t.nav[id] ?? fallbackLabels[id];
+                return (
                 <button
                   key={id}
                   onClick={() => scrollTo(id)}
@@ -173,7 +181,8 @@ export default function Navbar() {
                   <span className="opacity-40 mr-2">▸</span>
                   {label}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </motion.div>
         )}

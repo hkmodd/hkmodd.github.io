@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { Brain, Cpu, Bot, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
+import { parseInlineMarkup } from '@/lib/parseInlineMarkup';
 
 export default function AIIntel() {
   const { t } = useTranslation();
@@ -85,10 +86,9 @@ export default function AIIntel() {
                 </h3>
 
                 {/* Card body */}
-                <p
-                  className="text-text-muted text-[13px] sm:text-sm leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: card.body }}
-                />
+                <p className="text-text-muted text-[13px] sm:text-sm leading-relaxed">
+                  {parseInlineMarkup(card.body, { color: accent })}
+                </p>
               </motion.div>
             );
           })}

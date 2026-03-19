@@ -63,8 +63,14 @@ export interface Translations {
     greeting: string;
     prompt: string;
   };
+  nav: {
+    hero: string;
+    arsenal: string;
+    operations: string;
+    identity: string;
+    terminal: string;
+  };
   footer: {
-    rights: string;
     madeWith: string;
     backToTop: string;
   };
@@ -222,8 +228,15 @@ const en: Translations = {
     prompt: 'hkmodd@darkcore',
   },
 
+  nav: {
+    hero: 'Home',
+    arsenal: 'Arsenal',
+    operations: 'Operations',
+    identity: 'Identity',
+    terminal: 'Terminal',
+  },
+
   footer: {
-    rights: '© 2026 HKModd. All rights reserved.',
     madeWith: 'Engineered with React + TypeScript + Three.js',
     backToTop: 'Back to top',
   },

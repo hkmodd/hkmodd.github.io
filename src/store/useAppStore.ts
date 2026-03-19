@@ -36,8 +36,8 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  // Theme - restore from localStorage
-  theme: (localStorage.getItem('hkmodd-theme') as ThemeMode) || 'default',
+  // Theme - restore from localStorage (SSR-safe)
+  theme: ((typeof window !== 'undefined' ? localStorage.getItem('hkmodd-theme') : null) as ThemeMode) || 'default',
   setTheme: (theme) => {
     localStorage.setItem('hkmodd-theme', theme);
     set({ theme });
