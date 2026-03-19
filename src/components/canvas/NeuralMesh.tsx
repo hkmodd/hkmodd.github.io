@@ -1,7 +1,8 @@
 import { useMemo, useRef, useCallback, useEffect } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { useAppStore } from '@/store/useAppStore';
 import { useNeuralEngine, NODE_COUNT, MAX_CONNECTIONS, PULSE_COUNT } from '@/hooks/useNeuralEngine';
+import type { NeuralEngine } from '@/wasm/pkg/neural_engine';
 import * as THREE from 'three';
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -60,9 +61,15 @@ const nodeFragmentShader = /* glsl */ `
   }
 `;
 
-function WasmNodes({ memory }: { memory: WebAssembly.Memory }) {
+interface WasmChildProps {
+  engine: NeuralEngine;
+  memory: WebAssembly.Memory;
+}
+
+function WasmNodes({ engine, memory }: WasmChildProps) {
   const pointsRef = useRef<THREE.Points>(null!);
-  const engineHook = useNeuralEngine();
+  // Cache WASM buffer views — only recreate if buffer detaches (memory.grow)
+  const viewCache = useRef<{ buf: ArrayBuffer; pos: Float32Array; opac: Float32Array; size: Float32Array } | null>(null);
 
   const { posAttr, opacAttr, sizeAttr } = useMemo(() => {
     const posArr = new Float32Array(NODE_COUNT * 3);
@@ -87,19 +94,24 @@ function WasmNodes({ memory }: { memory: WebAssembly.Memory }) {
   }), []);
 
   useFrame(() => {
-    const engine = engineHook.engine;
-    if (!engine || !memory) return;
-
-    // Read directly from WASM memory — zero-copy
     const wasmBuf = memory.buffer;
-    const posView = new Float32Array(wasmBuf, engine.positions_ptr(), engine.positions_len());
-    const opacView = new Float32Array(wasmBuf, engine.opacities_ptr(), engine.opacities_len());
-    const sizeView = new Float32Array(wasmBuf, engine.sizes_ptr(), engine.sizes_len());
+    const cache = viewCache.current;
+
+    // Only create new Float32Array views when buffer detaches
+    if (!cache || cache.buf !== wasmBuf) {
+      viewCache.current = {
+        buf: wasmBuf,
+        pos: new Float32Array(wasmBuf, engine.positions_ptr(), engine.positions_len()),
+        opac: new Float32Array(wasmBuf, engine.opacities_ptr(), engine.opacities_len()),
+        size: new Float32Array(wasmBuf, engine.sizes_ptr(), engine.sizes_len()),
+      };
+    }
+    const views = viewCache.current!;
 
     // Copy into Three.js attributes
-    (posAttr.array as Float32Array).set(posView);
-    (opacAttr.array as Float32Array).set(opacView);
-    (sizeAttr.array as Float32Array).set(sizeView);
+    (posAttr.array as Float32Array).set(views.pos);
+    (opacAttr.array as Float32Array).set(views.opac);
+    (sizeAttr.array as Float32Array).set(views.size);
 
     posAttr.needsUpdate = true;
     opacAttr.needsUpdate = true;
@@ -127,9 +139,9 @@ function WasmNodes({ memory }: { memory: WebAssembly.Memory }) {
 //  CONNECTION LINES - reads WASM conn buffers
 // ═══════════════════════════════════════════════════════════════════
 
-function WasmConnections({ memory }: { memory: WebAssembly.Memory }) {
+function WasmConnections({ engine, memory }: WasmChildProps) {
   const linesRef = useRef<THREE.LineSegments>(null!);
-  const engineHook = useNeuralEngine();
+  const viewCache = useRef<{ buf: ArrayBuffer; pos: Float32Array; col: Float32Array } | null>(null);
 
   const { posAttr, colAttr } = useMemo(() => {
     const posArr = new Float32Array(MAX_CONNECTIONS * 6);
@@ -147,16 +159,21 @@ function WasmConnections({ memory }: { memory: WebAssembly.Memory }) {
   }, [posAttr, colAttr]);
 
   useFrame(() => {
-    const engine = engineHook.engine;
-    if (!engine || !memory) return;
-
     const wasmBuf = memory.buffer;
-    const posView = new Float32Array(wasmBuf, engine.conn_positions_ptr(), engine.conn_positions_len());
-    const colView = new Float32Array(wasmBuf, engine.conn_colors_ptr(), engine.conn_colors_len());
+    const cache = viewCache.current;
+
+    if (!cache || cache.buf !== wasmBuf) {
+      viewCache.current = {
+        buf: wasmBuf,
+        pos: new Float32Array(wasmBuf, engine.conn_positions_ptr(), engine.conn_positions_len()),
+        col: new Float32Array(wasmBuf, engine.conn_colors_ptr(), engine.conn_colors_len()),
+      };
+    }
+    const views = viewCache.current!;
     const count = engine.conn_count();
 
-    (posAttr.array as Float32Array).set(posView);
-    (colAttr.array as Float32Array).set(colView);
+    (posAttr.array as Float32Array).set(views.pos);
+    (colAttr.array as Float32Array).set(views.col);
 
     posAttr.needsUpdate = true;
     colAttr.needsUpdate = true;
@@ -180,9 +197,10 @@ function WasmConnections({ memory }: { memory: WebAssembly.Memory }) {
 //  PULSE PARTICLES - instanced spheres from WASM matrices
 // ═══════════════════════════════════════════════════════════════════
 
-function WasmPulses({ memory }: { memory: WebAssembly.Memory }) {
+function WasmPulses({ engine, memory }: WasmChildProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
-  const engineHook = useNeuralEngine();
+  const viewCache = useRef<{ buf: ArrayBuffer; mat: Float32Array } | null>(null);
+  const prevColorKey = useRef('');
 
   const geo = useMemo(() => new THREE.SphereGeometry(0.04, 3, 3), []);
   const mat = useMemo(
@@ -196,28 +214,37 @@ function WasmPulses({ memory }: { memory: WebAssembly.Memory }) {
   );
 
   useFrame(() => {
-    const engine = engineHook.engine;
     const mesh = meshRef.current;
-    if (!engine || !mesh || !memory) return;
+    if (!mesh) return;
 
     const wasmBuf = memory.buffer;
-    const matrices = new Float32Array(wasmBuf, engine.pulse_matrices_ptr(), engine.pulse_matrices_len());
+    const cache = viewCache.current;
+
+    if (!cache || cache.buf !== wasmBuf) {
+      viewCache.current = {
+        buf: wasmBuf,
+        mat: new Float32Array(wasmBuf, engine.pulse_matrices_ptr(), engine.pulse_matrices_len()),
+      };
+    }
 
     // Write matrices directly into instanceMatrix.array
     const instanceArr = mesh.instanceMatrix.array as Float32Array;
-    instanceArr.set(matrices);
+    instanceArr.set(viewCache.current!.mat);
     mesh.instanceMatrix.needsUpdate = true;
 
-    // Set pulse colors from engine color
-    tmpColor.setRGB(
-      engine.color_r() * 2.0,
-      engine.color_g() * 2.0,
-      engine.color_b() * 2.0,
-    );
-    for (let i = 0; i < PULSE_COUNT; i++) {
-      mesh.setColorAt(i, tmpColor);
+    // Only update colors when they actually change
+    const r = engine.color_r();
+    const g = engine.color_g();
+    const b = engine.color_b();
+    const colorKey = `${(r * 100) | 0},${(g * 100) | 0},${(b * 100) | 0}`;
+    if (colorKey !== prevColorKey.current) {
+      prevColorKey.current = colorKey;
+      tmpColor.setRGB(r * 2.0, g * 2.0, b * 2.0);
+      for (let i = 0; i < PULSE_COUNT; i++) {
+        mesh.setColorAt(i, tmpColor);
+      }
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   });
 
   return (
@@ -282,12 +309,13 @@ const gridFragmentShader = /* glsl */ `
 `;
 
 function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
-  const theme = useAppStore((s) => s.theme);
   const shaderRef = useRef<THREE.ShaderMaterial>(null!);
   const colorRef = useRef(new THREE.Color('#00d4ff'));
 
   useFrame(({ clock }) => {
     if (!shaderRef.current) return;
+    // Read store inside frame loop — avoids React re-render on theme change
+    const theme = useAppStore.getState().theme;
     const targetColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
     colorRef.current.lerp(tmpColor.set(targetColor), 0.04);
     shaderRef.current.uniforms.uColor.value.copy(colorRef.current);
@@ -328,12 +356,13 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
 // ═══════════════════════════════════════════════════════════════════
 
 function DepthFog() {
-  const theme = useAppStore((s) => s.theme);
   const matRef = useRef<THREE.MeshBasicMaterial>(null!);
   const colorRef = useRef(new THREE.Color('#000814'));
 
   useFrame(() => {
     if (!matRef.current) return;
+    // Read store inside frame loop — avoids React re-render on theme change
+    const theme = useAppStore.getState().theme;
     const targetColor = theme === 'redteam' ? '#0a0002' : '#000814';
     colorRef.current.lerp(tmpColor.set(targetColor), 0.03);
     matRef.current.color.copy(colorRef.current);
@@ -361,8 +390,6 @@ function NeuralMeshScene() {
   const pointerRef = useRef(new THREE.Vector3(999, 999, 0));
   const groupRef = useRef<THREE.Group>(null!);
   const { engine, memory, isReady } = useNeuralEngine();
-  const theme = useAppStore((s) => s.theme);
-  const transitioning = useAppStore((s) => s.redTeamTransitioning);
 
   const handlePointerMove = useCallback(
     (e: THREE.Event & { point: THREE.Vector3 }) => {
@@ -382,7 +409,8 @@ function NeuralMeshScene() {
 
     // ── WASM tick — all per-frame math runs here ──
     if (engine) {
-      // Compute target color
+      // Read store inside frame loop — avoids reactive re-renders
+      const { theme, redTeamTransitioning } = useAppStore.getState();
       const targetColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
       tmpColor.set(targetColor);
 
@@ -394,7 +422,7 @@ function NeuralMeshScene() {
         tmpColor.r,
         tmpColor.g,
         tmpColor.b,
-        transitioning,
+        redTeamTransitioning,
       );
     }
   });
@@ -415,11 +443,11 @@ function NeuralMeshScene() {
 
       {/* Neural network group with parallax */}
       <group ref={groupRef}>
-        {isReady && memory && (
+        {isReady && engine && memory && (
           <>
-            <WasmNodes memory={memory} />
-            <WasmConnections memory={memory} />
-            <WasmPulses memory={memory} />
+            <WasmNodes engine={engine} memory={memory} />
+            <WasmConnections engine={engine} memory={memory} />
+            <WasmPulses engine={engine} memory={memory} />
           </>
         )}
       </group>
@@ -483,8 +511,10 @@ export default function NeuralMesh() {
           far: 50,
         }}
         dpr={[1, 1.5]}
+        flat
+        performance={{ min: 0.5 }}
         gl={{
-          antialias: true,
+          antialias: false,
           alpha: true,
           powerPreference: 'high-performance',
           stencil: false,

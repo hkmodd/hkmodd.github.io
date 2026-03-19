@@ -38,6 +38,14 @@ export default defineConfig(() => {
       outDir: 'dist',
       sourcemap: false,
       target: 'esnext',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            three: ['three', '@react-three/fiber', '@react-three/drei'],
+            motion: ['motion'],
+          },
+        },
+      },
     },
     optimizeDeps: {
       exclude: ['neural-engine'],
