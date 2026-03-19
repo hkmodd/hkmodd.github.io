@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import { useKonamiCode } from '@/hooks/useKonamiCode';
+import { useSnapScroll } from '@/hooks/useSnapScroll';
 import { haptic } from '@/lib/haptic';
 
 import BootScreen from '@/components/BootScreen';
@@ -15,6 +16,7 @@ import Footer from '@/components/Footer';
 import NeuralMesh from '@/components/canvas/NeuralMesh';
 import CyberCursor from '@/components/CyberCursor';
 import ResetButton from '@/components/ResetButton';
+import BackToTop from '@/components/BackToTop';
 
 export default function App() {
   const booted = useAppStore((s) => s.booted);
@@ -24,6 +26,9 @@ export default function App() {
 
   // Auto-update: check for new version, clear cache & reload if stale
   useAutoUpdate();
+
+  // Snap-scroll: desktop section snapping on wheel/keyboard
+  useSnapScroll();
 
   // Konami code → red team toggle
   useKonamiCode(
@@ -54,7 +59,9 @@ export default function App() {
       {showFlash && <div className="screen-flash" />}
 
       {/* Hero – sticky, fades out on scroll (has its own !booted guard) */}
-      <Hero />
+      <div data-snap>
+        <Hero />
+      </div>
 
       {/* Main content – only render AFTER boot completes (prevents FOUC) */}
       {booted && (
@@ -63,25 +70,36 @@ export default function App() {
       {/* Main content – sits on top of faded hero */}
       <main className="main-content relative z-10">
         <div className="section-divider" />
-        <Arsenal />
+        <div data-snap>
+          <Arsenal />
+        </div>
 
         <div className="section-divider" />
-        <Operations />
+        <div data-snap>
+          <Operations />
+        </div>
 
         <div className="section-divider" />
-        <Identity />
+        <div data-snap>
+          <Identity />
+        </div>
 
         <div className="section-divider" />
-        <AIIntel />
+        <div data-snap>
+          <AIIntel />
+        </div>
 
         <div className="section-divider" />
-        <Terminal />
+        <div data-snap>
+          <Terminal />
+        </div>
       </main>
 
       <Footer />
 
       {/* Floating reset button (red team only) */}
       <ResetButton />
+      <BackToTop />
         </>
       )}
     </div>

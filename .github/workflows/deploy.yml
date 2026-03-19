@@ -29,6 +29,26 @@ jobs:
           node-version: 22
           cache: npm
 
+      # ── Rust + wasm-pack for WASM build ──
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry + wasm-pack
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            wasm/target
+          key: wasm-${{ hashFiles('wasm/Cargo.lock', 'wasm/Cargo.toml') }}
+          restore-keys: wasm-
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM
+        run: npm run build:wasm
+
+      # ── Frontend build ──
       - run: npm ci
       - run: npm run build
 
