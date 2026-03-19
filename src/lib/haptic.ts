@@ -1,5 +1,5 @@
 /**
- * Haptic feedback utility — triggers vibration on mobile devices
+ * Haptic feedback utility - triggers vibration on mobile devices
  * that support the Vibration API. Silent no-op on desktop.
  *
  * The Vibration API requires a user gesture (touch/click) before it works.
@@ -17,7 +17,7 @@ const patterns: Record<string, number | number[]> = {
 
 let unlocked = false;
 
-/** Try to unlock the Vibration API — called on first user gesture */
+/** Try to unlock the Vibration API - called on first user gesture */
 function tryUnlock() {
   if (unlocked) return;
   try {
@@ -47,6 +47,6 @@ export function haptic(style: 'light' | 'medium' | 'heavy' | 'success' | 'error'
   try {
     navigator.vibrate(patterns[style]);
   } catch {
-    // Vibrate API not available or blocked — silent fail
+    // Vibrate API not available or blocked - silent fail
   }
 }

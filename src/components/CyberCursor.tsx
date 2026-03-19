@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 
 /* ═══════════════════════════════════════════════════════════════════
-   CYBER CURSOR — ultra-sharp animated arrow cursor (desktop only)
+   CYBER CURSOR - ultra-sharp animated arrow cursor (desktop only)
    Replaces the native cursor with a razor-sharp SVG chevron/arrow
    that LERPs smoothly, glows with theme accent, and morphs on hover.
    ═══════════════════════════════════════════════════════════════════ */
@@ -25,7 +25,7 @@ export default function CyberCursor() {
   const accent = theme === 'redteam' ? '#ff0033' : '#00d4ff';
   const accentDim = theme === 'redteam' ? 'rgba(255,0,51,0.3)' : 'rgba(0,212,255,0.3)';
 
-  // ── Animation loop — smooth LERP following ──
+  // ── Animation loop - smooth LERP following ──
   const animate = useCallback(() => {
     const cursor = cursorRef.current;
     const trail = trailRef.current;
@@ -115,7 +115,7 @@ export default function CyberCursor() {
 
   return (
     <>
-      {/* Trail — soft glow circle that follows slowly */}
+      {/* Trail - soft glow circle that follows slowly */}
       <div
         ref={trailRef}
         data-x="-100"
@@ -139,7 +139,7 @@ export default function CyberCursor() {
         }}
       />
 
-      {/* Main cursor — sharp SVG arrow */}
+      {/* Main cursor - sharp SVG arrow */}
       <div
         ref={cursorRef}
         className="cyber-cursor-arrow"
@@ -165,7 +165,7 @@ export default function CyberCursor() {
           xmlns="http://www.w3.org/2000/svg"
           style={{ display: 'block' }}
         >
-          {/* Arrow body — ultra-sharp faceted polygon */}
+          {/* Arrow body - ultra-sharp faceted polygon */}
           <path
             d="M1 1L9.5 27L12.5 17.5L23 14L1 1Z"
             fill={accent}
@@ -174,7 +174,7 @@ export default function CyberCursor() {
             strokeWidth={1}
             strokeLinejoin="miter"
           />
-          {/* Inner highlight — razor edge gleam */}
+          {/* Inner highlight - razor edge gleam */}
           <path
             d="M3 4L8.5 23L11 16L20 13.5L3 4Z"
             fill="white"

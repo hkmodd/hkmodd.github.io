@@ -28,7 +28,7 @@ export function useAutoUpdate() {
         const stored = localStorage.getItem(VERSION_KEY);
 
         if (!stored) {
-          // First visit — just store
+          // First visit - just store
           localStorage.setItem(VERSION_KEY, version);
           return;
         }

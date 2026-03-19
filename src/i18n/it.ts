@@ -16,7 +16,7 @@ const it: Translations = {
     name: 'Sebastiano Gelmetti',
     realName: 'Sebastiano Gelmetti',
     title: 'Security Researcher & Systems Engineer',
-    bio: "Mentalità hacker, difesa massima. Faccio reverse engineering di binari, difendo infrastrutture, e costruisco tool Rust per automatizzare ciò che altri fanno a mano.",
+    bio: '',
     scroll: 'Scorri per esplorare',
     status: 'DISPONIBILE',
     github: '⟨/⟩ GitHub',
@@ -85,14 +85,6 @@ const it: Translations = {
         url: 'https://github.com/hkmodd/INSTASTREAM-Ultimate',
         status: 'BETA',
       },
-      {
-        title: 'Calcologas',
-        tags: 'TYPESCRIPT / MEME',
-        description: 'Calcolatore bolletta gas Meme Premium. Estetica Fallout, effetti cinematici e motore sonoro sintetizzato. Fatto per il nonno.',
-        linkLabel: 'Vedi Anomalia →',
-        url: 'https://github.com/hkmodd/Calcologas',
-        status: 'LIVE',
-      },
     ],
   },
 
@@ -101,25 +93,25 @@ const it: Translations = {
     cards: [
       {
         header: 'ROOT ACCESS // ORIGIN',
-        title: 'The Hacker Mindset',
-        body: "Non sono nato in un'aula. La mia curiosità è iniziata smontando firmware e aggirando protezioni hardware (Xbox/XGD3) per capire <em>come</em> funzionano le cose. Questo background da autodidatta nel Reverse Engineering mi dà un vantaggio tattico: <strong>penso come l'attaccante.</strong>",
+        title: 'Security-First Dal Giorno Zero',
+        body: "Smanetto dai 12 anni: smontando firmware, aggirando protezioni hardware (Xbox/XGD3), capendo <em>come e perché</em> le cose si rompono. 12+ anni di curiosità hands-on hanno forgiato un mindset ossessionato dalla <strong>protezione</strong>. Capisco come cedono i sistemi per assicurarmi che non cedano. Sono quello che chiude la porta <em>e</em> controlla i cardini.",
       },
       {
         header: 'PROTOCOL // EVOLUTION',
         title: 'Cybersecurity Specialist',
-        body: "Certificato <strong>Epicode (+600h)</strong>. Ho trasformato la passione in metodologia offensiva e difensiva. Dal Penetration Testing all'Hardening di sistemi Linux/Windows. Non eseguo solo tool, analizzo i vettori di attacco e mitigo le vulnerabilità critiche (OWASP Top 10).",
+        body: "Formalizzato nel <strong>2024</strong> con certificazione <strong>Epicode (+600h)</strong> Cybersecurity Specialist. Dal Penetration Testing all'Hardening Linux/Windows, mitigazione OWASP Top 10 e automazione Python. Poi accelerato con workflow AI-augmented, costruendo tool che moltiplicano le capacità difensive. <strong>Direzione chiara + AI = qualsiasi cosa è costruibile.</strong>",
       },
       {
         header: 'HUMAN INTEL // LEADERSHIP',
         title: 'Operational Integrity',
-        body: "3+ anni di gestione Team in ambienti ad alta pressione (Hospitality Management). So coordinare risorse sotto stress, prendere decisioni critiche in tempo reale e mantenere l'integrità operativa. Un SOC Analyst con la <strong>freddezza gestionale</strong> di un Team Leader.",
+        body: "3+ anni di gestione Team in ambienti ad alta pressione (Hospitality Management). Coordino risorse sotto stress, prendo decisioni critiche in tempo reale e mantengo l'integrità operativa. Il tipo di persona a cui affidi l'accesso alla produzione: <strong>affidabile, composto, responsabile.</strong>",
       },
     ],
   },
 
   aiIntel: {
     title: 'AI Intelligence',
-    subtitle: 'Non uso l\'AI — ci sviluppo. Familiarità profonda con modelli, toolchain e workflow AI di livello developer.',
+    subtitle: 'Non uso l\'AI. Ci sviluppo. Familiarità profonda con modelli, toolchain e workflow AI di livello developer.',
     cards: [
       {
         header: 'TOOLCHAIN // MASTERY',
@@ -164,7 +156,7 @@ const it: Translations = {
   },
 
   redteam: {
-    activated: '⚠ ACCESSO ROOT GARANTITO — PROTOCOLLO DARKCORE ATTIVO',
+    activated: '⚠ ACCESSO ROOT GARANTITO // PROTOCOLLO DARKCORE ATTIVO',
     deactivated: 'Modalità default ripristinata',
   },
 };

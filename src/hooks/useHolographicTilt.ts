@@ -57,11 +57,11 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
   const onMouseLeave = useCallback(() => resetTilt(), [resetTilt]);
 
   /* ── Mobile: global passive touch observer ───────────────────
-     DISABLED — the global touchmove listener calls getBoundingClientRect()
+     DISABLED - the global touchmove listener calls getBoundingClientRect()
      on every touch move, causing layout thrash during scroll. The tilt
      effect via scrolling also feels unnatural on touch. If a deliberate
      tap-tilt is ever desired, use touch-start on the element itself. */
-  // (no global touch listeners — desktop onMouseMove/onMouseLeave are enough)
+  // (no global touch listeners - desktop onMouseMove/onMouseLeave are enough)
 
   return { ref, onMouseMove, onMouseLeave };
 }

@@ -1,5 +1,5 @@
 /**
- * TerminalOS — a self-contained virtual terminal with VFS, command parser,
+ * TerminalOS - a self-contained virtual terminal with VFS, command parser,
  * and CTF crack minigame. Pure TypeScript, no React dependency.
  */
 
@@ -51,7 +51,7 @@ const VFS: FSNode = {
     etc: {
       type: 'dir',
       children: {
-        'motd': { type: 'file', content: '╔══════════════════════════════╗\n║   HKModd Security Kernel     ║\n║   v2.0 — All Unauthorized    ║\n║   Access Will Be Logged      ║\n╚══════════════════════════════╝' },
+        'motd': { type: 'file', content: '╔══════════════════════════════╗\n║   HKModd Security Kernel     ║\n║   v2.0 // All Unauthorized   ║\n║   Access Will Be Logged      ║\n╚══════════════════════════════╝' },
       },
     },
   },
@@ -98,22 +98,22 @@ export class TerminalEngine {
       case 'help':
         this.out([
           'Available commands:',
-          '  help          — Show this help',
-          '  ls [dir]      — List directory contents',
-          '  cd <dir>      — Change directory',
-          '  cat <file>    — Display file contents',
-          '  pwd           — Print working directory',
-          '  whoami        — Display current user',
-          '  clear         — Clear terminal',
-          '  crack         — Attempt CTF decryption',
-          '  uname         — System information',
-          '  date          — Current date/time',
-          '  echo <text>   — Echo text',
-          '  socials       — Social media links',
-          '  skills        — List technical skills',
-          '  history       — Command history',
-          '  matrix        — Enter the Matrix',
-          '  nmap          — Network scan (simulated)',
+          '  help          - Show this help',
+          '  ls [dir]      - List directory contents',
+          '  cd <dir>      - Change directory',
+          '  cat <file>    - Display file contents',
+          '  pwd           - Print working directory',
+          '  whoami        - Display current user',
+          '  clear         - Clear terminal',
+          '  crack         - Attempt CTF decryption',
+          '  uname         - System information',
+          '  date          - Current date/time',
+          '  echo <text>   - Echo text',
+          '  socials       - Social media links',
+          '  skills        - List technical skills',
+          '  history       - Command history',
+          '  matrix        - Enter the Matrix',
+          '  nmap          - Network scan (simulated)',
         ]);
         break;
 
@@ -316,7 +316,7 @@ export class TerminalEngine {
       case 1:
         this.out([
           '🔓 Initiating brute-force decryption...',
-          '   [████░░░░░░] 30% — Key space analysis',
+          '   [████░░░░░░] 30% - Key space analysis',
           '   Partial key recovered: 0x4F...',
           '   Run `crack` again to continue...',
         ]);
@@ -324,7 +324,7 @@ export class TerminalEngine {
       case 2:
         this.out([
           '🔓 Continuing decryption...',
-          '   [███████░░░] 65% — Rainbow table lookup',
+          '   [███████░░░] 65% - Rainbow table lookup',
           '   Decrypting layer 2 of 3...',
           '   Almost there... run `crack` one more time.',
         ]);

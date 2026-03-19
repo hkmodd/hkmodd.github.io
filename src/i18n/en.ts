@@ -95,7 +95,7 @@ const en: Translations = {
     name: 'Sebastiano Gelmetti',
     realName: 'Sebastiano Gelmetti',
     title: 'Security Researcher & Systems Engineer',
-    bio: 'Hacker mindset, maximum defense. I reverse-engineer binaries, defend SOCs, and build Rust tools to automate what others do by hand.',
+    bio: '',
     scroll: 'Scroll to explore',
     status: 'AVAILABLE FOR HIRE',
     github: '⟨/⟩ GitHub',
@@ -164,14 +164,6 @@ const en: Translations = {
         url: 'https://github.com/hkmodd/INSTASTREAM-Ultimate',
         status: 'BETA',
       },
-      {
-        title: 'Calcologas',
-        tags: 'TYPESCRIPT / MEME',
-        description: 'Meme Premium gas bill calculator. Fallout-style aesthetics, cinematic effects, and synthesized sound engine. Made for grandpa.',
-        linkLabel: 'View Anomaly →',
-        url: 'https://github.com/hkmodd/Calcologas',
-        status: 'LIVE',
-      },
     ],
   },
 
@@ -180,30 +172,30 @@ const en: Translations = {
     cards: [
       {
         header: 'ROOT ACCESS // ORIGIN',
-        title: 'The Hacker Mindset',
-        body: "I wasn't born in a classroom. My curiosity started by disassembling firmware and bypassing hardware protections (Xbox/XGD3) to understand <em>how</em> things work. This self-taught Reverse Engineering background gives me a tactical advantage: <strong>I think like the attacker.</strong>",
+        title: 'Security-First Since Day One',
+        body: "Tinkering since age 12: disassembling firmware, bypassing hardware protections (Xbox/XGD3), understanding <em>how and why</em> things break. 12+ years of hands-on curiosity shaped a mindset obsessed with <strong>protection</strong>. I understand how systems fail so I can make sure they don't. I'm the person who locks the door <em>and</em> checks the hinges.",
       },
       {
         header: 'PROTOCOL // EVOLUTION',
         title: 'Cybersecurity Specialist',
-        body: 'Certified <strong>Epicode (+600h)</strong>. I transformed my passion into offensive and defensive methodology. From Penetration Testing to Linux/Windows hardening. I don\'t just run tools — I analyze attack vectors and mitigate critical vulnerabilities (OWASP Top 10).',
+        body: 'Formalized in <strong>2024</strong> with <strong>Epicode (+600h)</strong> Cybersecurity Specialist certification. From Penetration Testing to Linux/Windows hardening, OWASP Top 10 mitigation, and Python automation. Then accelerated with AI-augmented workflows, building tools that multiply defensive capabilities. <strong>Direction + AI = anything is buildable.</strong>',
       },
       {
         header: 'HUMAN INTEL // LEADERSHIP',
         title: 'Operational Integrity',
-        body: '3+ years of Team Management in high-pressure environments (Hospitality Management). I know how to coordinate resources under stress, make critical decisions in real-time, and maintain operational integrity. A SOC Analyst with the <strong>managerial composure</strong> of a Team Leader.',
+        body: '3+ years of Team Management in high-pressure environments (Hospitality Management). I coordinate resources under stress, make critical decisions in real-time, and maintain operational integrity. The kind of person you trust with production access: <strong>reliable, composed, accountable.</strong>',
       },
     ],
   },
 
   aiIntel: {
     title: 'AI Intelligence',
-    subtitle: 'I don\'t just use AI — I engineer with it. Deep familiarity with models, toolchains, and developer-grade AI workflows.',
+    subtitle: 'I don\'t just use AI. I engineer with it. Deep familiarity with models, toolchains, and developer-grade AI workflows.',
     cards: [
       {
         header: 'TOOLCHAIN // MASTERY',
         title: 'AI-Augmented Development',
-        body: 'Daily power user of <strong>Antigravity (Gemini)</strong>, <strong>Cursor (Claude/GPT)</strong>, and <strong>GitHub Copilot</strong>. I use AI agents as pair-programming partners — not chatbots. I engineer custom prompts, system instructions, and multi-agent pipelines for complex codebases.',
+        body: 'Daily power user of <strong>Antigravity (Gemini)</strong>, <strong>Cursor (Claude/GPT)</strong>, and <strong>GitHub Copilot</strong>. I use AI agents as pair-programming partners, not chatbots. I engineer custom prompts, system instructions, and multi-agent pipelines for complex codebases.',
       },
       {
         header: 'MODELS // KNOWLEDGE',
@@ -243,7 +235,7 @@ const en: Translations = {
   },
 
   redteam: {
-    activated: '⚠ ROOT ACCESS GRANTED — DARKCORE PROTOCOL ACTIVE',
+    activated: '⚠ ROOT ACCESS GRANTED // DARKCORE PROTOCOL ACTIVE',
     deactivated: 'Default mode restored',
   },
 };

@@ -4,7 +4,7 @@ import { useAppStore } from '@/store/useAppStore';
 import * as THREE from 'three';
 
 /* ═══════════════════════════════════════════════════════════════════
-   NEURAL MESH v2 — Deep, immersive, interactive cyber-topology
+   NEURAL MESH v2 - Deep, immersive, interactive cyber-topology
    ═════════════════════════════════════════════════════════════════ */
 
 // ── Performance tiers ──────────────────────────────────────────────
@@ -19,11 +19,11 @@ const CONNECTION_DIST = isMobile ? 2.6 : 2.4;
 const PULSE_COUNT = isMobile ? 16 : 40;
 const FIELD_SIZE = isMobile ? 16 : 20;
 
-// ── Depth configuration — 3 discrete z-planes for parallax ────────
+// ── Depth configuration - 3 discrete z-planes for parallax ────────
 const DEPTH_LAYERS = [
-  { z: -8, count: 0.25, scale: 0.5, opacity: 0.3 },  // far — dim, small
-  { z: -3, count: 0.45, scale: 0.8, opacity: 0.6 },  // mid — medium
-  { z: 2,  count: 0.30, scale: 1.2, opacity: 1.0 },  // near — bright, large
+  { z: -8, count: 0.25, scale: 0.5, opacity: 0.3 },  // far - dim, small
+  { z: -3, count: 0.45, scale: 0.8, opacity: 0.6 },  // mid - medium
+  { z: 2,  count: 0.30, scale: 1.2, opacity: 1.0 },  // near - bright, large
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ const tmpMatrix = new THREE.Matrix4();
 const tmpObj = new THREE.Object3D();
 
 // ═══════════════════════════════════════════════════════════════════
-//  NODE MESH — layered depth with glow + pointer repulsion
+//  NODE MESH - layered depth with glow + pointer repulsion
 // ═══════════════════════════════════════════════════════════════════
 
 const nodeVertexShader = /* glsl */ `
@@ -65,7 +65,7 @@ const nodeFragmentShader = /* glsl */ `
     float d = length(gl_PointCoord - vec2(0.5));
     if (d > 0.5) discard;
 
-    // Soft glow falloff — brighter core, softer edge
+    // Soft glow falloff - brighter core, softer edge
     float core = smoothstep(0.5, 0.0, d);
     float glow = exp(-d * 4.0) * 0.8;
     float alpha = (core + glow) * vOpacity;
@@ -153,7 +153,7 @@ function Nodes({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector
     const pointer = pointerRef.current;
     const speedBurst = transitioning ? 4.0 : 1.0;
 
-    // Breathing rhythm — slow global pulse
+    // Breathing rhythm - slow global pulse
     const breathe = Math.sin(t * 0.4) * 0.15;
 
     for (let i = 0; i < NODE_COUNT; i++) {
@@ -211,7 +211,7 @@ function Nodes({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  CONNECTION LINES — depth-faded, pointer-reactive
+//  CONNECTION LINES - depth-faded, pointer-reactive
 // ═══════════════════════════════════════════════════════════════════
 
 function Connections({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
@@ -334,7 +334,7 @@ function Connections({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  PULSE PARTICLES — data packets traversing the network
+//  PULSE PARTICLES - data packets traversing the network
 // ═══════════════════════════════════════════════════════════════════
 
 function Pulses({ pointerRef: _pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
@@ -426,7 +426,7 @@ function Pulses({ pointerRef: _pointerRef }: { pointerRef: React.MutableRefObjec
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  PERSPECTIVE GRID — reactive cyber-floor with pointer warping
+//  PERSPECTIVE GRID - reactive cyber-floor with pointer warping
 // ═══════════════════════════════════════════════════════════════════
 
 const gridVertexShader = /* glsl */ `
@@ -528,7 +528,7 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  VOLUMETRIC FOG PLANES — depth atmosphere layers
+//  VOLUMETRIC FOG PLANES - depth atmosphere layers
 // ═══════════════════════════════════════════════════════════════════
 
 function DepthFog() {
@@ -558,7 +558,7 @@ function DepthFog() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SCENE — orchestrates all + pointer + scroll parallax
+//  SCENE - orchestrates all + pointer + scroll parallax
 // ═══════════════════════════════════════════════════════════════════
 
 function NeuralMeshScene() {
@@ -573,7 +573,7 @@ function NeuralMeshScene() {
     []
   );
 
-  // Slow rotation only (no scroll parallax — Hero is fixed, bg must stay in sync)
+  // Slow rotation only (no scroll parallax - Hero is fixed, bg must stay in sync)
   useFrame(({ clock }) => {
     const group = groupRef.current;
     if (!group) return;
@@ -584,7 +584,7 @@ function NeuralMeshScene() {
 
   return (
     <>
-      {/* Invisible hit-test plane for pointer tracking — desktop only */}
+      {/* Invisible hit-test plane for pointer tracking - desktop only */}
       {!isMobile && (
         <mesh visible={false} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
           <planeGeometry args={[100, 100]} />
@@ -609,13 +609,13 @@ function NeuralMeshScene() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  EXPORT — Canvas with depth-aware camera settings
+//  EXPORT - Canvas with depth-aware camera settings
 // ═══════════════════════════════════════════════════════════════════
 
 export default function NeuralMesh() {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // ── Scroll-synced fade — passive scroll listener (not continuous rAF) ──
+  // ── Scroll-synced fade - passive scroll listener (not continuous rAF) ──
   // Only runs when scroll actually changes → saves battery on mobile
   useEffect(() => {
     let rafId = 0;

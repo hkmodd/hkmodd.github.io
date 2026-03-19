@@ -51,7 +51,7 @@ export function useGitHubRepos(): UseGitHubReposResult {
           }
         }
       } catch {
-        // Cache miss or corrupt — continue to fetch
+        // Cache miss or corrupt - continue to fetch
       }
 
       try {
@@ -73,7 +73,11 @@ export function useGitHubRepos(): UseGitHubReposResult {
           .filter((r) => !r.fork && !r.archived)
           .filter((r) => {
             const name = r.name.toLowerCase();
-            return name !== 'hkmodd.github.io' && name !== 'hkmodd';
+            return (
+              name !== 'hkmodd.github.io' &&
+              name !== 'hkmodd' &&
+              name !== 'calcologas'
+            );
           })
           .sort(
             (a, b) =>
@@ -87,7 +91,7 @@ export function useGitHubRepos(): UseGitHubReposResult {
             JSON.stringify({ data: filtered, timestamp: Date.now() })
           );
         } catch {
-          // sessionStorage might be full — no big deal
+          // sessionStorage might be full - no big deal
         }
 
         if (!cancelled) {

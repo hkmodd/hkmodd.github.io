@@ -99,7 +99,7 @@ export default function Hero() {
     tapTimestamps.current.push(now);
     const count = tapTimestamps.current.length;
 
-    // Escalating haptic — grows more intense with each tap
+    // Escalating haptic - grows more intense with each tap
     if (count <= 3) haptic('light');
     else if (count <= 5) haptic('medium');
     else haptic('heavy');
@@ -117,7 +117,7 @@ export default function Hero() {
       tapTimestamps.current = [];
     }, 3200);
 
-    // 7th tap — ACTIVATE
+    // 7th tap - ACTIVATE
     if (count >= 7) {
       tapTimestamps.current = [];
       clearTimeout(ringDecayRef.current);
@@ -131,7 +131,7 @@ export default function Hero() {
     }
   }, [toggleRedTeam]);
 
-  // Ring glow style — intensifies with tap count
+  // Ring glow style - intensifies with tap count
   const ringGlowStyle = useMemo(() => {
     if (ringPulse === 0) return {};
     const intensity = ringPulse / 7;
@@ -166,7 +166,7 @@ export default function Hero() {
 
   return (
     <>
-      {/* ── Fixed Hero — visually behind everything ─────────────── */}
+      {/* ── Fixed Hero - visually behind everything ─────────────── */}
       <section
         id="hero"
         className="fixed inset-0 flex items-center justify-center px-6"
@@ -188,7 +188,7 @@ export default function Hero() {
             animate="show"
             className="w-full"
           >
-            {/* Profile image — spinning conic gradient ring + float + glitch + dopamine tap */}
+            {/* Profile image - spinning conic gradient ring + float + glitch + dopamine tap */}
             <motion.div variants={item} className="flex justify-center mb-10 sm:mb-8">
               <motion.div
                 className="profile-ring relative"
@@ -211,7 +211,7 @@ export default function Hero() {
                   }}
                 />
 
-                {/* Tap progress dots — appear around the ring as user taps */}
+                {/* Tap progress dots - appear around the ring as user taps */}
                 {ringPulse > 0 && (
                   <div className="absolute inset-0 pointer-events-none">
                     {Array.from({ length: Math.min(ringPulse, 6) }).map((_, i) => {
@@ -258,7 +258,7 @@ export default function Hero() {
               </div>
             </motion.div>
 
-            {/* Name — animated gradient text, morphs in red team */}
+            {/* Name - animated gradient text, morphs in red team */}
             <motion.h1
               variants={item}
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08]"
@@ -298,12 +298,14 @@ export default function Hero() {
             </motion.p>
 
             {/* Bio */}
-            <motion.p
-              variants={item}
-              className="text-text-muted text-sm sm:text-base md:text-lg mt-8 sm:mt-6 max-w-xl mx-auto leading-relaxed px-2"
-            >
-              {t.hero.bio}
-            </motion.p>
+            {t.hero.bio && (
+              <motion.p
+                variants={item}
+                className="text-text-muted text-sm sm:text-base md:text-lg mt-8 sm:mt-6 max-w-xl mx-auto leading-relaxed px-2"
+              >
+                {t.hero.bio}
+              </motion.p>
+            )}
 
             {/* CTA row */}
             <motion.div
@@ -360,7 +362,7 @@ export default function Hero() {
         </div>
       </section>
 
-      {/* ── Scroll spacer — occupies 100vh of document flow ──── */}
+      {/* ── Scroll spacer - occupies 100vh of document flow ──── */}
       {/* This pushes main-content down by one screen height.    */}
       {/* As the user scrolls past it, the fixed Hero fades out   */}
       {/* and the main-content (with a solid bg) slides over it. */}

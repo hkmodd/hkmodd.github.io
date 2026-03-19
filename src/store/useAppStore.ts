@@ -36,7 +36,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  // Theme — restore from localStorage
+  // Theme - restore from localStorage
   theme: (localStorage.getItem('hkmodd-theme') as ThemeMode) || 'default',
   setTheme: (theme) => {
     localStorage.setItem('hkmodd-theme', theme);
@@ -62,7 +62,7 @@ export const useAppStore = create<AppState>((set) => ({
   redTeamTransitioning: false,
   setRedTeamTransitioning: (redTeamTransitioning) => set({ redTeamTransitioning }),
 
-  // Language — auto-detect or restore
+  // Language - auto-detect or restore
   language: (() => {
     const saved = localStorage.getItem('hkmodd-lang') as Language;
     if (saved) return saved;

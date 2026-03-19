@@ -1,16 +1,16 @@
 import { motion } from 'motion/react';
-import { Github, Linkedin, Mail, Heart } from 'lucide-react';
+import { Github, Linkedin, Mail, Heart, Send } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
 
 const socials = [
   { icon: Github, href: 'https://github.com/hkmodd', label: 'GitHub' },
   { icon: Linkedin, href: 'https://www.linkedin.com/in/gelmetti-sebastiano/', label: 'LinkedIn' },
-  { icon: Mail, href: 'mailto:seba.gelmetti@gmail.com', label: 'Email' },
+  { icon: Mail, href: 'mailto:sebastiano.gelmetti@gmail.com', label: 'Email' },
 ];
 
 export default function Footer() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const theme = useAppStore((s) => s.theme);
   const ctfSolved = useAppStore((s) => s.ctfSolved);
   const accent = theme === 'redteam' ? '#ff0033' : '#00d4ff';
@@ -21,6 +21,38 @@ export default function Footer() {
       <div className="footer-border-top" />
 
       <div className="max-w-6xl mx-auto px-6 py-12">
+        {/* Contact CTA for recruiters */}
+        <motion.div
+          className="text-center mb-10"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+        >
+          <p className="font-mono text-xs tracking-widest mb-3" style={{ color: 'var(--color-text-muted)' }}>
+            {language === 'it' ? 'INTERESSATO? PARLIAMONE.' : 'INTERESTED? LET\'S TALK.'}
+          </p>
+          <motion.a
+            href="mailto:sebastiano.gelmetti@gmail.com"
+            className="inline-flex items-center gap-2 px-6 py-3 font-mono text-sm font-bold tracking-wider rounded-lg transition-all duration-300"
+            style={{
+              border: `1px solid ${accent}60`,
+              color: accent,
+              background: `${accent}08`,
+            }}
+            whileHover={{
+              scale: 1.05,
+              borderColor: accent,
+              background: `${accent}15`,
+              boxShadow: `0 0 30px ${accent}20`,
+            }}
+            whileTap={{ scale: 0.97 }}
+          >
+            <Send size={14} />
+            {language === 'it' ? 'CONTATTAMI' : 'CONTACT ME'}
+          </motion.a>
+        </motion.div>
+
         <div className="flex flex-col md:flex-row items-center justify-between gap-8">
           {/* Left: branding */}
           <div className="text-center md:text-left">

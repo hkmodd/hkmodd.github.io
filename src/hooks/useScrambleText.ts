@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:<>?';
 
 /**
- * Produces a "scramble text" decryption effect — characters cycle through
+ * Produces a "scramble text" decryption effect - characters cycle through
  * random glyphs before settling on the final string. Returns the current
  * display text.
  */

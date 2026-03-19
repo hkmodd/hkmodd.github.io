@@ -143,7 +143,7 @@ export default function Identity() {
         <div className="h-[1px] mt-3 w-16" style={{ background: accent, opacity: 0.4 }} />
       </motion.div>
 
-      {/* Dossier grid — 2-col auto-fit, last card full-width */}
+      {/* Dossier grid - 2-col auto-fit, last card full-width */}
       <div
         className="relative z-10"
         style={{

@@ -52,7 +52,7 @@ function Particles() {
     const targetColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
     uniforms.uColor.value.lerp(new THREE.Color(targetColor), 0.05);
 
-    // Speed multiplier — burst during red team transition
+    // Speed multiplier - burst during red team transition
     const targetSpeed = transitioning ? 3.0 : 1.0;
     uniforms.uSpeedMult.value += (targetSpeed - uniforms.uSpeedMult.value) * 0.08;
 
