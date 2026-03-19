@@ -1,40 +1,22 @@
-import { useMemo, useRef, useCallback, useState, useEffect } from 'react';
+import { useMemo, useRef, useCallback, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useAppStore } from '@/store/useAppStore';
+import { useNeuralEngine, NODE_COUNT, MAX_CONNECTIONS, PULSE_COUNT } from '@/hooks/useNeuralEngine';
 import * as THREE from 'three';
 
 /* ═══════════════════════════════════════════════════════════════════
-   NEURAL MESH v2 - Deep, immersive, interactive cyber-topology
+   NEURAL MESH v3 — Rust WASM-powered simulation
+   GPU shaders stay, JS loops replaced with Rust for near-native perf
    ═════════════════════════════════════════════════════════════════ */
 
-// ── Performance tiers ──────────────────────────────────────────────
-const isMobile =
-  typeof window !== 'undefined' &&
-  (window.innerWidth <= 768 ||
-    ((navigator as { deviceMemory?: number }).deviceMemory ?? 8) < 4);
-
-const NODE_COUNT = isMobile ? 150 : 700;
-const MAX_CONNECTIONS = isMobile ? 350 : 2000;
-const CONNECTION_DIST = isMobile ? 2.8 : 2.4;
-const PULSE_COUNT = isMobile ? 8 : 40;
-const FIELD_SIZE = isMobile ? 16 : 20;
-
-// ── Depth configuration - 3 discrete z-planes for parallax ────────
-const DEPTH_LAYERS = [
-  { z: -8, count: 0.25, scale: 0.5, opacity: 0.3 },  // far - dim, small
-  { z: -3, count: 0.45, scale: 0.8, opacity: 0.6 },  // mid - medium
-  { z: 2,  count: 0.30, scale: 1.2, opacity: 1.0 },  // near - bright, large
-];
+const FIELD_SIZE = 20;
 
 // ── Helpers ────────────────────────────────────────────────────────
 const tmpColor = new THREE.Color();
-const tmpVec3 = new THREE.Vector3();
-const tmpVec3b = new THREE.Vector3();
-const tmpMatrix = new THREE.Matrix4();
-const tmpObj = new THREE.Object3D();
+const tmpVec3  = new THREE.Vector3();
 
 // ═══════════════════════════════════════════════════════════════════
-//  NODE MESH - layered depth with glow + pointer repulsion
+//  NODE MESH - reads positions/opacities/sizes from WASM memory
 // ═══════════════════════════════════════════════════════════════════
 
 const nodeVertexShader = /* glsl */ `
@@ -78,122 +60,53 @@ const nodeFragmentShader = /* glsl */ `
   }
 `;
 
-function Nodes({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
-  const theme = useAppStore((s) => s.theme);
-  const transitioning = useAppStore((s) => s.redTeamTransitioning);
+function WasmNodes({ memory }: { memory: WebAssembly.Memory }) {
   const pointsRef = useRef<THREE.Points>(null!);
+  const engineHook = useNeuralEngine();
 
-  const nodeData = useMemo(() => {
-    const positions = new Float32Array(NODE_COUNT * 3);
-    const opacities = new Float32Array(NODE_COUNT);
-    const sizes = new Float32Array(NODE_COUNT);
-    const phases = new Float32Array(NODE_COUNT);
-    const speeds = new Float32Array(NODE_COUNT);
-    const layers = new Uint8Array(NODE_COUNT); // which depth layer
-
-    let idx = 0;
-    for (let l = 0; l < DEPTH_LAYERS.length; l++) {
-      const layer = DEPTH_LAYERS[l];
-      const layerCount = Math.floor(NODE_COUNT * layer.count);
-      for (let i = 0; i < layerCount && idx < NODE_COUNT; i++, idx++) {
-        positions[idx * 3] = (Math.random() - 0.5) * FIELD_SIZE;
-        positions[idx * 3 + 1] = (Math.random() - 0.5) * FIELD_SIZE;
-        positions[idx * 3 + 2] = layer.z + (Math.random() - 0.5) * 4;
-        opacities[idx] = layer.opacity;
-        sizes[idx] = layer.scale;
-        phases[idx] = Math.random() * Math.PI * 2;
-        speeds[idx] = 0.2 + Math.random() * 0.8;
-        layers[idx] = l;
-      }
-    }
-    // Fill remaining
-    while (idx < NODE_COUNT) {
-      positions[idx * 3] = (Math.random() - 0.5) * FIELD_SIZE;
-      positions[idx * 3 + 1] = (Math.random() - 0.5) * FIELD_SIZE;
-      positions[idx * 3 + 2] = (Math.random() - 0.5) * 10;
-      opacities[idx] = 0.5;
-      sizes[idx] = 0.7;
-      phases[idx] = Math.random() * Math.PI * 2;
-      speeds[idx] = 0.3 + Math.random() * 0.7;
-      layers[idx] = 1;
-      idx++;
-    }
-
-    return { positions, opacities, sizes, phases, speeds, layers };
+  const { posAttr, opacAttr, sizeAttr } = useMemo(() => {
+    const posArr = new Float32Array(NODE_COUNT * 3);
+    const opacArr = new Float32Array(NODE_COUNT);
+    const sizeArr = new Float32Array(NODE_COUNT);
+    const posAttr = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
+    const opacAttr = new THREE.BufferAttribute(opacArr, 1).setUsage(THREE.DynamicDrawUsage);
+    const sizeAttr = new THREE.BufferAttribute(sizeArr, 1).setUsage(THREE.DynamicDrawUsage);
+    return { posAttr, opacAttr, sizeAttr };
   }, []);
-
-  // Working copy of positions (mutated each frame)
-  const livePositions = useMemo(() => new Float32Array(nodeData.positions), [nodeData]);
-  const liveOpacities = useMemo(() => new Float32Array(nodeData.opacities), [nodeData]);
-  const liveSizes = useMemo(() => new Float32Array(nodeData.sizes), [nodeData]);
-
-  const colorRef = useRef(new THREE.Color('#00d4ff'));
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(livePositions, 3).setUsage(THREE.DynamicDrawUsage));
-    g.setAttribute('aOpacity', new THREE.BufferAttribute(liveOpacities, 1).setUsage(THREE.DynamicDrawUsage));
-    g.setAttribute('aSize', new THREE.BufferAttribute(liveSizes, 1).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('position', posAttr);
+    g.setAttribute('aOpacity', opacAttr);
+    g.setAttribute('aSize', sizeAttr);
     return g;
-  }, [livePositions, liveOpacities, liveSizes]);
+  }, [posAttr, opacAttr, sizeAttr]);
 
   const uniforms = useMemo(() => ({
     uColor: { value: new THREE.Color('#00d4ff') },
   }), []);
 
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    const pts = pointsRef.current;
-    if (!pts) return;
+  useFrame(() => {
+    const engine = engineHook.engine;
+    if (!engine || !memory) return;
 
-    const targetColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
-    colorRef.current.lerp(tmpColor.set(targetColor), 0.04);
-    uniforms.uColor.value.copy(colorRef.current);
+    // Read directly from WASM memory — zero-copy
+    const wasmBuf = memory.buffer;
+    const posView = new Float32Array(wasmBuf, engine.positions_ptr(), engine.positions_len());
+    const opacView = new Float32Array(wasmBuf, engine.opacities_ptr(), engine.opacities_len());
+    const sizeView = new Float32Array(wasmBuf, engine.sizes_ptr(), engine.sizes_len());
 
-    const pointer = pointerRef.current;
-    const speedBurst = transitioning ? 4.0 : 1.0;
+    // Copy into Three.js attributes
+    (posAttr.array as Float32Array).set(posView);
+    (opacAttr.array as Float32Array).set(opacView);
+    (sizeAttr.array as Float32Array).set(sizeView);
 
-    // Breathing rhythm - slow global pulse
-    const breathe = Math.sin(t * 0.4) * 0.15;
+    posAttr.needsUpdate = true;
+    opacAttr.needsUpdate = true;
+    sizeAttr.needsUpdate = true;
 
-    for (let i = 0; i < NODE_COUNT; i++) {
-      const i3 = i * 3;
-      const baseX = nodeData.positions[i3];
-      const baseY = nodeData.positions[i3 + 1];
-      const baseZ = nodeData.positions[i3 + 2];
-      const phase = nodeData.phases[i];
-      const speed = nodeData.speeds[i];
-
-      // Lissajous drift + breathing
-      let x = baseX + Math.sin(t * 0.15 * speed + phase) * 0.5 * speedBurst;
-      let y = baseY + Math.cos(t * 0.12 * speed + phase * 1.3) * 0.5 * speedBurst;
-      let z = baseZ + Math.sin(t * 0.1 * speed + phase * 0.7) * 0.3 + breathe;
-
-      // ── Pointer repulsion (interactive!) ──
-      tmpVec3.set(x, y, z);
-      const dist = tmpVec3.distanceTo(pointer);
-      if (dist < 3.5) {
-        const force = Math.pow(1 - dist / 3.5, 2) * 1.8;
-        const dir = tmpVec3.sub(pointer).normalize().multiplyScalar(force);
-        x += dir.x;
-        y += dir.y;
-        z += dir.z * 0.3; // less z-push
-      }
-
-      livePositions[i3] = x;
-      livePositions[i3 + 1] = y;
-      livePositions[i3 + 2] = z;
-
-      // Proximity brightness boost
-      const pDist = tmpVec3b.set(x, y, z).distanceTo(pointer);
-      const proximity = Math.max(0, 1 - pDist / 5);
-      liveOpacities[i] = nodeData.opacities[i] + proximity * 0.5;
-      liveSizes[i] = nodeData.sizes[i] * (1 + proximity * 0.6);
-    }
-
-    geometry.attributes.position.needsUpdate = true;
-    (geometry.attributes.aOpacity as THREE.BufferAttribute).needsUpdate = true;
-    (geometry.attributes.aSize as THREE.BufferAttribute).needsUpdate = true;
+    // Sync color
+    uniforms.uColor.value.setRGB(engine.color_r(), engine.color_g(), engine.color_b());
   });
 
   return (
@@ -211,101 +124,20 @@ function Nodes({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  CONNECTION LINES - depth-faded, pointer-reactive
+//  CONNECTION LINES - reads WASM conn buffers
 // ═══════════════════════════════════════════════════════════════════
 
-function Connections({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
-  const theme = useAppStore((s) => s.theme);
-  const transitioning = useAppStore((s) => s.redTeamTransitioning);
+function WasmConnections({ memory }: { memory: WebAssembly.Memory }) {
   const linesRef = useRef<THREE.LineSegments>(null!);
+  const engineHook = useNeuralEngine();
 
   const { posAttr, colAttr } = useMemo(() => {
     const posArr = new Float32Array(MAX_CONNECTIONS * 6);
     const colArr = new Float32Array(MAX_CONNECTIONS * 6);
-    const posAttr = new THREE.BufferAttribute(posArr, 3);
-    const colAttr = new THREE.BufferAttribute(colArr, 3);
-    posAttr.setUsage(THREE.DynamicDrawUsage);
-    colAttr.setUsage(THREE.DynamicDrawUsage);
+    const posAttr = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
+    const colAttr = new THREE.BufferAttribute(colArr, 3).setUsage(THREE.DynamicDrawUsage);
     return { posAttr, colAttr };
   }, []);
-
-  const colorRef = useRef(new THREE.Color('#00d4ff'));
-
-  useFrame(() => {
-    const lines = linesRef.current;
-    if (!lines) return;
-
-    const targetColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
-    colorRef.current.lerp(tmpColor.set(targetColor), 0.04);
-
-    // Read live node positions from sibling Points geometry
-    const parent = lines.parent;
-    if (!parent) return;
-    const pointsMesh = parent.children.find(
-      (c) => (c as THREE.Points).isPoints
-    ) as THREE.Points | undefined;
-    if (!pointsMesh) return;
-
-    const nodePos = (pointsMesh.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
-    const posArr = posAttr.array as Float32Array;
-    const colArr = colAttr.array as Float32Array;
-    const pointer = pointerRef.current;
-
-    let lineIdx = 0;
-    const connDist = CONNECTION_DIST;
-    const stride = isMobile ? 5 : 1; // skip 4/5 nodes on mobile → O(n²/25)
-
-    for (let i = 0; i < NODE_COUNT && lineIdx < MAX_CONNECTIONS; i += stride) {
-      const ax = nodePos[i * 3], ay = nodePos[i * 3 + 1], az = nodePos[i * 3 + 2];
-      for (let j = i + 1; j < NODE_COUNT && lineIdx < MAX_CONNECTIONS; j++) {
-        const bx = nodePos[j * 3], by = nodePos[j * 3 + 1], bz = nodePos[j * 3 + 2];
-        // ── Spatial early-exit: skip if ANY axis delta exceeds threshold ──
-        const dx = ax - bx;
-        if (dx > connDist || dx < -connDist) continue;
-        const dy = ay - by;
-        if (dy > connDist || dy < -connDist) continue;
-        const dz = az - bz;
-        if (dz > connDist || dz < -connDist) continue;
-        const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-        if (d < CONNECTION_DIST) {
-          const alpha = 1 - d / CONNECTION_DIST;
-          const midX = (ax + bx) / 2, midY = (ay + by) / 2;
-          const pDist = Math.sqrt((midX - pointer.x) ** 2 + (midY - pointer.y) ** 2);
-          const proximity = Math.max(0, 1 - pDist / 4);
-
-          // Near pointer → lines glow bright (interactive pulse)
-          const brightness = (alpha * 0.25 + proximity * 0.8) * (transitioning ? 2 : 1);
-
-          // Depth fog for connections
-          const avgZ = (az + bz) / 2;
-          const depthFog = THREE.MathUtils.smoothstep(avgZ, -10, 4);
-
-          const finalBright = brightness * (0.3 + depthFog * 0.7);
-
-          const i6 = lineIdx * 6;
-          posArr[i6] = ax; posArr[i6 + 1] = ay; posArr[i6 + 2] = az;
-          posArr[i6 + 3] = bx; posArr[i6 + 4] = by; posArr[i6 + 5] = bz;
-
-          const r = colorRef.current.r * finalBright;
-          const g = colorRef.current.g * finalBright;
-          const bl = colorRef.current.b * finalBright;
-          colArr[i6] = r; colArr[i6 + 1] = g; colArr[i6 + 2] = bl;
-          colArr[i6 + 3] = r; colArr[i6 + 4] = g; colArr[i6 + 5] = bl;
-
-          lineIdx++;
-        }
-      }
-    }
-
-    for (let i = lineIdx * 6; i < MAX_CONNECTIONS * 6; i++) {
-      posArr[i] = 0; colArr[i] = 0;
-    }
-
-    posAttr.needsUpdate = true;
-    colAttr.needsUpdate = true;
-    lines.geometry.setDrawRange(0, lineIdx * 2);
-  });
 
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -313,6 +145,23 @@ function Connections({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.
     g.setAttribute('color', colAttr);
     return g;
   }, [posAttr, colAttr]);
+
+  useFrame(() => {
+    const engine = engineHook.engine;
+    if (!engine || !memory) return;
+
+    const wasmBuf = memory.buffer;
+    const posView = new Float32Array(wasmBuf, engine.conn_positions_ptr(), engine.conn_positions_len());
+    const colView = new Float32Array(wasmBuf, engine.conn_colors_ptr(), engine.conn_colors_len());
+    const count = engine.conn_count();
+
+    (posAttr.array as Float32Array).set(posView);
+    (colAttr.array as Float32Array).set(colView);
+
+    posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
+    geometry.setDrawRange(0, count * 2);
+  });
 
   return (
     <lineSegments ref={linesRef} geometry={geometry} frustumCulled={false}>
@@ -328,91 +177,48 @@ function Connections({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  PULSE PARTICLES - data packets traversing the network
+//  PULSE PARTICLES - instanced spheres from WASM matrices
 // ═══════════════════════════════════════════════════════════════════
 
-function Pulses({ pointerRef: _pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
-  const theme = useAppStore((s) => s.theme);
+function WasmPulses({ memory }: { memory: WebAssembly.Memory }) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
-
-  const pulseData = useMemo(() => {
-    const data = [];
-    for (let i = 0; i < PULSE_COUNT; i++) {
-      data.push({
-        fromIdx: Math.floor(Math.random() * NODE_COUNT),
-        toIdx: Math.floor(Math.random() * NODE_COUNT),
-        progress: Math.random(),
-        speed: 0.15 + Math.random() * 0.5,
-      });
-    }
-    return data;
-  }, []);
-
-  const colorRef = useRef(new THREE.Color('#00d4ff'));
-
-  useFrame((_state, delta) => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-
-    const targetColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
-    colorRef.current.lerp(tmpColor.set(targetColor), 0.04);
-
-    // Read node positions from sibling Points
-    const parent = mesh.parent;
-    if (!parent) return;
-    const pointsMesh = parent.children.find(
-      (c) => (c as THREE.Points).isPoints
-    ) as THREE.Points | undefined;
-    if (!pointsMesh) return;
-
-    const nodePos = (pointsMesh.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
-
-    for (let i = 0; i < PULSE_COUNT; i++) {
-      const pulse = pulseData[i];
-      pulse.progress += delta * pulse.speed;
-
-      if (pulse.progress >= 1) {
-        pulse.fromIdx = pulse.toIdx;
-        pulse.toIdx = Math.floor(Math.random() * NODE_COUNT);
-        pulse.progress = 0;
-        pulse.speed = 0.15 + Math.random() * 0.5;
-      }
-
-      const fi = pulse.fromIdx * 3, ti = pulse.toIdx * 3;
-      const fx = nodePos[fi], fy = nodePos[fi + 1], fz = nodePos[fi + 2];
-      const tx = nodePos[ti], ty = nodePos[ti + 1], tz = nodePos[ti + 2];
-      const p = pulse.progress;
-
-      tmpObj.position.set(
-        fx + (tx - fx) * p,
-        fy + (ty - fy) * p,
-        fz + (tz - fz) * p + Math.sin(p * Math.PI) * 0.4,
-      );
-
-      const s = 0.6 + Math.sin(p * Math.PI) * 0.6;
-      tmpObj.scale.setScalar(s);
-      tmpObj.updateMatrix();
-      mesh.setMatrixAt(i, tmpObj.matrix);
-
-      tmpColor.copy(colorRef.current).multiplyScalar(2.0);
-      mesh.setColorAt(i, tmpColor);
-    }
-
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  });
+  const engineHook = useNeuralEngine();
 
   const geo = useMemo(() => new THREE.SphereGeometry(0.04, 3, 3), []);
   const mat = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        toneMapped: false,
-        transparent: true,
-        opacity: 1,
-        blending: THREE.AdditiveBlending,
-      }),
+    () => new THREE.MeshBasicMaterial({
+      toneMapped: false,
+      transparent: true,
+      opacity: 1,
+      blending: THREE.AdditiveBlending,
+    }),
     []
   );
+
+  useFrame(() => {
+    const engine = engineHook.engine;
+    const mesh = meshRef.current;
+    if (!engine || !mesh || !memory) return;
+
+    const wasmBuf = memory.buffer;
+    const matrices = new Float32Array(wasmBuf, engine.pulse_matrices_ptr(), engine.pulse_matrices_len());
+
+    // Write matrices directly into instanceMatrix.array
+    const instanceArr = mesh.instanceMatrix.array as Float32Array;
+    instanceArr.set(matrices);
+    mesh.instanceMatrix.needsUpdate = true;
+
+    // Set pulse colors from engine color
+    tmpColor.setRGB(
+      engine.color_r() * 2.0,
+      engine.color_g() * 2.0,
+      engine.color_b() * 2.0,
+    );
+    for (let i = 0; i < PULSE_COUNT; i++) {
+      mesh.setColorAt(i, tmpColor);
+    }
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  });
 
   return (
     <instancedMesh ref={meshRef} args={[geo, mat, PULSE_COUNT]} frustumCulled={false} />
@@ -420,7 +226,7 @@ function Pulses({ pointerRef: _pointerRef }: { pointerRef: React.MutableRefObjec
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  PERSPECTIVE GRID - reactive cyber-floor with pointer warping
+//  PERSPECTIVE GRID - shader-based (stays as-is, already GPU)
 // ═══════════════════════════════════════════════════════════════════
 
 const gridVertexShader = /* glsl */ `
@@ -487,12 +293,8 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
     shaderRef.current.uniforms.uColor.value.copy(colorRef.current);
     shaderRef.current.uniforms.uTime.value = clock.getElapsedTime();
 
-    // Map 3D pointer to grid UV space (approximate)
     const p = pointerRef.current;
-    shaderRef.current.uniforms.uPointer.value.set(
-      p.x / 60,  // grid is 60 units wide
-      p.y / 60
-    );
+    shaderRef.current.uniforms.uPointer.value.set(p.x / 60, p.y / 60);
   });
 
   const uniforms = useMemo(
@@ -506,7 +308,7 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
 
   return (
     <mesh rotation={[-Math.PI / 2.2, 0, 0]} position={[0, -6, -3]}>
-      <planeGeometry args={[60, 60, isMobile ? 16 : 32, isMobile ? 16 : 32]} />
+      <planeGeometry args={[60, 60, 32, 32]} />
       <shaderMaterial
         ref={shaderRef}
         transparent
@@ -522,7 +324,7 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  VOLUMETRIC FOG PLANES - depth atmosphere layers
+//  VOLUMETRIC FOG PLANE
 // ═══════════════════════════════════════════════════════════════════
 
 function DepthFog() {
@@ -552,13 +354,15 @@ function DepthFog() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SCENE - orchestrates all + pointer + scroll parallax
+//  SCENE - orchestrates WASM tick + Three.js rendering
 // ═══════════════════════════════════════════════════════════════════
 
 function NeuralMeshScene() {
   const pointerRef = useRef(new THREE.Vector3(999, 999, 0));
   const groupRef = useRef<THREE.Group>(null!);
-  const { viewport: _viewport } = useThree();
+  const { engine, memory, isReady } = useNeuralEngine();
+  const theme = useAppStore((s) => s.theme);
+  const transitioning = useAppStore((s) => s.redTeamTransitioning);
 
   const handlePointerMove = useCallback(
     (e: THREE.Event & { point: THREE.Vector3 }) => {
@@ -567,24 +371,41 @@ function NeuralMeshScene() {
     []
   );
 
-  // Slow rotation only (no scroll parallax - Hero is fixed, bg must stay in sync)
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const group = groupRef.current;
     if (!group) return;
+
+    // Slow rotation
     const t = clock.getElapsedTime();
     group.rotation.y = t * 0.015;
     group.rotation.x = Math.sin(t * 0.04) * 0.04;
+
+    // ── WASM tick — all per-frame math runs here ──
+    if (engine) {
+      // Compute target color
+      const targetColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+      tmpColor.set(targetColor);
+
+      engine.tick(
+        delta,
+        pointerRef.current.x,
+        pointerRef.current.y,
+        pointerRef.current.z,
+        tmpColor.r,
+        tmpColor.g,
+        tmpColor.b,
+        transitioning,
+      );
+    }
   });
 
   return (
     <>
-      {/* Invisible hit-test plane for pointer tracking - desktop only */}
-      {!isMobile && (
-        <mesh visible={false} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
-          <planeGeometry args={[100, 100]} />
-          <meshBasicMaterial />
-        </mesh>
-      )}
+      {/* Invisible hit-test plane for pointer tracking */}
+      <mesh visible={false} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
+        <planeGeometry args={[100, 100]} />
+        <meshBasicMaterial />
+      </mesh>
 
       {/* Deep background fog plane */}
       <DepthFog />
@@ -594,9 +415,13 @@ function NeuralMeshScene() {
 
       {/* Neural network group with parallax */}
       <group ref={groupRef}>
-        <Nodes pointerRef={pointerRef} />
-        <Connections pointerRef={pointerRef} />
-        <Pulses pointerRef={pointerRef} />
+        {isReady && memory && (
+          <>
+            <WasmNodes memory={memory} />
+            <WasmConnections memory={memory} />
+            <WasmPulses memory={memory} />
+          </>
+        )}
       </group>
     </>
   );
@@ -609,8 +434,7 @@ function NeuralMeshScene() {
 export default function NeuralMesh() {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // ── Scroll-synced fade - passive scroll listener (not continuous rAF) ──
-  // Only runs when scroll actually changes → saves battery on mobile
+  // ── Scroll-synced fade ──
   useEffect(() => {
     let rafId = 0;
     let ticking = false;
@@ -638,7 +462,6 @@ export default function NeuralMesh() {
       }
     };
 
-    // Initial apply
     applyScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
@@ -654,16 +477,16 @@ export default function NeuralMesh() {
     >
       <Canvas
         camera={{
-          position: [0, 0, isMobile ? 12 : 10],
-          fov: isMobile ? 65 : 55,
+          position: [0, 0, 10],
+          fov: 55,
           near: 0.1,
           far: 50,
         }}
-        dpr={isMobile ? [1, 1] : [1, 1.5]}
+        dpr={[1, 1.5]}
         gl={{
           antialias: true,
           alpha: true,
-          powerPreference: isMobile ? 'low-power' : 'high-performance',
+          powerPreference: 'high-performance',
           stencil: false,
           depth: true,
         }}
@@ -675,4 +498,3 @@ export default function NeuralMesh() {
     </div>
   );
 }
-

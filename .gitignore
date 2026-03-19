@@ -18,3 +18,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Rust / WASM
+wasm/target/
+src/wasm/pkg/

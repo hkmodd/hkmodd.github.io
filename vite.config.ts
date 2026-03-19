@@ -4,6 +4,8 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
+import wasm from 'vite-plugin-wasm';
+import topLevelAwait from 'vite-plugin-top-level-await';
 
 /** Generates version.json in the build output for cache-busting. */
 function versionJson(): Plugin {
@@ -26,7 +28,7 @@ function versionJson(): Plugin {
 export default defineConfig(() => {
   return {
     base: '/',
-    plugins: [react(), tailwindcss(), versionJson()],
+    plugins: [wasm(), topLevelAwait(), react(), tailwindcss(), versionJson()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),
@@ -35,6 +37,10 @@ export default defineConfig(() => {
     build: {
       outDir: 'dist',
       sourcemap: false,
+      target: 'esnext',
+    },
+    optimizeDeps: {
+      exclude: ['neural-engine'],
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
