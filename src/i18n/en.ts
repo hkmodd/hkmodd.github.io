@@ -103,7 +103,7 @@ const en: Translations = {
     title: 'Security Researcher & Systems Engineer',
     bio: '',
     scroll: 'Scroll to explore',
-    status: 'AVAILABLE FOR HIRE',
+    status: 'OPEN TO OPPORTUNITIES',
     github: '⟨/⟩ GitHub',
     linkedin: 'in LinkedIn',
     cv: '↓ CV',
@@ -157,15 +157,15 @@ const en: Translations = {
       {
         title: 'INSTAFollows-Ult.',
         tags: 'RUST + TAURI',
-        description: 'Elite OSINT & Surveillance Tool. Stealth surveillance, traitor detection & mass management with 100% local privacy architecture.',
-        linkLabel: 'View Surveillance →',
+        description: 'Privacy-first social media analytics and monitoring tool. Follower tracking, change detection & bulk management — all data processed locally, nothing leaves the device.',
+        linkLabel: 'View Project →',
         url: 'https://github.com/hkmodd/INSTAFollows-Ultimate',
         status: 'BETA',
       },
       {
         title: 'INSTASTREAM-Ult.',
         tags: 'RUST + RTMP',
-        description: 'Next-gen Instagram Live broadcast tool. Secure cookies.json auth, auto-key negotiation, and cyberpunk glassmorphism UI.',
+        description: 'Next-gen Instagram Live broadcast tool. Secure token-based authentication, automatic key negotiation, and modern dark-theme interface.',
         linkLabel: 'View Broadcast →',
         url: 'https://github.com/hkmodd/INSTASTREAM-Ultimate',
         status: 'BETA',
@@ -174,49 +174,49 @@ const en: Translations = {
   },
 
   identity: {
-    title: 'Identity Record',
+    title: 'Professional Profile',
     cards: [
       {
-        header: 'ROOT ACCESS // ORIGIN',
+        header: 'BACKGROUND // ORIGIN',
         title: 'Security-First Since Day One',
-        body: "Tinkering since age 12: disassembling firmware, bypassing hardware protections (Xbox/XGD3), understanding <em>how and why</em> things break. 12+ years of hands-on curiosity shaped a mindset obsessed with <strong>protection</strong>. I understand how systems fail so I can make sure they don't. I'm the person who locks the door <em>and</em> checks the hinges.",
+        body: "Exploring security since age 12: analyzing firmware, studying hardware protection mechanisms, understanding <em>how and why</em> systems fail. 12+ years of hands-on experience built a professional approach rooted in <strong>defense</strong>. I study vulnerabilities to prevent them — not to exploit them.",
       },
       {
-        header: 'PROTOCOL // EVOLUTION',
+        header: 'TRAINING // CERTIFICATIONS',
         title: 'Cybersecurity Specialist',
-        body: 'Formalized in <strong>2024</strong> with <strong>Epicode (+600h)</strong> Cybersecurity Specialist certification. From Penetration Testing to Linux/Windows hardening, OWASP Top 10 mitigation, and Python automation. Then accelerated with AI-augmented workflows, building tools that multiply defensive capabilities. <strong>Direction + AI = anything is buildable.</strong>',
+        body: 'Formalized in <strong>2024</strong> with <strong>Epicode (+600h)</strong> Cybersecurity Specialist certification. Core competencies in Penetration Testing, Linux/Windows hardening, OWASP Top 10 mitigation, and Python automation. Integrating AI-augmented workflows to accelerate analysis and development, building tools that <strong>multiply defensive capabilities</strong>.',
       },
       {
-        header: 'HUMAN INTEL // LEADERSHIP',
-        title: 'Operational Integrity',
-        body: '3+ years of Team Management in high-pressure environments (Hospitality Management). I coordinate resources under stress, make critical decisions in real-time, and maintain operational integrity. The kind of person you trust with production access: <strong>reliable, composed, accountable.</strong>',
+        header: 'LEADERSHIP // EXPERIENCE',
+        title: 'Operational Reliability',
+        body: '3+ years of team management in high-pressure environments (Hospitality Management). Proven track record in resource coordination, rapid decision-making under stress, and maintaining operational integrity. Professional profile: <strong>reliable, methodical, results-driven.</strong>',
       },
     ],
   },
 
   aiIntel: {
     title: 'AI Intelligence',
-    subtitle: 'I don\'t just use AI. I engineer with it. Deep familiarity with models, toolchains, and developer-grade AI workflows.',
+    subtitle: 'Deep, hands-on experience integrating AI tooling into development workflows. Professional familiarity with models, toolchains, and enterprise-grade AI pipelines.',
     cards: [
       {
         header: 'TOOLCHAIN // MASTERY',
         title: 'AI-Augmented Development',
-        body: 'Daily power user of <strong>Antigravity (Gemini)</strong>, <strong>Cursor (Claude/GPT)</strong>, and <strong>GitHub Copilot</strong>. I use AI agents as pair-programming partners, not chatbots. I engineer custom prompts, system instructions, and multi-agent pipelines for complex codebases.',
+        body: 'Advanced daily use of <strong>Antigravity (Gemini)</strong>, <strong>Cursor (Claude/GPT)</strong>, and <strong>GitHub Copilot</strong>. I integrate AI agents as pair-programming tools, not chatbots. I engineer custom prompts, system instructions, and multi-agent pipelines for complex codebases.',
       },
       {
         header: 'MODELS // KNOWLEDGE',
         title: 'Closed & Open Source Models',
-        body: 'Deep knowledge of <strong>GPT-4o, Claude 3.5/4, Gemini 2.5 Pro</strong> (closed) and <strong>LLaMA 3, Mistral, DeepSeek, Qwen</strong> (open). I understand context windows, tokenization, fine-tuning, RAG architectures, and when to use which model for which task.',
+        body: 'Deep knowledge of <strong>GPT-4o, Claude 3.5/4, Gemini 2.5 Pro</strong> (closed) and <strong>LLaMA 3, Mistral, DeepSeek, Qwen</strong> (open). I understand context windows, tokenization, fine-tuning, RAG architectures, and how to select the right model for each use case.',
       },
       {
         header: 'WORKFLOW // INTEGRATION',
-        title: 'Developer, Not Just User',
+        title: 'Builder, Not Just User',
         body: 'I build <strong>Rust + Tauri tools</strong> that convert entire codebases into LLM context (Projects-TO-LLMs). I design AI-augmented development workflows: automated code review, intelligent refactoring, security scanning with AI-driven triage. The difference between <em>using</em> AI and <em>engineering</em> with it.',
       },
       {
         header: 'SECURITY // AI',
         title: 'AI in Cybersecurity',
-        body: 'Applying AI to <strong>threat detection</strong>, log analysis, and anomaly hunting. Using LLMs to accelerate incident response, automate OSINT, and generate detection rules. Understanding both the <strong>offensive potential</strong> and defensive applications of AI in security operations.',
+        body: 'Applying AI to <strong>threat detection</strong>, log analysis, and anomaly detection. Using LLMs to accelerate incident response, automate OSINT workflows, and generate detection rules. Understanding both the <strong>offensive potential</strong> and defensive applications of AI in security operations.',
       },
     ],
   },
@@ -232,7 +232,7 @@ const en: Translations = {
     hero: 'Home',
     arsenal: 'Arsenal',
     operations: 'Operations',
-    identity: 'Identity',
+    identity: 'Profile',
     terminal: 'Terminal',
   },
 
