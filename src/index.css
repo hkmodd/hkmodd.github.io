@@ -1761,6 +1761,8 @@ html.cyber-cursor-active * {
 [data-theme="redteam"] .back-to-top {
   border-color: rgba(255, 0, 51, 0.25);
   color: #ff0033;
+  /* Shift up to avoid overlap with .reset-button */
+  bottom: calc(2rem + 48px);
 }
 
 [data-theme="redteam"] .back-to-top:hover {
