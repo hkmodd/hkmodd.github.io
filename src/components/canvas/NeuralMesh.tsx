@@ -458,12 +458,11 @@ function NeuralMeshScene() {
     []
   );
 
-  useFrame(({ clock, invalidate }, delta) => {
-    // ── Skip all work when canvas is scrolled off-screen ──
+  useFrame(({ clock }, delta) => {
+    // ── Skip expensive work when canvas is scrolled off-screen ──
+    // The frame loop still runs (near-zero cost) so there's no visible
+    // "freeze" when scrolling back up — the first visible frame renders instantly.
     if (!_canvasVisible) return;
-
-    // Request next frame (demand mode)
-    invalidate();
 
     const group = groupRef.current;
     if (!group) return;
@@ -597,7 +596,7 @@ export default function NeuralMesh() {
           depth: true,
         }}
         style={{ background: canvasBg, pointerEvents: 'auto' }}
-        frameloop="demand"
+        frameloop="always"
       >
         <NeuralMeshScene />
       </Canvas>
