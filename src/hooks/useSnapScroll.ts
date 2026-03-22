@@ -158,10 +158,16 @@ export function useSnapScroll() {
     };
 
     // Passive resync: when user scrolls normally (e.g. scrollbar drag),
-    // update the index after the snap lock expires
+    // update the index after the snap lock expires.
+    // Throttled with rAF to avoid DOM queries on every scroll event.
+    let scrollTicking = false;
     const handleScroll = () => {
-      if (!snapLock.current) {
-        syncIndex(getTargets());
+      if (!snapLock.current && !scrollTicking) {
+        scrollTicking = true;
+        requestAnimationFrame(() => {
+          syncIndex(getTargets());
+          scrollTicking = false;
+        });
       }
     };
 

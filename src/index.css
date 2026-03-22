@@ -44,7 +44,8 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  /* scroll-behavior: smooth — REMOVED: JS scrollIntoView({behavior:'smooth'})
+     is the sole smooth-scroll mechanism. Having both causes double-interpolation jank. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: auto;        /* enable iOS elastic bounce */

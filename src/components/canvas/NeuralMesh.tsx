@@ -12,6 +12,10 @@ import * as THREE from 'three';
 
 const FIELD_SIZE = 20;
 
+// ── Module-level visibility flag (no React re-renders) ─────────────
+// Written by the outer NeuralMesh scroll handler, read by NeuralMeshScene.
+let _canvasVisible = true;
+
 // ── Helpers ────────────────────────────────────────────────────────
 const tmpColor = new THREE.Color();
 const tmpVec3  = new THREE.Vector3();
@@ -454,7 +458,13 @@ function NeuralMeshScene() {
     []
   );
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock, invalidate }, delta) => {
+    // ── Skip all work when canvas is scrolled off-screen ──
+    if (!_canvasVisible) return;
+
+    // Request next frame (demand mode)
+    invalidate();
+
     const group = groupRef.current;
     if (!group) return;
 
@@ -536,6 +546,9 @@ export default function NeuralMesh() {
 
       el.style.opacity = String(Math.max(opacity, 0));
       el.style.transform = `translateY(${yShift}px)`;
+
+      // Update module-level visibility flag for NeuralMeshScene
+      _canvasVisible = opacity > 0.01;
       ticking = false;
     };
 
@@ -584,7 +597,7 @@ export default function NeuralMesh() {
           depth: true,
         }}
         style={{ background: canvasBg, pointerEvents: 'auto' }}
-        frameloop="always"
+        frameloop="demand"
       >
         <NeuralMeshScene />
       </Canvas>

@@ -68,6 +68,12 @@ export default function Hero() {
     const duration = 6000; // 6s full cycle
 
     const tick = (now: number) => {
+      // Skip animation when Hero is scrolled out of view
+      if (window.scrollY > window.innerHeight * 1.2) {
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
       const el = gradientRef.current;
       if (el) {
         // Read theme from store each frame — avoids stale closure on theme switch

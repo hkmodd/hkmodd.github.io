@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
@@ -8,12 +8,24 @@ import { motion, AnimatePresence } from 'framer-motion';
  */
 export default function BackToTop() {
   const [visible, setVisible] = useState(false);
+  const tickingRef = useRef(false);
 
   useEffect(() => {
-    const check = () => setVisible(window.scrollY > window.innerHeight * 0.8);
-    window.addEventListener('scroll', check, { passive: true });
+    const check = () => {
+      const shouldShow = window.scrollY > window.innerHeight * 0.8;
+      // Only setState when value actually changes (avoids unnecessary re-renders)
+      setVisible((prev) => (prev === shouldShow ? prev : shouldShow));
+      tickingRef.current = false;
+    };
+    const onScroll = () => {
+      if (!tickingRef.current) {
+        requestAnimationFrame(check);
+        tickingRef.current = true;
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
     check();
-    return () => window.removeEventListener('scroll', check);
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   const goTop = () => {
