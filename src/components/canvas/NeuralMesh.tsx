@@ -139,8 +139,8 @@ function WasmNodes({ engine, memory }: WasmChildProps) {
     if (mat) {
       mat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
     }
-    // Ghost mode: barely-there hint of particles
-    uniforms.uBoost.value = theme === 'light' ? 0.8 : 1.0;
+    // Light mode: very subtle particles — avoid grey wash on white
+    uniforms.uBoost.value = theme === 'light' ? 0.35 : 1.0;
     uniforms.uMinAlpha.value = 0.0;
   });
 
@@ -269,8 +269,8 @@ function WasmPulses({ engine, memory }: WasmChildProps) {
     const g = engine.color_g();
     const b = engine.color_b();
     const theme = useAppStore.getState().theme;
-    // Ghost mode: dimmer pulse orbs on light background
-    const cMul = theme === 'light' ? 0.15 : 2.0;
+    // Light mode: nearly invisible pulse orbs to keep white clean
+    const cMul = theme === 'light' ? 0.08 : 2.0;
     const colorKey = `${(r * 100) | 0},${(g * 100) | 0},${(b * 100) | 0},${theme}`;
     if (colorKey !== prevColorKey.current) {
       prevColorKey.current = colorKey;
@@ -283,7 +283,7 @@ function WasmPulses({ engine, memory }: WasmChildProps) {
 
     // Switch blending for light theme visibility
     mat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
-    mat.opacity = theme === 'light' ? 0.06 : 1.0;
+    mat.opacity = theme === 'light' ? 0.03 : 1.0;
   });
 
   return (
@@ -540,7 +540,11 @@ export default function NeuralMesh() {
       const vh = window.innerHeight;
       const progress = Math.min(scrollY / vh, 1);
       const t = Math.min(progress / 0.7, 1);
-      const opacity = 0.8 * (1 - t);
+      // Light mode: hide canvas entirely — white bg must stay pristine
+      // NOTE: data-theme is on .app-root div, not <html>. Use store state.
+      const isLightTheme = useAppStore.getState().theme === 'light';
+      const baseOpacity = isLightTheme ? 0 : 0.8;
+      const opacity = baseOpacity * (1 - t);
       const yShift = t * -120;
 
       el.style.opacity = String(Math.max(opacity, 0));
@@ -560,9 +564,16 @@ export default function NeuralMesh() {
 
     applyScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Re-apply opacity when theme changes (store subscription)
+    const unsub = useAppStore.subscribe(
+      () => requestAnimationFrame(applyScroll),
+    );
+
     return () => {
       window.removeEventListener('scroll', onScroll);
       cancelAnimationFrame(rafId);
+      unsub();
     };
   }, []);
 

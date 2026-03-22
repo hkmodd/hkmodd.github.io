@@ -1353,11 +1353,9 @@ html.cyber-cursor-active * {
 }
 
 /* ── Light: body + app root ────────────────────────────────────── */
-/* Keep body transparent so the NeuralMesh canvas (fixed, z-0) is
-   visible behind the Hero section.  .main-content provides the
-   solid light background for every section BELOW the hero.        */
+/* Canvas is hidden in light mode — app-root provides the white bg */
 [data-theme="light"] .app-root {
-  background: transparent;
+  background: #ffffff;
   color: var(--color-text);
 }
 
@@ -1376,10 +1374,9 @@ html.cyber-cursor-active * {
 }
 
 /* ── Light: hero section ───────────────────────────────────────── */
-/* Hero must be transparent so the NeuralMesh particles behind it
-   are visible.  The canvas DepthFog supplies the light backdrop.  */
+/* Canvas hidden in light mode — hero gets its own white bg */
 [data-theme="light"] #hero {
-  background: transparent;
+  background: #ffffff;
 }
 
 /* ── Light: animated gradient text (hero title) ────────────────── */
