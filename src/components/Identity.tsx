@@ -20,10 +20,20 @@ function IdentityCard({
   fullWidth?: boolean;
 }) {
   const { ref: tiltRef, onMouseMove, onMouseLeave } = useHolographicTilt();
+  const theme = useAppStore((s) => s.theme);
+  const isLight = theme === 'light';
   const isOrange = fullWidth;
-  const borderColor = isOrange ? 'rgba(255, 77, 0, 0.12)' : 'rgba(0, 243, 255, 0.08)';
-  const bgColor = isOrange ? 'rgba(20, 10, 0, 0.4)' : 'rgba(0, 20, 20, 0.6)';
-  const strongColor = isOrange ? '#ff4d00' : accent;
+
+  // Theme-aware colors — inline styles have highest specificity so they must adapt
+  const borderColor = isLight
+    ? 'rgba(0, 0, 0, 0.08)'
+    : isOrange ? 'rgba(255, 77, 0, 0.12)' : 'rgba(0, 243, 255, 0.08)';
+  const bgColor = isLight
+    ? 'rgba(255, 255, 255, 0.9)'
+    : isOrange ? 'rgba(20, 10, 0, 0.4)' : 'rgba(0, 20, 20, 0.6)';
+  const separatorColor = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.06)';
+  const diamondColor = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.08)';
+  const strongColor = isOrange && !isLight ? '#ff4d00' : accent;
 
   return (
     <motion.div
@@ -38,16 +48,19 @@ function IdentityCard({
       style={{
         background: bgColor,
         border: `1px solid ${borderColor}`,
-        padding: '28px',
+        padding: '36px',
         borderRadius: '8px',
         gridColumn: fullWidth ? '1 / -1' : undefined,
         transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
+        boxShadow: isLight ? '0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)' : undefined,
       }}
       whileHover={{
-        borderColor: isOrange ? '#ff4d00' : accent,
-        boxShadow: isOrange
-          ? '0 0 30px rgba(255, 77, 0, 0.08)'
-          : `0 0 30px ${accent}10`,
+        borderColor: isOrange && !isLight ? '#ff4d00' : accent,
+        boxShadow: isLight
+          ? `0 4px 20px rgba(0,102,204,0.08), 0 8px 32px rgba(0,0,0,0.06)`
+          : isOrange
+            ? '0 0 30px rgba(255, 77, 0, 0.08)'
+            : `0 0 30px ${accent}10`,
       }}
     >
       {/* Dossier header */}
@@ -57,7 +70,7 @@ function IdentityCard({
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '16px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          borderBottom: `1px solid ${separatorColor}`,
           paddingBottom: '10px',
         }}
       >
@@ -76,7 +89,7 @@ function IdentityCard({
           className="font-mono"
           style={{
             fontSize: '0.6rem',
-            color: 'rgba(255,255,255,0.08)',
+            color: diamondColor,
             letterSpacing: '3px',
           }}
         >
@@ -115,7 +128,7 @@ function IdentityCard({
 export default function Identity() {
   const { t } = useTranslation();
   const theme = useAppStore((s) => s.theme);
-  const accent = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+  const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
 
   return (
     <section id="identity" className="py-24 px-6 max-w-6xl mx-auto relative">
@@ -146,7 +159,9 @@ export default function Identity() {
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '25px',
+          gap: '32px',
+          margin: '16px 12px 0 12px',
+          padding: '4px',
         }}
       >
         {t.identity.cards.map((card, idx) => (

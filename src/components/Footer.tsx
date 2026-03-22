@@ -13,7 +13,7 @@ export default function Footer() {
   const { t, language } = useTranslation();
   const theme = useAppStore((s) => s.theme);
   const ctfSolved = useAppStore((s) => s.ctfSolved);
-  const accent = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+  const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
 
   return (
     <footer className="relative z-10">

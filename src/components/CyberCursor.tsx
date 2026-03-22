@@ -22,8 +22,8 @@ export default function CyberCursor() {
   const clickingRef = useRef(false);
   const rafRef = useRef<number>(0);
 
-  const accent = theme === 'redteam' ? '#ff0033' : '#00d4ff';
-  const accentDim = theme === 'redteam' ? 'rgba(255,0,51,0.3)' : 'rgba(0,212,255,0.3)';
+  const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
+  const accentDim = theme === 'redteam' ? 'rgba(255,0,51,0.3)' : theme === 'light' ? 'rgba(0,102,204,0.3)' : 'rgba(0,212,255,0.3)';
 
   // ── Animation loop - smooth LERP following ──
   const animate = useCallback(() => {
@@ -135,7 +135,7 @@ export default function CyberCursor() {
           zIndex: 99998,
           willChange: 'transform',
           transition: 'width 0.2s, height 0.2s, background 0.3s',
-          mixBlendMode: 'screen',
+          mixBlendMode: theme === 'light' ? 'multiply' : 'screen',
         }}
       />
 

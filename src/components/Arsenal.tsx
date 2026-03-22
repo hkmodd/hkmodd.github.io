@@ -176,7 +176,7 @@ const SkillCard = memo(function SkillCard({
 export default function Arsenal() {
   const { t } = useTranslation();
   const theme = useAppStore((s) => s.theme);
-  const accent = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+  const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
 
   return (
     <section id="arsenal" className="py-24 px-6 max-w-6xl mx-auto relative">

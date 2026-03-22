@@ -11,7 +11,7 @@ export default function BootScreen() {
   const [lines, setLines] = useState<string[]>([]);
   const [done, setDone] = useState(false);
 
-  const accentColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+  const accentColor = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
   const sessionId = useRef(String(Math.floor(Math.random() * 9000) + 1000));
 
   // Lock body scroll while boot screen is visible

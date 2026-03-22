@@ -1261,6 +1261,374 @@ html.cyber-cursor-active * {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   FLOATING CONTROLS (lang + theme)
+   ══════════════════════════════════════════════════════════════════ */
+
+.floating-controls {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9998;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.fc-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: rgba(10, 10, 28, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+.fc-badge:hover {
+  border-color: var(--color-accent, #00d4ff);
+  background: rgba(10, 10, 28, 0.8);
+  box-shadow: 0 0 16px var(--color-accent-glow, rgba(0, 212, 255, 0.12));
+}
+
+.fc-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+/* Mobile: slightly smaller badges, tighter spacing */
+@media (max-width: 640px) {
+  .floating-controls {
+    top: 12px;
+    right: 12px;
+    gap: 6px;
+  }
+
+  .fc-badge {
+    padding: 5px 10px;
+    gap: 4px;
+  }
+
+  .fc-label {
+    font-size: 10px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LIGHT THEME OVERRIDE
+   ══════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-alt: #eef1f5;
+  --color-accent: #0066cc;
+  --color-accent-glow: rgba(0, 102, 204, 0.10);
+  --color-accent-subtle: rgba(0, 102, 204, 0.05);
+  --color-text: #1a1a2e;
+  --color-text-muted: #4a5568;
+  --color-text-dim: #718096;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-active: rgba(0, 102, 204, 0.3);
+  --color-red-accent: #e53e3e;
+  --color-red-glow: rgba(229, 62, 62, 0.10);
+}
+
+/* ── Light: body + app root ────────────────────────────────────── */
+/* Keep body transparent so the NeuralMesh canvas (fixed, z-0) is
+   visible behind the Hero section.  .main-content provides the
+   solid light background for every section BELOW the hero.        */
+[data-theme="light"] .app-root {
+  background: transparent;
+  color: var(--color-text);
+}
+
+/* ── Light: grain + CRT disabled ───────────────────────────────── */
+[data-theme="light"] .grain-overlay,
+[data-theme="light"] .crt-scanline {
+  display: none;
+}
+
+/* ── Light: glass panels ───────────────────────────────────────── */
+[data-theme="light"] .glass {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ── Light: hero section ───────────────────────────────────────── */
+/* Hero must be transparent so the NeuralMesh particles behind it
+   are visible.  The canvas DepthFog supplies the light backdrop.  */
+[data-theme="light"] #hero {
+  background: transparent;
+}
+
+/* ── Light: animated gradient text (hero title) ────────────────── */
+[data-theme="light"] .text-gradient-animate {
+  background: linear-gradient(
+    90deg,
+    #0066cc 0%,
+    #4299e1 30%,
+    #0066cc 60%,
+    #2b6cb0 80%,
+    #0066cc 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Light: holo-cards (Operations) ────────────────────────────── */
+[data-theme="light"] .holo-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .holo-card:hover {
+  border-color: rgba(0, 102, 204, 0.25);
+  box-shadow:
+    0 4px 20px rgba(0, 102, 204, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .holo-card::before {
+  background: radial-gradient(
+    500px circle at var(--mouse-x) var(--mouse-y),
+    rgba(0, 102, 204, 0.06) 0%,
+    transparent 55%
+  );
+}
+
+/* ── Light: arsenal-cards ──────────────────────────────────────── */
+[data-theme="light"] .arsenal-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .arsenal-card:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 102, 204, 0.2);
+  box-shadow:
+    0 4px 16px rgba(0, 102, 204, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Light: cyber buttons ──────────────────────────────────────── */
+[data-theme="light"] .btn-cyber {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 102, 204, 0.2);
+  color: #0066cc;
+}
+
+[data-theme="light"] .btn-cyber::before {
+  background: #0066cc;
+}
+
+[data-theme="light"] .btn-cyber:hover {
+  box-shadow:
+    0 0 16px rgba(0, 102, 204, 0.1),
+    0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .btn-cyber--primary {
+  background: rgba(0, 102, 204, 0.08);
+}
+
+/* ── Light: terminal frame ─────────────────────────────────────── */
+[data-theme="light"] .terminal-frame {
+  background: #1a1a2e;
+  border-color: rgba(0, 102, 204, 0.3);
+  animation-name: border-breathe;
+}
+
+[data-theme="light"] .terminal-frame::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #0066cc 50%,
+    transparent
+  );
+}
+
+/* ── Light: terminal input (keep dark bg) ──────────────────────── */
+[data-theme="light"] .terminal-input {
+  color: #00d4ff;
+  caret-color: #00d4ff;
+}
+
+/* ── Light: terminal scrollbar ─────────────────────────────────── */
+[data-theme="light"] .terminal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 102, 204, 0.2);
+}
+
+/* ── Light: category header ────────────────────────────────────── */
+[data-theme="light"] .category-header {
+  color: var(--color-text-dim);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .category-header::before {
+  background: #0066cc;
+}
+
+/* ── Light: profile ring ───────────────────────────────────────── */
+[data-theme="light"] .profile-ring::before {
+  background: conic-gradient(
+    from 0deg,
+    #0066cc,
+    transparent 30%,
+    #4299e1 50%,
+    transparent 70%,
+    #0066cc 100%
+  );
+}
+
+[data-theme="light"] .profile-ring::after {
+  background: radial-gradient(
+    circle,
+    rgba(0, 102, 204, 0.12) 0%,
+    transparent 70%
+  );
+}
+
+/* ── Light: dossier card ───────────────────────────────────────── */
+[data-theme="light"] .dossier-card {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .dossier-card::after {
+  color: rgba(0, 0, 0, 0.04);
+}
+
+/* ── Light: section divider ────────────────────────────────────── */
+[data-theme="light"] .section-divider {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 102, 204, 0.12) 50%,
+    transparent 100%
+  );
+}
+
+/* ── Light: footer border ──────────────────────────────────────── */
+[data-theme="light"] .footer-border-top {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 102, 204, 0.12) 30%,
+    rgba(0, 102, 204, 0.25) 50%,
+    rgba(0, 102, 204, 0.12) 70%,
+    transparent 100%
+  );
+}
+
+/* ── Light: footer background (sits outside .main-content) ─────── */
+[data-theme="light"] footer {
+  background: #ffffff;
+}
+
+/* ── Light: section backdrop glow ──────────────────────────────── */
+[data-theme="light"] .section-backdrop {
+  background: radial-gradient(
+    circle,
+    rgba(0, 102, 204, 0.04) 0%,
+    transparent 70%
+  );
+}
+
+/* ── Light: scroll progress bar ────────────────────────────────── */
+[data-theme="light"] .scroll-progress {
+  background: #0066cc;
+}
+
+/* ── Light: visitor counter ────────────────────────────────────── */
+[data-theme="light"] .visitor-counter {
+  color: var(--color-text-dim);
+}
+
+/* ── Light: back-to-top button ─────────────────────────────────── */
+[data-theme="light"] .back-to-top {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 102, 204, 0.2);
+  color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .back-to-top:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 102, 204, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 102, 204, 0.1);
+}
+
+/* ── Light: reset button ───────────────────────────────────────── */
+[data-theme="light"] .reset-button {
+  color: #0066cc;
+  border-color: rgba(0, 102, 204, 0.2);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .reset-button:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 102, 204, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 102, 204, 0.1);
+}
+
+/* ── Light: floating controls ─────────────────────────────────── */
+[data-theme="light"] .fc-badge {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .fc-badge:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 102, 204, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 102, 204, 0.1);
+}
+
+/* ── Light: screen flash (white instead of tinted) ─────────────── */
+[data-theme="light"] .screen-flash {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* ── Light: status dot ─────────────────────────────────────────── */
+[data-theme="light"] .status-dot {
+  background: #38a169;
+}
+
+/* ── Light: btn-cyber hover text (white on filled bg) ──────────── */
+[data-theme="light"] .btn-cyber:hover {
+  color: #ffffff;
+}
+
+/* ── Light: holo-card title hover (stay readable, not white) ───── */
+[data-theme="light"] .holo-card:hover h3 {
+  color: #0055aa !important;
+}
+
+/* ── Light: holo-card shimmer (less harsh) ─────────────────────── */
+[data-theme="light"] .card-shimmer {
+  opacity: 0.3;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
    RESPONSIVE UTILITIES
    ══════════════════════════════════════════════════════════════════ */
 

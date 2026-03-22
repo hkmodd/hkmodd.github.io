@@ -10,7 +10,7 @@ export default function Terminal() {
   const ctfSolved = useAppStore((s) => s.ctfSolved);
   const setCTFSolved = useAppStore((s) => s.setCTFSolved);
 
-  const accent = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+  const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
 
   const engineRef = useRef<TerminalEngine | null>(null);
   const [lines, setLines] = useState<TerminalLine[]>([]);
@@ -72,13 +72,15 @@ export default function Terminal() {
     [historyIdx]
   );
 
+  const isLight = theme === 'light';
+
   const lineColor = (type: TerminalLine['type']) => {
     switch (type) {
       case 'input': return accent;
       case 'error': return '#ff4444';
-      case 'success': return '#00ff88';
-      case 'system': return 'rgba(255,255,255,0.35)';
-      default: return '#d0d0d0';
+      case 'success': return isLight ? '#16a34a' : '#00ff88';
+      case 'system': return isLight ? '#c0c8d4' : 'rgba(255,255,255,0.35)';
+      default: return isLight ? '#e2e6ea' : '#d0d0d0';
     }
   };
 
@@ -124,7 +126,7 @@ export default function Terminal() {
             gap: '8px',
             marginBottom: '18px',
             paddingBottom: '12px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            borderBottom: `1px solid ${isLight ? 'rgba(255,255,255,0.12)' : 'rgba(255, 255, 255, 0.06)'}`,
           }}
         >
           <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f56' }} />
@@ -134,7 +136,7 @@ export default function Terminal() {
             className="font-mono"
             style={{
               fontSize: '0.75rem',
-              color: 'var(--color-text-dim)',
+              color: isLight ? '#7c8594' : 'var(--color-text-dim)',
               marginLeft: '10px',
               letterSpacing: '0.05em',
             }}
@@ -149,7 +151,7 @@ export default function Terminal() {
           className="font-mono terminal-scroll"
           style={{
             fontSize: '0.85rem',
-            color: 'var(--color-text-muted)',
+            color: isLight ? '#b0b8c4' : 'var(--color-text-muted)',
             minHeight: '50px',
             maxHeight: '300px',
             overflowY: 'auto',
@@ -187,7 +189,7 @@ export default function Terminal() {
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: 'var(--color-text)',
+              color: isLight ? '#e8ecf0' : 'var(--color-text)',
               fontFamily: "var(--font-m, 'JetBrains Mono', monospace)",
               fontSize: '0.9rem',
             }}

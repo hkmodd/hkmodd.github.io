@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ThemeMode = 'default' | 'redteam';
+export type ThemeMode = 'default' | 'redteam' | 'light';
 export type Language = 'en' | 'it';
 
 interface AppState {
@@ -8,6 +8,7 @@ interface AppState {
   theme: ThemeMode;
   setTheme: (theme: ThemeMode) => void;
   toggleRedTeam: () => void;
+  toggleLightMode: () => void;
 
   // Red team cinematic transition
   redTeamTransitioning: boolean;
@@ -56,6 +57,12 @@ export const useAppStore = create<AppState>((set) => ({
         showFlash: true,
         redTeamTransitioning: enteringRed,
       };
+    }),
+  toggleLightMode: () =>
+    set((s) => {
+      const next = s.theme === 'light' ? 'default' : 'light';
+      localStorage.setItem('hkmodd-theme', next);
+      return { theme: next };
     }),
 
   // Red team cinematic transition

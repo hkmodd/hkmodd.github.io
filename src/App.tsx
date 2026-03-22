@@ -17,6 +17,7 @@ import NeuralMesh from '@/components/canvas/NeuralMesh';
 import CyberCursor from '@/components/CyberCursor';
 import ResetButton from '@/components/ResetButton';
 import BackToTop from '@/components/BackToTop';
+import FloatingControls from '@/components/FloatingControls';
 
 export default function App() {
   const booted = useAppStore((s) => s.booted);
@@ -39,7 +40,7 @@ export default function App() {
   );
 
   return (
-    <div data-theme={theme === 'redteam' ? 'redteam' : undefined} className="app-root">
+    <div data-theme={theme !== 'default' ? theme : undefined} className="app-root">
       {/* Boot sequence */}
       {!booted && <BootScreen />}
 
@@ -48,6 +49,9 @@ export default function App() {
 
       {/* Custom cursor (desktop only) */}
       <CyberCursor />
+
+      {/* Floating lang + theme controls */}
+      <FloatingControls />
 
       {/* Film grain */}
       <div className="grain-overlay" />

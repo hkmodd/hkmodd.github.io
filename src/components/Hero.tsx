@@ -13,8 +13,8 @@ export default function Hero() {
   const transitioning = useAppStore((s) => s.redTeamTransitioning);
   const toggleRedTeam = useAppStore((s) => s.toggleRedTeam);
 
-  const accent = theme === 'redteam' ? '#ff0033' : '#00d4ff';
-  const accentGlow = theme === 'redteam' ? 'rgba(255,0,51,0.15)' : 'rgba(0,212,255,0.15)';
+  const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
+  const accentGlow = theme === 'redteam' ? 'rgba(255,0,51,0.15)' : theme === 'light' ? 'rgba(0,102,204,0.12)' : 'rgba(0,212,255,0.15)';
 
   const scrambledTitle = useScrambleText(t.hero.title, { speed: 40, delay: 1800 });
 
@@ -60,6 +60,8 @@ export default function Hero() {
   }, []);
 
   // --- Gradient text animation via raw rAF (bypasses CSS/WAAPI limits on iOS Safari) ---
+  // ALL gradient styles (including color per-theme) are managed inside the rAF
+  // so that React re-renders on theme change never conflict with the animation.
   const gradientRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     let rafId = 0;
@@ -68,9 +70,25 @@ export default function Hero() {
     const tick = (now: number) => {
       const el = gradientRef.current;
       if (el) {
+        // Read theme from store each frame — avoids stale closure on theme switch
+        const currentTheme = useAppStore.getState().theme;
+        const gradient = currentTheme === 'redteam'
+          ? 'linear-gradient(90deg, #ff0033 0%, #ff6b35 30%, #ff0033 60%, #ff6b35 80%, #ff0033 100%)'
+          : currentTheme === 'light'
+          ? 'linear-gradient(90deg, #0066cc 0%, #0ea5e9 30%, #0066cc 60%, #06b6d4 80%, #0066cc 100%)'
+          : 'linear-gradient(90deg, #00d4ff 0%, #ff0033 30%, #00d4ff 60%, #00ff88 80%, #00d4ff 100%)';
+
         // Sine wave: smoothly oscillate 0% → 100% → 0% over `duration` ms
         const progress = (Math.sin((now / duration) * Math.PI * 2 - Math.PI / 2) + 1) / 2;
+
+        // Apply ALL gradient styles every frame — prevents React re-render
+        // from resetting backgroundPosition or backgroundClip mid-animation
+        el.style.background = gradient;
+        el.style.backgroundSize = '300% 100%';
         el.style.backgroundPosition = `${progress * 100}% 50%`;
+        el.style.webkitBackgroundClip = 'text';
+        (el.style as unknown as Record<string, string>).backgroundClip = 'text';
+        el.style.webkitTextFillColor = 'transparent';
       }
       rafId = requestAnimationFrame(tick);
     };
@@ -154,7 +172,7 @@ export default function Hero() {
   const ringGlowStyle = useMemo(() => {
     if (ringPulse === 0) return {};
     const intensity = ringPulse / 7;
-    const color = theme === 'redteam' ? '0, 212, 255' : '255, 0, 51'; // opposite = preview hint
+    const color = theme === 'redteam' ? '0, 212, 255' : theme === 'light' ? '0, 102, 204' : '255, 0, 51'; // opposite = preview hint
     return {
       boxShadow: [
         `0 0 ${12 + intensity * 30}px rgba(${color}, ${0.15 + intensity * 0.5})`,
@@ -231,7 +249,7 @@ export default function Hero() {
                   className="absolute rounded-full pointer-events-none"
                   style={{
                     inset: -4,
-                    background: `conic-gradient(from 0deg, ${accent}, transparent 30%, ${theme === 'redteam' ? '#00d4ff' : '#ff0033'} 50%, transparent 70%, ${accent} 100%)`,
+                    background: `conic-gradient(from 0deg, ${accent}, transparent 30%, ${theme === 'redteam' ? '#00d4ff' : theme === 'light' ? '#4299e1' : '#ff0033'} 50%, transparent 70%, ${accent} 100%)`,
                     opacity: 0.7,
                   }}
                   animate={{ rotate: 360 }}
@@ -270,7 +288,7 @@ export default function Hero() {
                       const angle = -90 + i * 60;
                       const rad = (angle * Math.PI) / 180;
                       const r = 58;
-                      const color = theme === 'redteam' ? '#00d4ff' : '#ff0033';
+                      const color = theme === 'redteam' ? '#00d4ff' : theme === 'light' ? '#4299e1' : '#ff0033';
                       return (
                         <motion.span
                           key={i}
@@ -311,18 +329,15 @@ export default function Hero() {
             </motion.div>
 
             {/* Name - gradient animated via raw rAF loop (CSS animations & WAAPI both fail on iOS Safari with background-clip:text) */}
+            {/* All gradient styles are managed inside the rAF tick — the style prop only sets initial clip */}
             <motion.h1
               variants={item}
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08]"
             >
               <motion.span
-                key={firstName}
                 ref={(el: HTMLSpanElement | null) => { gradientRef.current = el; }}
                 className="inline-block"
                 style={{
-                  background: theme === 'redteam'
-                    ? 'linear-gradient(90deg, #ff0033 0%, #ff6b35 30%, #ff0033 60%, #ff6b35 80%, #ff0033 100%)'
-                    : 'linear-gradient(90deg, #00d4ff 0%, #ff0033 30%, #00d4ff 60%, #00ff88 80%, #00d4ff 100%)',
                   backgroundSize: '300% 100%',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -342,7 +357,6 @@ export default function Hero() {
                 <>
                   <br />
                   <motion.span
-                    key={lastName}
                     className="text-text inline-block"
                     initial={transitioning ? { opacity: 0, y: 10, filter: 'blur(6px)' } : false}
                     animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}

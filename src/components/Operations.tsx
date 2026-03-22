@@ -65,7 +65,7 @@ const RepoCard = memo(function RepoCard({
       {/* Header row: title + stars */}
       <div className="flex items-start justify-between gap-3 mb-2 relative z-10">
         <h3
-          className="font-mono text-base font-bold text-text group-hover:text-white transition-colors leading-snug"
+          className="font-mono text-base font-bold text-text transition-colors leading-snug group-hover:text-white"
           style={{ wordBreak: 'break-word' }}
         >
           {repo.name}
@@ -155,7 +155,7 @@ function RepoSkeleton({ idx }: { idx: number }) {
 export default function Operations() {
   const { t } = useTranslation();
   const theme = useAppStore((s) => s.theme);
-  const accent = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+  const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
   const { repos, loading, error } = useGitHubRepos();
 
   return (

@@ -41,6 +41,8 @@ const nodeVertexShader = /* glsl */ `
 
 const nodeFragmentShader = /* glsl */ `
   uniform vec3 uColor;
+  uniform float uBoost;
+  uniform float uMinAlpha;
   varying float vOpacity;
   varying float vDist;
 
@@ -56,6 +58,11 @@ const nodeFragmentShader = /* glsl */ `
     // Depth-based fog
     float fog = smoothstep(25.0, 5.0, vDist);
     alpha *= fog;
+
+    // Light-mode boost to stay visible on pale backgrounds
+    alpha = clamp(alpha * uBoost, 0.0, 1.0);
+    // Minimum alpha floor for light-mode (keeps particles visible on white)
+    alpha = max(alpha, uMinAlpha * core * fog);
 
     gl_FragColor = vec4(uColor * (1.0 + glow * 0.5), alpha);
   }
@@ -91,6 +98,8 @@ function WasmNodes({ engine, memory }: WasmChildProps) {
 
   const uniforms = useMemo(() => ({
     uColor: { value: new THREE.Color('#00d4ff') },
+    uBoost: { value: 1.0 },
+    uMinAlpha: { value: 0.0 },
   }), []);
 
   useFrame(() => {
@@ -119,6 +128,16 @@ function WasmNodes({ engine, memory }: WasmChildProps) {
 
     // Sync color
     uniforms.uColor.value.setRGB(engine.color_r(), engine.color_g(), engine.color_b());
+
+    // Switch blending + boost for light theme visibility
+    const theme = useAppStore.getState().theme;
+    const mat = pointsRef.current?.material as THREE.ShaderMaterial | undefined;
+    if (mat) {
+      mat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
+    }
+    // Ghost mode: barely-there hint of particles
+    uniforms.uBoost.value = theme === 'light' ? 0.8 : 1.0;
+    uniforms.uMinAlpha.value = 0.0;
   });
 
   return (
@@ -177,7 +196,16 @@ function WasmConnections({ engine, memory }: WasmChildProps) {
 
     posAttr.needsUpdate = true;
     colAttr.needsUpdate = true;
-    geometry.setDrawRange(0, count * 2);
+
+    // Light mode: hide connections entirely — they compound into gray
+    const theme = useAppStore.getState().theme;
+    geometry.setDrawRange(0, theme === 'light' ? 0 : count * 2);
+
+    const mat = linesRef.current?.material as THREE.LineBasicMaterial | undefined;
+    if (mat) {
+      mat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
+      mat.opacity = theme === 'light' ? 0 : 0.7;
+    }
   });
 
   return (
@@ -236,15 +264,22 @@ function WasmPulses({ engine, memory }: WasmChildProps) {
     const r = engine.color_r();
     const g = engine.color_g();
     const b = engine.color_b();
-    const colorKey = `${(r * 100) | 0},${(g * 100) | 0},${(b * 100) | 0}`;
+    const theme = useAppStore.getState().theme;
+    // Ghost mode: dimmer pulse orbs on light background
+    const cMul = theme === 'light' ? 0.15 : 2.0;
+    const colorKey = `${(r * 100) | 0},${(g * 100) | 0},${(b * 100) | 0},${theme}`;
     if (colorKey !== prevColorKey.current) {
       prevColorKey.current = colorKey;
-      tmpColor.setRGB(r * 2.0, g * 2.0, b * 2.0);
+      tmpColor.setRGB(r * cMul, g * cMul, b * cMul);
       for (let i = 0; i < PULSE_COUNT; i++) {
         mesh.setColorAt(i, tmpColor);
       }
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
+
+    // Switch blending for light theme visibility
+    mat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
+    mat.opacity = theme === 'light' ? 0.06 : 1.0;
   });
 
   return (
@@ -281,6 +316,7 @@ const gridFragmentShader = /* glsl */ `
   uniform vec3 uColor;
   uniform float uTime;
   uniform vec2 uPointer;
+  uniform float uOpacity;
 
   void main() {
     // Scrolling grid
@@ -304,6 +340,9 @@ const gridFragmentShader = /* glsl */ `
     float scan = smoothstep(0.0, 0.02, abs(fract(uv.y * 2.0 - uTime * 0.05) - 0.5));
     alpha *= 0.8 + (1.0 - scan) * 0.4;
 
+    // Ghost mode: global opacity multiplier for light theme
+    alpha *= uOpacity;
+
     gl_FragColor = vec4(uColor, alpha);
   }
 `;
@@ -316,10 +355,13 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
     if (!shaderRef.current) return;
     // Read store inside frame loop — avoids React re-render on theme change
     const theme = useAppStore.getState().theme;
-    const targetColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+    const targetColor = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
     colorRef.current.lerp(tmpColor.set(targetColor), 0.04);
     shaderRef.current.uniforms.uColor.value.copy(colorRef.current);
     shaderRef.current.uniforms.uTime.value = clock.getElapsedTime();
+    // Ghost mode: barely visible grid in light theme
+    // Light mode: grid hidden entirely — it adds gray wash
+    shaderRef.current.uniforms.uOpacity.value = theme === 'light' ? 0.0 : 1.0;
 
     const p = pointerRef.current;
     shaderRef.current.uniforms.uPointer.value.set(p.x / 60, p.y / 60);
@@ -330,9 +372,18 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
       uColor: { value: new THREE.Color('#00d4ff') },
       uTime: { value: 0 },
       uPointer: { value: new THREE.Vector2(0, 0) },
+      uOpacity: { value: 1.0 },
     }),
     []
   );
+
+  // Switch blending for light theme inside frame loop
+  useFrame(() => {
+    const theme = useAppStore.getState().theme;
+    if (shaderRef.current) {
+      shaderRef.current.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
+    }
+  });
 
   return (
     <mesh rotation={[-Math.PI / 2.2, 0, 0]} position={[0, -6, -3]}>
@@ -356,10 +407,28 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
 // ═══════════════════════════════════════════════════════════════════
 
 function DepthFog() {
+  const matRef = useRef<THREE.MeshBasicMaterial>(null!);
+
+  useFrame(() => {
+    const theme = useAppStore.getState().theme;
+    if (matRef.current) {
+      if (theme === 'light') {
+        // Ghost mode: white fog pushes far particles out of sight
+        matRef.current.color.set('#ffffff');
+        matRef.current.opacity = 1.0;
+      } else {
+        // Dark / redteam: deep black fog plane as before
+        matRef.current.color.set('#000000');
+        matRef.current.opacity = 0.6;
+      }
+    }
+  });
+
   return (
     <mesh position={[0, 0, -10]}>
       <planeGeometry args={[80, 80]} />
       <meshBasicMaterial
+        ref={matRef}
         transparent
         opacity={0.6}
         color="#000000"
@@ -398,7 +467,7 @@ function NeuralMeshScene() {
     if (engine) {
       // Read store inside frame loop — avoids reactive re-renders
       const { theme, redTeamTransitioning } = useAppStore.getState();
-      const targetColor = theme === 'redteam' ? '#ff0033' : '#00d4ff';
+      const targetColor = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
       tmpColor.set(targetColor);
 
       engine.tick(
@@ -485,6 +554,13 @@ export default function NeuralMesh() {
     };
   }, []);
 
+  // ── Sync canvas background with theme ──
+  // Dark/redteam: transparent so the dark page shows through
+  // Light: subtle bluish-gray tint that blends with the page bg
+  const theme = useAppStore((s) => s.theme);
+  // Ghost mode: pure white canvas for light theme
+  const canvasBg = theme === 'light' ? '#ffffff' : 'transparent';
+
   return (
     <div
       ref={wrapperRef}
@@ -507,7 +583,7 @@ export default function NeuralMesh() {
           stencil: false,
           depth: true,
         }}
-        style={{ background: 'transparent', pointerEvents: 'auto' }}
+        style={{ background: canvasBg, pointerEvents: 'auto' }}
         frameloop="always"
       >
         <NeuralMeshScene />
