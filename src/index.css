@@ -182,8 +182,18 @@ html.cyber-cursor-active * {
 }
 
 @keyframes flash {
-  0% { opacity: 0.7; }
-  100% { opacity: 0; }
+  0%   { opacity: 1;   background: white; }
+  8%   { opacity: 0.95; background: #ff0033; }
+  20%  { opacity: 0.7;  background: #ff0033; }
+  50%  { opacity: 0.3;  background: #ff003380; }
+  100% { opacity: 0;    background: transparent; }
+}
+@keyframes flash-reverse {
+  0%   { opacity: 1;   background: white; }
+  8%   { opacity: 0.95; background: #00d4ff; }
+  20%  { opacity: 0.7;  background: #00d4ff; }
+  50%  { opacity: 0.3;  background: #00d4ff80; }
+  100% { opacity: 0;    background: transparent; }
 }
 
 @keyframes float-subtle {
@@ -419,7 +429,7 @@ html.cyber-cursor-active * {
   z-index: 10000;
   pointer-events: none;
   background: white;
-  animation: flash 0.5s ease-out forwards;
+  animation: flash 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* ── Scroll Progress ──────────────────────────────────────────── */

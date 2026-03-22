@@ -33,6 +33,7 @@ interface AppState {
 
   // Screen flash
   showFlash: boolean;
+  flashDir: 'enter' | 'exit';  // entering or exiting redteam
   triggerFlash: () => void;
 }
 
@@ -52,9 +53,12 @@ export const useAppStore = create<AppState>((set) => ({
       if (enteringRed) {
         setTimeout(() => set({ redTeamTransitioning: false }), 2500);
       }
+      // Auto-clear flash after animation completes (700ms)
+      setTimeout(() => set({ showFlash: false }), 700);
       return {
         theme: next,
         showFlash: true,
+        flashDir: enteringRed ? 'enter' : 'exit',
         redTeamTransitioning: enteringRed,
       };
     }),
@@ -99,8 +103,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Screen flash
   showFlash: false,
+  flashDir: 'enter' as const,
   triggerFlash: () => {
-    set({ showFlash: true });
-    setTimeout(() => set({ showFlash: false }), 500);
+    set({ showFlash: true, flashDir: 'enter' });
+    setTimeout(() => set({ showFlash: false }), 700);
   },
 }));

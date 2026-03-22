@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { Github, Linkedin, Download, ChevronDown } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
@@ -118,25 +118,28 @@ export default function Hero() {
       setAvatarGlitch(true);
       haptic('heavy');
 
-      // Swap image after glitch animation (800ms)
+      // Swap image quickly (150ms) so it doesn't lag behind the flash
       const swapTimer = setTimeout(() => {
         setAvatarSrc(
           theme === 'redteam' ? '/foto_profilo_red.png' : '/foto_profilo.png'
         );
         setAvatarGlitch(false);
-      }, 800);
+      }, 150);
 
       return () => clearTimeout(swapTimer);
     }
   }, [theme]);
 
-  // --- 7-tap avatar detection (mobile red team trigger) ---
+  // --- 7-tap avatar detection (MOBILE ONLY — desktop uses Konami code) ---
   const tapTimestamps = useRef<number[]>([]);
-  const [tapBounce, setTapBounce] = useState(0);   // increments to trigger scale animation
-  const [ringPulse, setRingPulse] = useState(0);    // 0-7 intensity level for glow ring
-  const ringDecayRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isMobileRef = useRef(
+    typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+  );
 
   const handleAvatarTap = useCallback(() => {
+    // Desktop: do nothing — Konami code is the only way
+    if (!isMobileRef.current) return;
+
     const now = Date.now();
     tapTimestamps.current = tapTimestamps.current.filter((t) => now - t < 3000);
     tapTimestamps.current.push(now);
@@ -147,46 +150,17 @@ export default function Hero() {
     else if (count <= 5) haptic('medium');
     else haptic('heavy');
 
-    // Trigger bounce animation (key change forces re-render)
-    setTapBounce((p) => p + 1);
-
-    // Update ring glow intensity
-    setRingPulse(Math.min(count, 7));
-
-    // Reset ring decay timer
-    clearTimeout(ringDecayRef.current);
-    ringDecayRef.current = setTimeout(() => {
-      setRingPulse(0);
-      tapTimestamps.current = [];
-    }, 3200);
-
     // 7th tap - ACTIVATE
     if (count >= 7) {
       tapTimestamps.current = [];
-      clearTimeout(ringDecayRef.current);
       haptic('success');
 
       // Slight delay so the user feels the 7th impact before the transition
       setTimeout(() => {
-        setRingPulse(0);
         toggleRedTeam();
       }, 120);
     }
   }, [toggleRedTeam]);
-
-  // Ring glow style - intensifies with tap count
-  const ringGlowStyle = useMemo(() => {
-    if (ringPulse === 0) return {};
-    const intensity = ringPulse / 7;
-    const color = theme === 'redteam' ? '0, 212, 255' : theme === 'light' ? '0, 102, 204' : '255, 0, 51'; // opposite = preview hint
-    return {
-      boxShadow: [
-        `0 0 ${12 + intensity * 30}px rgba(${color}, ${0.15 + intensity * 0.5})`,
-        `0 0 ${4 + intensity * 15}px rgba(${color}, ${0.1 + intensity * 0.3})`,
-        `inset 0 0 ${2 + intensity * 8}px rgba(${color}, ${0.05 + intensity * 0.15})`,
-      ].join(', '),
-    };
-  }, [ringPulse, theme]);
 
   // --- Name display: real name vs HKMODD ---
   const displayName = theme === 'redteam' ? 'HKMODD' : t.hero.name;
@@ -237,15 +211,12 @@ export default function Hero() {
               <motion.div
                 className="relative"
                 onClick={handleAvatarTap}
-                style={{ cursor: 'pointer', borderRadius: '50%', ...ringGlowStyle }}
-                key={`bounce-${tapBounce}`}
+                style={{ cursor: isMobileRef.current ? 'pointer' : 'default', borderRadius: '50%' }}
                 initial={{ scale: 1 }}
                 animate={{
-                  scale: [1, 1.12, 0.95, 1],
                   y: [0, -6, 0, 4, 0],
                 }}
                 transition={{
-                  scale: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
                   y: { duration: 5, ease: 'easeInOut', repeat: Infinity },
                 }}
               >
@@ -288,32 +259,7 @@ export default function Hero() {
                   }}
                 />
 
-                {/* Tap progress dots - appear around the ring as user taps */}
-                {ringPulse > 0 && (
-                  <div className="absolute inset-0 pointer-events-none z-20">
-                    {Array.from({ length: Math.min(ringPulse, 6) }).map((_, i) => {
-                      const angle = -90 + i * 60;
-                      const rad = (angle * Math.PI) / 180;
-                      const r = 58;
-                      const color = theme === 'redteam' ? '#00d4ff' : theme === 'light' ? '#4299e1' : '#ff0033';
-                      return (
-                        <motion.span
-                          key={i}
-                          className="absolute w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ duration: 0.2, delay: 0.02 }}
-                          style={{
-                            background: color,
-                            boxShadow: `0 0 6px ${color}`,
-                            left: `calc(50% + ${Math.cos(rad) * r}px - 4px)`,
-                            top: `calc(50% + ${Math.sin(rad) * r}px - 4px)`,
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Dots removed — easter egg should be truly hidden */}
               </motion.div>
             </motion.div>
 

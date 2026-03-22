@@ -24,6 +24,7 @@ export default function App() {
   const theme = useAppStore((s) => s.theme);
   const showFlash = useAppStore((s) => s.showFlash);
   const toggleRedTeam = useAppStore((s) => s.toggleRedTeam);
+  const flashDir = useAppStore((s) => s.flashDir);
 
   // Auto-update: check for new version, clear cache & reload if stale
   useAutoUpdate();
@@ -60,7 +61,12 @@ export default function App() {
       {booted && <div className="crt-scanline" />}
 
       {/* Screen flash on theme switch */}
-      {showFlash && <div className="screen-flash" />}
+      {showFlash && (
+        <div
+          className="screen-flash"
+          style={{ animationName: flashDir === 'enter' ? 'flash' : 'flash-reverse' }}
+        />
+      )}
 
       {/* Hero – sticky, fades out on scroll (has its own !booted guard) */}
       <div data-snap>
