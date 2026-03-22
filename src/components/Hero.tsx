@@ -278,6 +278,7 @@ export default function Hero() {
                   style={{
                     border: `2px solid ${accent}40`,
                     boxShadow: `0 0 50px ${accentGlow}`,
+                    objectPosition: '40% 20%',
                   }}
                 />
 
