@@ -284,8 +284,8 @@ html.cyber-cursor-active * {
 
 /* ── NEW: Sweep shimmer ──────────────────────────────────────── */
 @keyframes sweep-shimmer {
-  0% { left: -100%; }
-  100% { left: 200%; }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -381,7 +381,7 @@ html.cyber-cursor-active * {
   );
   pointer-events: none;
   z-index: 0;
-  filter: blur(80px);
+  will-change: transform;
 }
 
 [data-theme="redteam"] .section-backdrop {
@@ -562,7 +562,7 @@ html.cyber-cursor-active * {
 .holo-card .card-shimmer {
   position: absolute;
   top: 0;
-  left: -100%;
+  left: 0;
   width: 50%;
   height: 100%;
   background: linear-gradient(
@@ -575,6 +575,7 @@ html.cyber-cursor-active * {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s;
+  will-change: transform;
 }
 
 .holo-card:hover .card-shimmer {

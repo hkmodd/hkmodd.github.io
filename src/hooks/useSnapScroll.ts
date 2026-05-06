@@ -18,13 +18,18 @@ const RAPID_WINDOW  = 1200;   // ms window for detecting rapid scroll intent
 const RAPID_COUNT   = 3;      // wheel-up ticks within window → jump to top
 
 export function useSnapScroll() {
-  const currentIdx   = useRef(0);
-  const snapLock     = useRef(false);
-  const upTicks      = useRef<number[]>([]);   // timestamps of recent up-scrolls
+  const currentIdx    = useRef(0);
+  const snapLock      = useRef(false);
+  const upTicks       = useRef<number[]>([]);   // timestamps of recent up-scrolls
+  const cachedTargets = useRef<HTMLElement[]>([]);
 
   const getTargets = useCallback((): HTMLElement[] => {
     return Array.from(document.querySelectorAll<HTMLElement>(SNAP_SELECTOR));
   }, []);
+
+  const updateTargets = useCallback(() => {
+    cachedTargets.current = getTargets();
+  }, [getTargets]);
 
   /**
    * Sync currentIdx from actual scroll position.
@@ -70,11 +75,15 @@ export function useSnapScroll() {
     const isTouchPrimary = matchMedia('(pointer: coarse)').matches && window.innerWidth < 768;
     if (isTouchPrimary) return;
 
-    const targets = getTargets();
-    if (targets.length === 0) return;
+    updateTargets();
+    if (cachedTargets.current.length === 0) return;
+
+    // Use MutationObserver to update targets if DOM changes (e.g. BootScreen unmounts, main content mounts)
+    const observer = new MutationObserver(() => updateTargets());
+    observer.observe(document.body, { childList: true, subtree: true });
 
     // Initialize index from current scroll position
-    syncIndex(targets);
+    syncIndex(cachedTargets.current);
 
     const handleWheel = (e: WheelEvent) => {
       // Let horizontal scrolls pass
@@ -87,7 +96,7 @@ export function useSnapScroll() {
       // Still locked from previous snap
       if (snapLock.current) return;
 
-      const freshTargets = getTargets();
+      const freshTargets = cachedTargets.current;
       if (freshTargets.length === 0) return;
 
       const direction = e.deltaY > 0 ? 1 : -1;
@@ -126,7 +135,7 @@ export function useSnapScroll() {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
-      const freshTargets = getTargets();
+      const freshTargets = cachedTargets.current;
       if (freshTargets.length === 0) return;
 
       // Home / End → jump to first / last section
@@ -165,7 +174,7 @@ export function useSnapScroll() {
       if (!snapLock.current && !scrollTicking) {
         scrollTicking = true;
         requestAnimationFrame(() => {
-          syncIndex(getTargets());
+          syncIndex(cachedTargets.current);
           scrollTicking = false;
         });
       }
@@ -179,6 +188,7 @@ export function useSnapScroll() {
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('scroll', handleScroll);
+      observer.disconnect();
     };
   }, [getTargets, syncIndex, snapTo]);
 }

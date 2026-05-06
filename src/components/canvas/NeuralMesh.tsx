@@ -12,9 +12,7 @@ import * as THREE from 'three';
 
 const FIELD_SIZE = 20;
 
-// ── Module-level visibility flag (no React re-renders) ─────────────
-// Written by the outer NeuralMesh scroll handler, read by NeuralMeshScene.
-let _canvasVisible = true;
+// ── Module-level visibility flag removed in favor of AppStore state ─────────
 
 // ── Helpers ────────────────────────────────────────────────────────
 const tmpColor = new THREE.Color();
@@ -460,9 +458,8 @@ function NeuralMeshScene() {
 
   useFrame(({ clock }, delta) => {
     // ── Skip expensive work when canvas is scrolled off-screen ──
-    // The frame loop still runs (near-zero cost) so there's no visible
-    // "freeze" when scrolling back up — the first visible frame renders instantly.
-    if (!_canvasVisible) return;
+    const { canvasVisible } = useAppStore.getState();
+    if (!canvasVisible) return;
 
     const group = groupRef.current;
     if (!group) return;
@@ -531,6 +528,7 @@ export default function NeuralMesh() {
   useEffect(() => {
     let rafId = 0;
     let ticking = false;
+    let wasVisible = true; // Track local state to prevent spamming the store
 
     const applyScroll = () => {
       const el = wrapperRef.current;
@@ -550,8 +548,13 @@ export default function NeuralMesh() {
       el.style.opacity = String(Math.max(opacity, 0));
       el.style.transform = `translateY(${yShift}px)`;
 
-      // Update module-level visibility flag for NeuralMeshScene
-      _canvasVisible = opacity > 0.01;
+      // Update global visibility state only when crossing the threshold
+      const isVisible = opacity > 0.01;
+      if (isVisible !== wasVisible) {
+        wasVisible = isVisible;
+        useAppStore.getState().setCanvasVisible(isVisible);
+      }
+      
       ticking = false;
     };
 
@@ -581,6 +584,7 @@ export default function NeuralMesh() {
   // Dark/redteam: transparent so the dark page shows through
   // Light: subtle bluish-gray tint that blends with the page bg
   const theme = useAppStore((s) => s.theme);
+  const canvasVisible = useAppStore((s) => s.canvasVisible);
   // Ghost mode: pure white canvas for light theme
   const canvasBg = theme === 'light' ? '#ffffff' : 'transparent';
 
@@ -607,7 +611,7 @@ export default function NeuralMesh() {
           depth: true,
         }}
         style={{ background: canvasBg, pointerEvents: 'auto' }}
-        frameloop="always"
+        frameloop={canvasVisible ? 'always' : 'demand'}
       >
         <NeuralMeshScene />
       </Canvas>

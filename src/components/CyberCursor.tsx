@@ -80,8 +80,7 @@ export default function CyberCursor() {
         target.closest('a') ||
         target.closest('button') ||
         target.closest('[role="button"]') ||
-        target.style.cursor === 'pointer' ||
-        getComputedStyle(target).cursor === 'pointer'
+        target.classList.contains('cursor-pointer')
       ) {
         hoveringRef.current = true;
       }

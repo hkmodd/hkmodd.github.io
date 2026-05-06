@@ -34,7 +34,9 @@ interface AppState {
   // Screen flash
   showFlash: boolean;
   flashDir: 'enter' | 'exit';  // entering or exiting redteam
-  triggerFlash: () => void;
+  // Canvas Performance Optimization
+  canvasVisible: boolean;
+  setCanvasVisible: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -108,4 +110,8 @@ export const useAppStore = create<AppState>((set) => ({
     set({ showFlash: true, flashDir: 'enter' });
     setTimeout(() => set({ showFlash: false }), 700);
   },
+
+  // Canvas Perf
+  canvasVisible: true,
+  setCanvasVisible: (canvasVisible) => set({ canvasVisible }),
 }));
