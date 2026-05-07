@@ -1,8 +1,11 @@
 import { memo } from 'react';
 import { motion } from 'motion/react';
-import { ExternalLink, Star, GitFork, Loader2 } from 'lucide-react';
+import { ExternalLink, Star, GitFork, Loader2, Globe } from 'lucide-react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
+import { playHoverTick } from '@/lib/audio';
+import ScrambledTitle from '@/components/ScrambledTitle';
+import MagneticButton from '@/components/MagneticButton';
 import { useHolographicTilt } from '@/hooks/useHolographicTilt';
 import { useGitHubRepos, type GitHubRepo } from '@/hooks/useGitHubRepos';
 
@@ -36,7 +39,7 @@ const RepoCard = memo(function RepoCard({
   accent: string;
   idx: number;
 }) {
-  const { ref: tiltRef, onMouseMove, onMouseLeave } = useHolographicTilt<HTMLAnchorElement>();
+  const { ref: tiltRef, onMouseMove, onMouseLeave } = useHolographicTilt<HTMLDivElement>();
 
   // Build tags from language + topics (max 3)
   const tags = [repo.language, ...repo.topics.slice(0, 2)]
@@ -44,32 +47,35 @@ const RepoCard = memo(function RepoCard({
     .join(' / ')
     .toUpperCase();
 
+  const isWebApp = !!repo.homepage;
+
   return (
-    <motion.a
+    <motion.div
       ref={tiltRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      href={repo.homepage || repo.html_url}
-      target="_blank"
-      rel="noopener noreferrer"
+      onMouseEnter={playHoverTick}
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: idx * 0.06, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="holo-card group flex flex-col cursor-pointer"
+      className="holo-card group flex flex-col relative"
       style={{ padding: '28px 26px 22px' }}
     >
-      {/* Shimmer sweep overlay */}
-      <div className="card-shimmer" />
+      {/* Shimmer sweep overlay (z-0) */}
+      <div className="card-shimmer z-0" />
 
       {/* Header row: title + stars */}
       <div className="flex items-start justify-between gap-3 mb-2 relative z-10">
-        <h3
-          className="font-mono text-base font-bold text-text transition-colors leading-snug group-hover:text-white"
-          style={{ wordBreak: 'break-word' }}
-        >
-          {repo.name}
-        </h3>
+        <div className="flex items-center gap-3">
+          {isWebApp && <Globe size={16} className="opacity-70" style={{ color: accent }} />}
+          <h3
+            className="font-mono text-base font-bold text-text transition-colors leading-snug group-hover:text-white"
+            style={{ wordBreak: 'break-word' }}
+          >
+            {repo.name}
+          </h3>
+        </div>
 
         {repo.stargazers_count > 0 && (
           <span
@@ -97,33 +103,61 @@ const RepoCard = memo(function RepoCard({
         {repo.description || 'No description available.'}
       </p>
 
-      {/* Bottom row: language dot + link button */}
-      <div className="flex items-center justify-between relative z-10">
-        {/* Language indicator */}
-        {repo.language && (
-          <span className="flex items-center gap-1.5 font-mono text-[11px] text-text-dim">
-            <span
-              className="inline-block w-2.5 h-2.5 rounded-full"
-              style={{ background: langColor(repo.language) }}
-            />
-            {repo.language}
-          </span>
-        )}
+        {/* Bottom row: language dot + link button */}
+        <div className="flex flex-col gap-4 mt-auto relative z-30 pointer-events-none">
+          <div className="flex items-center justify-between">
+            {/* Language indicator */}
+            {repo.language && (
+              <span className="flex items-center gap-1.5 font-mono text-[11px] text-text-dim">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full"
+                  style={{ background: langColor(repo.language) }}
+                />
+                {repo.language}
+              </span>
+            )}
+          </div>
 
-        {/* CTA Button */}
-        <span
-          className="repo-link-btn font-mono text-[10px] tracking-widest uppercase flex items-center gap-1.5 px-3 py-1.5 rounded transition-all duration-300 group-hover:gap-2.5"
-          style={{
-            color: accent,
-            border: `1px solid ${accent}30`,
-            background: `${accent}08`,
-          }}
-        >
-          <ExternalLink size={11} />
-          VIEW
-        </span>
-      </div>
-    </motion.a>
+          {/* CTA Buttons */}
+          <div className="flex items-center justify-end gap-3 pt-4 mt-2 border-t border-border/30 pointer-events-auto">
+            {isWebApp ? (
+              <>
+                <MagneticButton 
+                  href={repo.homepage ?? undefined} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  accent={accent} 
+                  variant="primary"
+                >
+                  <Globe size={13} />
+                  LIVE SITE
+                </MagneticButton>
+                <MagneticButton 
+                  href={repo.html_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  accent={accent} 
+                  variant="secondary"
+                >
+                  <GitFork size={13} />
+                  GITHUB
+                </MagneticButton>
+              </>
+            ) : (
+              <MagneticButton 
+                href={repo.html_url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                accent={accent} 
+                variant="secondary"
+              >
+                <GitFork size={13} />
+                GITHUB
+              </MagneticButton>
+            )}
+          </div>
+        </div>
+    </motion.div>
   );
 });
 
@@ -158,6 +192,9 @@ export default function Operations() {
   const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
   const { repos, loading, error } = useGitHubRepos();
 
+  const webApps = repos.filter((r) => !!r.homepage);
+  const projects = repos.filter((r) => !r.homepage);
+
   return (
     <section id="operations" className="py-24 px-6 max-w-6xl mx-auto relative">
       {/* Ambient backdrop */}
@@ -178,7 +215,7 @@ export default function Operations() {
               className="text-3xl md:text-4xl font-black font-mono tracking-tight"
               style={{ color: accent }}
             >
-              {'// '}{t.ops.title.toUpperCase()}
+              {'// '}<ScrambledTitle text={t.ops.title.toUpperCase()} />
             </h2>
             <div className="h-[1px] mt-3 w-16" style={{ background: accent, opacity: 0.4 }} />
           </div>
@@ -220,20 +257,49 @@ export default function Operations() {
         </div>
       )}
 
-      {/* Repo grid */}
-      <div
-        className="grid relative z-10"
-        style={{
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: '24px',
-        }}
-      >
-        {loading
-          ? Array.from({ length: 6 }).map((_, i) => <RepoSkeleton key={i} idx={i} />)
-          : repos.map((repo, idx) => (
-              <RepoCard key={repo.name} repo={repo} accent={accent} idx={idx} />
-            ))}
-      </div>
+      {/* Grid: Web Apps */}
+      {webApps.length > 0 && (
+        <div className="mb-16">
+          <h3 className="font-mono text-sm tracking-widest mb-6 opacity-60 flex items-center gap-2">
+            <Globe size={14} /> // LIVE WEB APPS
+          </h3>
+          <div
+            className="grid relative z-10"
+            style={{
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '24px',
+            }}
+          >
+            {loading
+              ? Array.from({ length: 3 }).map((_, i) => <RepoSkeleton key={`wa-${i}`} idx={i} />)
+              : webApps.map((repo, idx) => (
+                  <RepoCard key={repo.name} repo={repo} accent={accent} idx={idx} />
+                ))}
+          </div>
+        </div>
+      )}
+
+      {/* Grid: Projects */}
+      {projects.length > 0 && (
+        <div>
+          <h3 className="font-mono text-sm tracking-widest mb-6 opacity-60 flex items-center gap-2">
+            <GitFork size={14} /> // OPEN SOURCE PROJECTS
+          </h3>
+          <div
+            className="grid relative z-10"
+            style={{
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '24px',
+            }}
+          >
+            {loading
+              ? Array.from({ length: 6 }).map((_, i) => <RepoSkeleton key={`pr-${i}`} idx={i} />)
+              : projects.map((repo, idx) => (
+                  <RepoCard key={repo.name} repo={repo} accent={accent} idx={idx} />
+                ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

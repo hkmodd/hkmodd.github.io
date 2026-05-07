@@ -585,8 +585,13 @@ export default function NeuralMesh() {
   // Light: subtle bluish-gray tint that blends with the page bg
   const theme = useAppStore((s) => s.theme);
   const canvasVisible = useAppStore((s) => s.canvasVisible);
+  const reducedMotion = useAppStore((s) => s.reducedMotion);
+  
   // Ghost mode: pure white canvas for light theme
   const canvasBg = theme === 'light' ? '#ffffff' : 'transparent';
+
+  // Completely disable 3D background if reduced motion is requested
+  if (reducedMotion) return null;
 
   return (
     <div

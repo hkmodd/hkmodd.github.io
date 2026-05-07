@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { playGlitchDistortion } from '@/lib/audio';
 
 export type ThemeMode = 'default' | 'redteam' | 'light';
 export type Language = 'en' | 'it';
@@ -37,7 +38,17 @@ interface AppState {
   // Canvas Performance Optimization
   canvasVisible: boolean;
   setCanvasVisible: (v: boolean) => void;
+
+  // A11y
+  reducedMotion: boolean;
 }
+
+const getInitialReducedMotion = () => {
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  return false;
+};
 
 export const useAppStore = create<AppState>((set) => ({
   // Theme - restore from localStorage (SSR-safe)
@@ -53,6 +64,7 @@ export const useAppStore = create<AppState>((set) => ({
       localStorage.setItem('hkmodd-theme', next);
       // Auto-clear transition flag after cinematic sequence
       if (enteringRed) {
+        playGlitchDistortion();
         setTimeout(() => set({ redTeamTransitioning: false }), 2500);
       }
       // Auto-clear flash after animation completes (700ms)
@@ -114,4 +126,7 @@ export const useAppStore = create<AppState>((set) => ({
   // Canvas Perf
   canvasVisible: true,
   setCanvasVisible: (canvasVisible) => set({ canvasVisible }),
+
+  // A11y
+  reducedMotion: getInitialReducedMotion(),
 }));

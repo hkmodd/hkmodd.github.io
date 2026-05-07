@@ -3,6 +3,8 @@ import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
 import { useHolographicTilt } from '@/hooks/useHolographicTilt';
 import { parseInlineMarkup } from '@/lib/parseInlineMarkup';
+import { playHoverTick } from '@/lib/audio';
+import ScrambledTitle from '@/components/ScrambledTitle';
 
 function IdentityCard({
   header,
@@ -40,6 +42,7 @@ function IdentityCard({
       ref={tiltRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
+      onMouseEnter={playHoverTick}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -148,7 +151,7 @@ export default function Identity() {
           className="text-3xl md:text-4xl font-black font-mono tracking-tight"
           style={{ color: accent }}
         >
-          {'// '}{t.identity.title.toUpperCase()}
+          {'// '}<ScrambledTitle text={t.identity.title.toUpperCase()} />
         </h2>
         <div className="h-[1px] mt-3 w-16" style={{ background: accent, opacity: 0.4 }} />
       </motion.div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { playHoverTick } from '@/lib/audio';
 
 /* ═══════════════════════════════════════════════════════════════════
    CYBER CURSOR - ultra-sharp animated arrow cursor (desktop only)
@@ -82,6 +83,7 @@ export default function CyberCursor() {
         target.closest('[role="button"]') ||
         target.classList.contains('cursor-pointer')
       ) {
+        if (!hoveringRef.current) playHoverTick();
         hoveringRef.current = true;
       }
     };

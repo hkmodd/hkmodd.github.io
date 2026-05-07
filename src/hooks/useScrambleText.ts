@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { useAppStore } from '@/store/useAppStore';
+import { playTypeTick } from '@/lib/audio';
 
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:<>?';
 
@@ -23,9 +25,10 @@ export function useScrambleText(
   const { speed = 40, delay = 0, enabled = true, trigger } = options ?? {};
   const [display, setDisplay] = useState(target);
   const frameRef = useRef(0);
+  const reducedMotion = useAppStore((s) => s.reducedMotion);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || reducedMotion) {
       setDisplay(target);
       return;
     }
@@ -51,6 +54,7 @@ export function useScrambleText(
           .join('');
 
         setDisplay(next);
+        playTypeTick();
         resolved++;
         frameRef.current = window.setTimeout(run, speed);
       };

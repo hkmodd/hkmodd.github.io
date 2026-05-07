@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
 import { haptic } from '@/lib/haptic';
+import { playBootSequence } from '@/lib/audio';
 
 export default function BootScreen() {
   const { t } = useTranslation();
@@ -53,6 +54,9 @@ export default function BootScreen() {
   }, [t, setBooted]);
 
   useEffect(() => {
+    // Only play boot sequence once. On mobile, this may be silent due to autoplay rules.
+    // Audio will be globally unlocked on the first touch/scroll later.
+    playBootSequence();
     return runBoot();
   }, [runBoot]);
 

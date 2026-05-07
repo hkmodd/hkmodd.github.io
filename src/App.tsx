@@ -1,23 +1,27 @@
-import { useCallback } from 'react';
+import { useCallback, lazy, Suspense } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import { useKonamiCode } from '@/hooks/useKonamiCode';
 import { useSnapScroll } from '@/hooks/useSnapScroll';
+import { useMobileHapticScroll } from '@/hooks/useMobileHapticScroll';
 import { haptic } from '@/lib/haptic';
 
 import BootScreen from '@/components/BootScreen';
 import Hero from '@/components/Hero';
-import Arsenal from '@/components/Arsenal';
-import Operations from '@/components/Operations';
-import Identity from '@/components/Identity';
-import AIIntel from '@/components/AIIntel';
-import Terminal from '@/components/Terminal';
 import Footer from '@/components/Footer';
-import NeuralMesh from '@/components/canvas/NeuralMesh';
 import CyberCursor from '@/components/CyberCursor';
 import ResetButton from '@/components/ResetButton';
 import BackToTop from '@/components/BackToTop';
 import FloatingControls from '@/components/FloatingControls';
+import ErrorBoundary from '@/components/ErrorBoundary';
+
+// Lazy loaded components (Code Splitting for performance)
+const NeuralMesh = lazy(() => import('@/components/canvas/NeuralMesh'));
+const Arsenal = lazy(() => import('@/components/Arsenal'));
+const Operations = lazy(() => import('@/components/Operations'));
+const Identity = lazy(() => import('@/components/Identity'));
+const AIIntel = lazy(() => import('@/components/AIIntel'));
+const Terminal = lazy(() => import('@/components/Terminal'));
 
 export default function App() {
   const booted = useAppStore((s) => s.booted);
@@ -31,6 +35,9 @@ export default function App() {
 
   // Snap-scroll: desktop section snapping on wheel/keyboard
   useSnapScroll();
+
+  // Mobile mechanical wheel haptics
+  useMobileHapticScroll();
 
   // Konami code → red team toggle
   useKonamiCode(
@@ -46,7 +53,11 @@ export default function App() {
       {!booted && <BootScreen />}
 
       {/* 3D particle background */}
-      <NeuralMesh />
+      <ErrorBoundary>
+        <Suspense fallback={null}>
+          <NeuralMesh />
+        </Suspense>
+      </ErrorBoundary>
 
       {/* Custom cursor (desktop only) */}
       <CyberCursor />
@@ -75,7 +86,8 @@ export default function App() {
 
       {/* Main content – only render AFTER boot completes (prevents FOUC) */}
       {booted && (
-        <>
+        <ErrorBoundary>
+          <Suspense fallback={null}>
 
       {/* Main content – sits on top of faded hero */}
       <main className="main-content relative z-10">
@@ -110,7 +122,8 @@ export default function App() {
       {/* Floating reset button (red team only) */}
       <ResetButton />
       <BackToTop />
-        </>
+          </Suspense>
+        </ErrorBoundary>
       )}
     </div>
   );

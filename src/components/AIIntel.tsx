@@ -3,6 +3,9 @@ import { Brain, Cpu, Bot, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
 import { parseInlineMarkup } from '@/lib/parseInlineMarkup';
+import { playHoverTick } from '@/lib/audio';
+import ScrambledTitle from '@/components/ScrambledTitle';
+import DataCore from '@/components/canvas/DataCore';
 
 export default function AIIntel() {
   const { t } = useTranslation();
@@ -37,12 +40,17 @@ export default function AIIntel() {
             className="section-heading text-3xl sm:text-4xl font-black tracking-tight"
             style={{ color: accent }}
           >
-            {t.aiIntel.title}
+            <ScrambledTitle text={t.aiIntel.title} />
           </h2>
           <p className="mt-4 text-text-muted text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
             {t.aiIntel.subtitle}
           </p>
         </motion.div>
+
+        {/* 3D WOW Effect */}
+        <div className="mb-12">
+          <DataCore />
+        </div>
 
         {/* Cards grid */}
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
@@ -56,6 +64,7 @@ export default function AIIntel() {
                 viewport={{ once: true, margin: '-60px' }}
                 transition={{ duration: 0.5, delay: idx * 0.1 }}
                 className="dossier-card group"
+                onMouseEnter={playHoverTick}
                 style={{
                   borderColor: `${accent}15`,
                 }}

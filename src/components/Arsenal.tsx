@@ -1,8 +1,11 @@
-import React, { memo } from 'react';
-import { motion } from 'motion/react';
+import React, { memo, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
+import { playHoverTick, playTypeTick } from '@/lib/audio';
+import ScrambledTitle from '@/components/ScrambledTitle';
 import type { SkillItem } from '@/i18n/en';
+import DeepDiveModal from '@/components/DeepDiveModal';
 
 /* ── Category → skill name mapping ─────────────────────────────── */
 const CATEGORIES: [string, string[]][] = [
@@ -12,124 +15,110 @@ const CATEGORIES: [string, string[]][] = [
   ['TOOLING', ['Tauri', 'Context Engineering']],
 ];
 
-/* ── Inline SVG icons (20×20, stroke-based, currentColor) ──────── */
+/* ── Full Color SVGs (Premium Product Look) ──────── */
 const svgProps = {
   viewBox: '0 0 24 24',
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.5,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-  width: 20,
-  height: 20,
+  fill: 'currentColor',
+  width: '100%',
+  height: '100%',
 };
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   /* Recon & Analysis */
   ghidra: (
-    <svg {...svgProps}>
-      <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7Z" />
-      <circle cx="10" cy="9" r="1" fill="currentColor" stroke="none" />
-      <circle cx="14" cy="9" r="1" fill="currentColor" stroke="none" />
-      <path d="M9 21h6M9 19h6" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="26" stroke="#e63946" strokeWidth="4" fill="rgba(230,57,70,0.05)" />
+      <path d="M32 16c-8 0-16 6-16 16s8 16 16 16 16-6 16-16-8-16-16-16z" stroke="#e63946" strokeWidth="3" />
+      <circle cx="32" cy="32" r="5" fill="#e63946" />
+      <path d="M32 6v10M32 48v10" stroke="#e63946" strokeWidth="4" strokeLinecap="round" />
     </svg>
   ),
   wireshark: (
-    <svg {...svgProps}>
-      <path d="M2 8c3-4 5-2 7 1s5 4 8 0" />
-      <path d="M2 14c3-4 5-2 7 1s5 4 8 0" />
-      <path d="M17 4l3 3-3 3" />
-      <circle cx="5" cy="18" r="2" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <path d="M12 54C12 54 22 26 32 26C42 26 52 54 52 54" stroke="#0077b6" strokeWidth="6" strokeLinecap="round" fill="rgba(0,119,182,0.05)" />
+      <path d="M32 26V10L40 18" stroke="#00b4d8" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="32" cy="54" r="4" fill="#90e0ef" />
     </svg>
   ),
   osint: (
-    <svg {...svgProps}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M2 12h20" />
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2Z" />
-      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="26" stroke="#2a9d8f" strokeWidth="4" />
+      <circle cx="32" cy="32" r="14" stroke="#2a9d8f" strokeWidth="3" strokeDasharray="6 6" />
+      <path d="M32 6v52M6 32h52" stroke="#2a9d8f" strokeWidth="2" opacity="0.4" />
+      <circle cx="42" cy="22" r="5" fill="#e9c46a" />
+      <path d="M32 32l10-10" stroke="#e9c46a" strokeWidth="4" />
     </svg>
   ),
 
   /* SOC & Defense */
   splunk: (
-    <svg {...svgProps}>
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M7 17v-4" />
-      <path d="M11 17V9" />
-      <path d="M15 17v-6" />
-      <path d="M19 17V7" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <path d="M16 22l16 10-16 10" stroke="#f72585" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M38 42h10" stroke="#f72585" strokeWidth="8" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="26" stroke="rgba(247,37,133,0.15)" strokeWidth="4" />
     </svg>
   ),
   'threat-intel': (
-    <svg {...svgProps}>
-      <circle cx="12" cy="12" r="2" />
-      <circle cx="12" cy="12" r="6" />
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="24" stroke="#7209b7" strokeWidth="5" strokeDasharray="10 8" />
+      <circle cx="32" cy="32" r="8" fill="#f72585" />
+      <path d="M32 4v8M32 52v8M4 32h8M52 32h8" stroke="#7209b7" strokeWidth="5" strokeLinecap="round" />
     </svg>
   ),
   'incident-response': (
-    <svg {...svgProps}>
-      <path d="M12 2L3 7v6c0 5.05 3.84 9.76 9 10.93C17.16 22.76 21 18.05 21 13V7l-9-5Z" />
-      <path d="M13 7l-5 6h4l-1 5 5-6h-4l1-5" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <path d="M32 6L10 16v16c0 14.5 10 28 22 32 12-4 22-17.5 22-32V16L32 6z" stroke="#00f5d4" strokeWidth="4" fill="rgba(0,245,212,0.05)" strokeLinejoin="round" />
+      <path d="M32 22v10" stroke="#f15bb5" strokeWidth="6" strokeLinecap="round" />
+      <circle cx="32" cy="42" r="4" fill="#f15bb5" />
     </svg>
   ),
 
   /* Engineering */
   rust: (
-    <svg {...svgProps}>
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 3v2M12 19v2M3 12h2M19 12h2" />
-      <path d="M5.64 5.64l1.41 1.41M16.95 16.95l1.41 1.41M5.64 18.36l1.41-1.41M16.95 7.05l1.41-1.41" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="24" stroke="#f46623" strokeWidth="5" strokeDasharray="8 6" />
+      <path d="M26 22h10c5 0 8 3 8 7s-3 7-8 7H26v-14z" stroke="#f46623" strokeWidth="4" />
+      <path d="M26 46V22M34 36l8 10" stroke="#f46623" strokeWidth="4" strokeLinecap="square" />
     </svg>
   ),
   python: (
-    <svg {...svgProps}>
-      <path d="M12 2C8 2 8 4 8 4v3h4.5M12 2c4 0 4 2 4 2v3h-4.5" />
-      <path d="M7.5 9H4s-2 0-2 2v3c0 2 2 2 2 2h3" />
-      <path d="M12 22c4 0 4-2 4-2v-3h-4.5M12 22c-4 0-4-2-4-2v-3h4.5" />
-      <path d="M16.5 15H20s2 0 2-2v-3c0-2-2-2-2-2h-3" />
-      <circle cx="10" cy="5" r="0.7" fill="currentColor" stroke="none" />
-      <circle cx="14" cy="19" r="0.7" fill="currentColor" stroke="none" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <path fill="#3776AB" d="M64 10C42 10 40 20 40 20v10h24v4H29s-22-1-22 23c0 23 12 25 12 25h10V68s0-15 15-15h21s14 0 14-14V27s1-17-15-17z"/>
+      <path fill="#FFD43B" d="M64 118c22 0 24-10 24-10V98H64v-4h36s22 1 22-23c0-23-12-25-12-25h-10v14s0 15-15 15H64s-14 0-14 14v12s-1 17 15 17z"/>
+      <circle fill="#FFF" cx="47" cy="24" r="4"/>
+      <circle fill="#FFF" cx="81" cy="104" r="4"/>
     </svg>
   ),
   'c-cpp': (
-    <svg {...svgProps}>
-      <path d="M18 10a6 6 0 1 0 0 4" />
-      <path d="M14 10h4M16 8v4" />
-      <path d="M20 10h4M22 8v4" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <path d="M34 16c-8 0-14 6-14 16s6 16 14 16c5 0 9-2 12-5" stroke="#00599C" strokeWidth="6" strokeLinecap="round" />
+      <path d="M44 32h10M49 27v10" stroke="#00599C" strokeWidth="4" strokeLinecap="round" />
+      <path d="M54 32h6M57 29v6" stroke="#00599C" strokeWidth="3" strokeLinecap="round" />
     </svg>
   ),
   typescript: (
-    <svg {...svgProps}>
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M8 11v-1h6v1" />
-      <path d="M11 10v6" />
-      <path d="M15 12.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5c0 1-1.5 1-1.5 2v.5" />
-      <circle cx="16.5" cy="16.5" r="0.5" fill="currentColor" stroke="none" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <rect x="6" y="6" width="52" height="52" rx="6" fill="#3178C6" />
+      <path d="M36 48c-4 0-7-2-7-5v-2h12v2c0 2-2 5-5 5z" fill="white" />
+      <path d="M36 32V28H22v3h6v17h6V31h2z" fill="white" />
     </svg>
   ),
 
   /* Tooling */
   tauri: (
-    <svg {...svgProps}>
-      <rect x="3" y="3" width="18" height="14" rx="2" />
-      <path d="M3 13h18" />
-      <circle cx="12" cy="8" r="3" />
-      <path d="M8 21h8M12 17v4" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="26" stroke="#FFC131" strokeWidth="5" />
+      <path d="M22 32c0 5 4 10 10 10s10-5 10-10" stroke="#FFC131" strokeWidth="5" strokeLinecap="round" />
+      <path d="M32 42v10" stroke="#FFC131" strokeWidth="5" strokeLinecap="round" />
+      <circle cx="32" cy="22" r="6" fill="#FFC131" />
     </svg>
   ),
   'context-eng': (
-    <svg {...svgProps}>
-      <circle cx="6" cy="6" r="2" />
-      <circle cx="18" cy="6" r="2" />
-      <circle cx="6" cy="18" r="2" />
-      <circle cx="18" cy="18" r="2" />
-      <circle cx="12" cy="12" r="3" fill="currentColor" fillOpacity="0.15" />
-      <path d="M8 6h8M6 8v8M18 8v8M8 18h8" />
-      <path d="M8 8l4 4M16 8l-4 4M8 16l4-4M16 16l-4-4" />
+    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
+      <path d="M32 6L6 20l26 14 26-14-26-14z" stroke="#00d4ff" strokeWidth="4" fill="rgba(0,212,255,0.1)" strokeLinejoin="round" />
+      <path d="M6 44l26 14 26-14M6 32l26 14 26-14" stroke="#00d4ff" strokeWidth="4" opacity="0.6" strokeLinejoin="round" />
+      <circle cx="32" cy="20" r="5" fill="#fff" />
+      <circle cx="32" cy="34" r="3" fill="#fff" opacity="0.8" />
     </svg>
   ),
 };
@@ -147,26 +136,43 @@ const SkillCard = memo(function SkillCard({
   skill,
   delay,
   accent,
+  onClick,
 }: {
   skill: SkillItem;
   delay: number;
   accent: string;
+  onClick: () => void;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
+      layoutId={`skill-card-${skill.name}`}
+      initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay, duration: 0.35 }}
-      className="arsenal-card"
+      viewport={{ once: true, margin: "-100px" }}
+      transition={{ delay, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="group relative cursor-pointer overflow-hidden rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm transition-all duration-500 hover:bg-white/10 hover:border-white/20 hover:shadow-2xl"
       style={{ '--card-accent': accent } as React.CSSProperties}
+      onMouseEnter={playHoverTick}
+      onClick={onClick}
     >
-      <div className="arsenal-card-icon" style={{ color: accent }}>
-        {getIcon(skill.icon)}
-      </div>
-      <div className="arsenal-card-body">
-        <span className="arsenal-card-name">{skill.name}</span>
-        <span className="arsenal-card-desc">{skill.desc}</span>
+      {/* Soft Glow */}
+      <div 
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
+        style={{ background: `radial-gradient(circle at 50% 120%, ${accent}30 0%, transparent 70%)` }}
+      />
+      
+      <div className="relative p-6 md:p-8 flex flex-col items-center justify-center text-center h-full gap-5">
+        <div className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center drop-shadow-xl transition-transform duration-500 group-hover:scale-110">
+          {getIcon(skill.icon)}
+        </div>
+        <div>
+          <h3 className="font-mono text-lg md:text-xl font-bold text-white tracking-tight mb-2">
+            {skill.name}
+          </h3>
+          <p className="text-xs md:text-sm text-gray-400 font-sans leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity max-w-[200px] mx-auto">
+            {skill.desc}
+          </p>
+        </div>
       </div>
     </motion.div>
   );
@@ -177,31 +183,53 @@ export default function Arsenal() {
   const { t } = useTranslation();
   const theme = useAppStore((s) => s.theme);
   const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
+  
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
+
+  const handleOpenModal = (name: string) => {
+    playTypeTick();
+    setSelectedSkill(name);
+  };
+
+  const handleCloseModal = () => {
+    playHoverTick();
+    setSelectedSkill(null);
+  };
 
   return (
-    <section id="arsenal" className="py-24 px-6 max-w-6xl mx-auto relative">
-      {/* Ambient backdrop */}
-      <div
-        className="section-backdrop"
-        style={{ top: '-10%', right: '-15%' }}
-      />
+    <>
+      <section id="arsenal" className="py-32 md:py-48 px-6 max-w-7xl mx-auto relative">
+        {/* Ambient backdrop */}
+        <div
+          className="absolute inset-0 pointer-events-none opacity-20"
+          style={{ 
+            background: `radial-gradient(ellipse at 50% 50%, ${accent} 0%, transparent 60%)`,
+            filter: 'blur(120px)',
+            zIndex: 0
+          }}
+        />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        className="mb-14 relative z-10"
-      >
-        <h2
-          className="text-3xl md:text-4xl font-black font-mono tracking-tight"
-          style={{ color: accent }}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          className="mb-24 relative z-10 text-center flex flex-col items-center"
         >
-          {'// '}{t.arsenal.title.toUpperCase()}
-        </h2>
-        <div className="h-[1px] mt-3 w-16" style={{ background: accent, opacity: 0.4 }} />
-      </motion.div>
+          <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-6 backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
+            <span className="text-xs font-mono tracking-widest text-white/70 uppercase">Technical Core</span>
+          </div>
+          <h2
+            className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
+            style={{ color: '#fff' }}
+          >
+            <ScrambledTitle text={t.arsenal.title.toUpperCase()} />
+          </h2>
+          <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
+        </motion.div>
 
-      <div className="space-y-10 relative z-10">
+        <div className="space-y-32 relative z-10">
         {CATEGORIES.map(([category, skillNames], catIdx) => {
           const matched = t.arsenal.skills.filter((s) =>
             skillNames.includes(s.name)
@@ -211,22 +239,27 @@ export default function Arsenal() {
           return (
             <motion.div
               key={category}
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: catIdx * 0.06 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ delay: catIdx * 0.1, duration: 0.8 }}
+              className="flex flex-col gap-8"
             >
-              <div className="category-header" style={{ color: accent }}>
-                <span className="category-dot" style={{ background: accent }} />
-                {category}
+              <div className="flex items-center gap-4">
+                <span className="w-8 h-[1px] opacity-30" style={{ background: accent }} />
+                <h3 className="text-sm md:text-base font-mono tracking-[0.2em] text-white/50 uppercase">
+                  {category}
+                </h3>
+                <span className="flex-1 h-[1px] opacity-10" style={{ background: accent }} />
               </div>
-              <div className="arsenal-grid">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                 {matched.map((s, i) => (
                   <SkillCard
                     key={s.name}
                     skill={s}
                     delay={i * 0.04}
                     accent={accent}
+                    onClick={() => handleOpenModal(s.name)}
                   />
                 ))}
               </div>
@@ -234,6 +267,18 @@ export default function Arsenal() {
           );
         })}
       </div>
-    </section>
+      </section>
+
+      <AnimatePresence>
+        {selectedSkill && (
+          <DeepDiveModal
+            skillName={selectedSkill}
+            icon={getIcon(t.arsenal.skills.find(s => s.name === selectedSkill)?.icon || '')}
+            onClose={handleCloseModal}
+            accent={accent}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }
