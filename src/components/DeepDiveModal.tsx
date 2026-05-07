@@ -93,7 +93,7 @@ export default function DeepDiveModal({ skillName, icon, onClose, accent }: Deep
             className="w-40 h-40 md:w-64 md:h-64 flex items-center justify-center drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]"
             style={{ willChange: 'transform, opacity' }}
           >
-            {icon && cloneElement(icon as React.ReactElement, { width: '100%', height: '100%' })}
+            {icon && cloneElement(icon as React.ReactElement<any>, { width: '100%', height: '100%' })}
           </motion.div>
           
           <motion.h2 
