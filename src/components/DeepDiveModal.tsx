@@ -52,9 +52,9 @@ export default function DeepDiveModal({ skillName, icon, onClose, accent }: Deep
 
       {/* 3D Holographic Container - Pure GPU Transform for 60fps */}
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, filter: 'blur(20px)', y: 20 }}
-        animate={{ scale: 1, opacity: 1, filter: 'blur(0px)', y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, filter: 'blur(10px)', y: -20 }}
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: -20 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="relative w-[95vw] md:w-[85vw] max-w-6xl max-h-[90vh] md:max-h-[80vh] overflow-hidden flex flex-col md:flex-row shadow-2xl"
         style={{
@@ -62,6 +62,7 @@ export default function DeepDiveModal({ skillName, icon, onClose, accent }: Deep
           border: `1px solid ${accent}20`,
           boxShadow: `0 30px 60px rgba(0,0,0,0.5), inset 0 1px 0 ${accent}20`,
           borderRadius: '24px',
+          willChange: 'transform, opacity',
         }}
       >
         {/* Glow & Scanlines Overlay */}
@@ -86,10 +87,11 @@ export default function DeepDiveModal({ skillName, icon, onClose, accent }: Deep
           </button>
 
           <motion.div 
-            initial={{ scale: 0.5, filter: 'blur(20px)', opacity: 0 }}
-            animate={{ scale: 1, filter: 'blur(0px)', opacity: 1 }}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
             className="w-40 h-40 md:w-64 md:h-64 flex items-center justify-center drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]"
+            style={{ willChange: 'transform, opacity' }}
           >
             {icon && cloneElement(icon as React.ReactElement, { width: '100%', height: '100%' })}
           </motion.div>
