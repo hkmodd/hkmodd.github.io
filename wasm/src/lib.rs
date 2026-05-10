@@ -2,11 +2,14 @@ use wasm_bindgen::prelude::*;
 use std::f32::consts::PI;
 
 // ═══════════════════════════════════════════════════════════════════
-//  NEURAL ENGINE — EXTREME OVERCLOCK (Boids + Lorenz Storm)
+//  NEURAL ENGINE — Rust WASM high-perf simulation for NeuralMesh v3
+//  All per-frame math runs here at near-native speed.
+//  JS only reads the output buffers and uploads to Three.js GPU.
 // ═══════════════════════════════════════════════════════════════════
 
-const FIELD_SIZE: f32 = 25.0;
+const FIELD_SIZE: f32 = 20.0;
 
+/// Depth layers for parallax — 3 discrete z-planes
 struct DepthLayer {
     z: f32,
     fraction: f32,
@@ -20,6 +23,7 @@ const DEPTH_LAYERS: [DepthLayer; 3] = [
     DepthLayer { z:  2.0, fraction: 0.30, scale: 1.2, opacity: 1.0 },
 ];
 
+// ── Pseudo-random (deterministic, no std rand needed) ──────────────
 fn splitmix(mut x: u32) -> u32 {
     x = x.wrapping_add(0x9e3779b9);
     x ^= x >> 16;
@@ -35,47 +39,9 @@ fn rand_f32(seed: &mut u32) -> f32 {
     (*seed as f32) / (u32::MAX as f32)
 }
 
-fn hash(x: f32, y: f32, z: f32) -> f32 {
-    let mut h = (x * 127.1 + y * 311.7 + z * 74.7).fract();
-    h = (h * 43758.5453123).fract();
-    h * 2.0 - 1.0
-}
-
-fn noise3d(x: f32, y: f32, z: f32) -> f32 {
-    let ix = x.floor(); let iy = y.floor(); let iz = z.floor();
-    let fx = x.fract(); let fy = y.fract(); let fz = z.fract();
-    
-    let u = fx * fx * (3.0 - 2.0 * fx);
-    let v = fy * fy * (3.0 - 2.0 * fy);
-    let w = fz * fz * (3.0 - 2.0 * fz);
-    
-    let a = hash(ix, iy, iz);
-    let b = hash(ix + 1.0, iy, iz);
-    let c = hash(ix, iy + 1.0, iz);
-    let d = hash(ix + 1.0, iy + 1.0, iz);
-    let e = hash(ix, iy, iz + 1.0);
-    let f = hash(ix + 1.0, iy, iz + 1.0);
-    let g = hash(ix, iy + 1.0, iz + 1.0);
-    let h = hash(ix + 1.0, iy + 1.0, iz + 1.0);
-    
-    let k0 = a;
-    let k1 = b - a;
-    let k2 = c - a;
-    let k3 = e - a;
-    let k4 = a - b - c + d;
-    let k5 = a - c - e + g;
-    let k6 = a - b - e + f;
-    let k7 = -a + b + c - d + e - f - g + h;
-    
-    k0 + k1*u + k2*v + k3*w + k4*u*v + k5*v*w + k6*u*w + k7*u*v*w
-}
-
-fn flow_field(x: f32, y: f32, z: f32) -> (f32, f32, f32) {
-    let nx = noise3d(x, y, z);
-    let ny = noise3d(y + 31.416, z - 47.853, x + 12.721);
-    let nz = noise3d(z - 23.314, x + 89.124, y - 11.234);
-    (nx, ny, nz)
-}
+// ═══════════════════════════════════════════════════════════════════
+//  MAIN ENGINE
+// ═══════════════════════════════════════════════════════════════════
 
 #[wasm_bindgen]
 pub struct NeuralEngine {
@@ -84,30 +50,36 @@ pub struct NeuralEngine {
     pulse_count: usize,
     connection_dist: f32,
 
-    base_positions: Vec<f32>,
+    // Node data (static — set at init)
+    base_positions: Vec<f32>,    // [x,y,z] × node_count
     base_opacities: Vec<f32>,
     base_sizes: Vec<f32>,
+    phases: Vec<f32>,
     speeds: Vec<f32>,
 
+    // Node output (mutated each frame, read by JS)
     live_positions: Vec<f32>,
-    live_velocities: Vec<f32>,
     live_opacities: Vec<f32>,
     live_sizes: Vec<f32>,
 
-    conn_positions: Vec<f32>,
-    conn_colors: Vec<f32>,
-    conn_count: usize,
+    // Connection output
+    conn_positions: Vec<f32>,    // [ax,ay,az, bx,by,bz] × max_connections
+    conn_colors: Vec<f32>,       // [r,g,b, r,g,b] × max_connections
+    conn_count: usize,           // how many active this frame
 
+    // Pulse data
     pulse_from: Vec<usize>,
     pulse_to: Vec<usize>,
     pulse_progress: Vec<f32>,
     pulse_speed: Vec<f32>,
-    pulse_matrices: Vec<f32>,
+    pulse_matrices: Vec<f32>,    // 16 floats per pulse (4×4 matrix)
 
+    // Current theme color (lerped)
     color_r: f32,
     color_g: f32,
     color_b: f32,
 
+    // Elapsed time accumulator
     elapsed: f32,
 }
 
@@ -117,11 +89,14 @@ impl NeuralEngine {
     pub fn new(node_count: usize, max_connections: usize, pulse_count: usize, connection_dist: f32) -> Self {
         let mut seed: u32 = 42;
 
+        // ── Allocate node buffers ──
         let mut base_positions = vec![0.0f32; node_count * 3];
         let mut base_opacities = vec![0.0f32; node_count];
         let mut base_sizes = vec![0.0f32; node_count];
+        let mut phases = vec![0.0f32; node_count];
         let mut speeds = vec![0.0f32; node_count];
 
+        // ── Distribute nodes across depth layers ──
         let mut idx = 0usize;
         for layer in &DEPTH_LAYERS {
             let layer_count = (node_count as f32 * layer.fraction) as usize;
@@ -133,10 +108,12 @@ impl NeuralEngine {
                 base_positions[i3 + 2] = layer.z + (rand_f32(&mut seed) - 0.5) * 4.0;
                 base_opacities[idx] = layer.opacity;
                 base_sizes[idx] = layer.scale;
+                phases[idx] = rand_f32(&mut seed) * PI * 2.0;
                 speeds[idx] = 0.4 + rand_f32(&mut seed) * 1.2;
                 idx += 1;
             }
         }
+        // Fill remaining
         while idx < node_count {
             let i3 = idx * 3;
             base_positions[i3]     = (rand_f32(&mut seed) - 0.5) * FIELD_SIZE;
@@ -144,10 +121,12 @@ impl NeuralEngine {
             base_positions[i3 + 2] = (rand_f32(&mut seed) - 0.5) * 10.0;
             base_opacities[idx] = 0.5;
             base_sizes[idx] = 0.7;
+            phases[idx] = rand_f32(&mut seed) * PI * 2.0;
             speeds[idx] = 0.5 + rand_f32(&mut seed) * 1.0;
             idx += 1;
         }
 
+        // ── Pulse init ──
         let mut pulse_from = vec![0usize; pulse_count];
         let mut pulse_to = vec![0usize; pulse_count];
         let mut pulse_progress = vec![0.0f32; pulse_count];
@@ -166,13 +145,13 @@ impl NeuralEngine {
             connection_dist,
 
             live_positions: base_positions.clone(),
-            live_velocities: vec![0.0f32; node_count * 3],
             live_opacities: base_opacities.clone(),
             live_sizes: base_sizes.clone(),
 
             base_positions,
             base_opacities,
             base_sizes,
+            phases,
             speeds,
 
             conn_positions: vec![0.0; max_connections * 6],
@@ -187,11 +166,15 @@ impl NeuralEngine {
 
             color_r: 0.0,
             color_g: 0.831,
-            color_b: 1.0,
+            color_b: 1.0,  // #00d4ff
 
             elapsed: 0.0,
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  TICK — called every frame from JS useFrame()
+    // ═══════════════════════════════════════════════════════════════
 
     pub fn tick(
         &mut self,
@@ -207,6 +190,7 @@ impl NeuralEngine {
         self.elapsed += dt;
         let t = self.elapsed;
 
+        // ── Lerp theme color ──
         let lerp_rate = 0.04;
         self.color_r += (target_r - self.color_r) * lerp_rate;
         self.color_g += (target_g - self.color_g) * lerp_rate;
@@ -216,51 +200,23 @@ impl NeuralEngine {
         let breathe = (t * 0.5).sin() * 0.35;
 
         // ══════════════════════════════════════════════════════════
-        //  1. NODE SIMULATION (Lorenz Storm + Flow Field)
+        //  1. NODE SIMULATION
         // ══════════════════════════════════════════════════════════
 
         for i in 0..self.node_count {
             let i3 = i * 3;
-            let mut x = self.live_positions[i3];
-            let mut y = self.live_positions[i3 + 1];
-            let mut z = self.live_positions[i3 + 2];
-            
-            let mut vx = self.live_velocities[i3];
-            let mut vy = self.live_velocities[i3 + 1];
-            let mut vz = self.live_velocities[i3 + 2];
-            
+            let base_x = self.base_positions[i3];
+            let base_y = self.base_positions[i3 + 1];
+            let base_z = self.base_positions[i3 + 2];
+            let phase = self.phases[i];
             let speed = self.speeds[i];
 
-            // A) Flow Field (Simplex Noise)
-            let f_scale = 0.05; // smoother, wider curves
-            let (nx, ny, nz) = flow_field(x * f_scale, y * f_scale, z * f_scale + t * 0.05);
-            let force_mag = speed * 0.015 * speed_burst; // delicate drift
-            vx += nx * force_mag;
-            vy += ny * force_mag;
-            vz += nz * force_mag;
-            
-            // B) Lorenz Attractor (Tornado Vortex Core)
-            // L'attrattore di Lorenz crea un vortice caotico attorno all'origine
-            let l_scale = 0.15;
-            let lx = x * l_scale;
-            let ly = y * l_scale;
-            let lz = z * l_scale + 5.0; // Offset Z to center the butterfly
-            
-            // Parametri di Lorenz classici modificati per l'estetica
-            let sigma = 10.0;
-            let rho = 28.0;
-            let beta = 8.0 / 3.0;
-            
-            let dx_lorenz = sigma * (ly - lx);
-            let dy_lorenz = lx * (rho - lz) - ly;
-            let dz_lorenz = lx * ly - beta * lz;
-            
-            let lorenz_mag = 0.0001 * speed_burst; // Extremely delicate, just a gentle background pull
-            vx += dx_lorenz * lorenz_mag;
-            vy += dy_lorenz * lorenz_mag;
-            vz += dz_lorenz * lorenz_mag;
+            // Lissajous drift + breathing
+            let mut x = base_x + (t * 0.25 * speed + phase).sin() * 1.2 * speed_burst;
+            let mut y = base_y + (t * 0.2 * speed + phase * 1.3).cos() * 1.2 * speed_burst;
+            let mut z = base_z + (t * 0.15 * speed + phase * 0.7).sin() * 0.6 + breathe;
 
-            // C) Pointer repulsion (Magnetic push)
+            // ── Pointer repulsion ──
             let dx = x - pointer_x;
             let dy = y - pointer_y;
             let dz = z - pointer_z;
@@ -268,56 +224,31 @@ impl NeuralEngine {
 
             if dist < 4.5 && dist > 0.001 {
                 let norm = 1.0 - dist / 4.5;
-                let force = norm * norm * 0.25;
+                let force = norm * norm * 2.8;
                 let inv_dist = 1.0 / dist;
-                vx += dx * inv_dist * force;
-                vy += dy * inv_dist * force;
-                vz += dz * inv_dist * force * 0.5;
+                x += dx * inv_dist * force;
+                y += dy * inv_dist * force;
+                z += dz * inv_dist * force * 0.5;
             }
 
-            // D) Spring back to base Z plane
-            let base_z = self.base_positions[i3 + 2];
-            let z_diff = base_z - z;
-            vz += z_diff * 0.02;
-
-            // E) Friction & Position Update
-            let friction = 0.92; // stronger friction to prevent crazy velocities
-            vx *= friction;
-            vy *= friction;
-            vz *= friction;
-
-            x += vx;
-            y += vy;
-            z += vz;
-
-            // Toroidal boundary wrapping
-            let half_field = FIELD_SIZE * 0.6;
-            if x > half_field { x -= half_field * 2.0; }
-            if x < -half_field { x += half_field * 2.0; }
-            if y > half_field { y -= half_field * 2.0; }
-            if y < -half_field { y += half_field * 2.0; }
-
-            // Write back
             self.live_positions[i3] = x;
             self.live_positions[i3 + 1] = y;
             self.live_positions[i3 + 2] = z;
-            
-            self.live_velocities[i3] = vx;
-            self.live_velocities[i3 + 1] = vy;
-            self.live_velocities[i3 + 2] = vz;
 
-            // Size/Opacity based on proximity
-            let proximity = (1.0 - dist / 6.0).max(0.0);
+            // Proximity brightness boost
+            let p_dx = x - pointer_x;
+            let p_dy = y - pointer_y;
+            let p_dist = (p_dx * p_dx + p_dy * p_dy).sqrt();
+            let proximity = (1.0 - p_dist / 6.0).max(0.0);
             self.live_opacities[i] = self.base_opacities[i] + proximity * 0.7;
             self.live_sizes[i] = self.base_sizes[i] * (1.0 + proximity * 1.0);
         }
 
         // ══════════════════════════════════════════════════════════
-        //  2. BOIDS SWARM INTELLIGENCE + CONNECTION BUILDER
+        //  2. CONNECTION BUILDER (O(n²) with early-exit)
         // ══════════════════════════════════════════════════════════
 
         let conn_dist = self.connection_dist;
-        let boids_dist = 1.8; // Raggio in cui le particelle "vedono" i vicini
         let trans_mul = if transitioning { 2.0 } else { 1.0 };
         let mut line_idx = 0usize;
 
@@ -325,16 +256,15 @@ impl NeuralEngine {
             let ax = self.live_positions[i * 3];
             let ay = self.live_positions[i * 3 + 1];
             let az = self.live_positions[i * 3 + 2];
-            
-            let avx = self.live_velocities[i * 3];
-            let avy = self.live_velocities[i * 3 + 1];
-            let avz = self.live_velocities[i * 3 + 2];
 
             for j in (i + 1)..self.node_count {
+                if line_idx >= self.max_connections { break 'outer; }
+
                 let bx = self.live_positions[j * 3];
                 let by = self.live_positions[j * 3 + 1];
                 let bz = self.live_positions[j * 3 + 2];
 
+                // Axis-aligned early exit
                 let dx = ax - bx;
                 if dx > conn_dist || dx < -conn_dist { continue; }
                 let dy = ay - by;
@@ -344,52 +274,6 @@ impl NeuralEngine {
 
                 let d = (dx * dx + dy * dy + dz * dz).sqrt();
                 if d >= conn_dist { continue; }
-
-                // ── BOIDS FORCES (Separation, Alignment, Cohesion) ──
-                if d < boids_dist && d > 0.001 {
-                    let norm = 1.0 - d / boids_dist;
-                    
-                    // 1. Separation (avoid crowding)
-                    let sep_force = norm * 0.005; // weak separation
-                    let idx_force_x = (dx / d) * sep_force;
-                    let idx_force_y = (dy / d) * sep_force;
-                    let idx_force_z = (dz / d) * sep_force;
-                    
-                    self.live_velocities[i * 3] += idx_force_x;
-                    self.live_velocities[i * 3 + 1] += idx_force_y;
-                    self.live_velocities[i * 3 + 2] += idx_force_z;
-                    
-                    self.live_velocities[j * 3] -= idx_force_x;
-                    self.live_velocities[j * 3 + 1] -= idx_force_y;
-                    self.live_velocities[j * 3 + 2] -= idx_force_z;
-
-                    // 2. Alignment (match velocities)
-                    let bvx = self.live_velocities[j * 3];
-                    let bvy = self.live_velocities[j * 3 + 1];
-                    let bvz = self.live_velocities[j * 3 + 2];
-                    
-                    let align_force = 0.001; // subtle alignment
-                    let align_dx = (bvx - avx) * align_force;
-                    let align_dy = (bvy - avy) * align_force;
-                    let align_dz = (bvz - avz) * align_force;
-                    
-                    self.live_velocities[i * 3] += align_dx;
-                    self.live_velocities[i * 3 + 1] += align_dy;
-                    self.live_velocities[i * 3 + 2] += align_dz;
-                    
-                    // 3. Cohesion (move towards center of mass)
-                    let coh_force = 0.0005; // very weak cohesion to prevent ugly clumping
-                    let coh_dx = -dx * coh_force;
-                    let coh_dy = -dy * coh_force;
-                    let coh_dz = -dz * coh_force;
-                    
-                    self.live_velocities[i * 3] += coh_dx;
-                    self.live_velocities[i * 3 + 1] += coh_dy;
-                    self.live_velocities[i * 3 + 2] += coh_dz;
-                }
-
-                // ── CONNECTION RENDERING ──
-                if line_idx >= self.max_connections { continue; } // Don't break 'outer so boids keep calculating!
 
                 let alpha = 1.0 - d / conn_dist;
                 let mid_x = (ax + bx) * 0.5;
@@ -401,6 +285,7 @@ impl NeuralEngine {
 
                 let brightness = (alpha * 0.5 + proximity * 1.2) * trans_mul;
 
+                // Depth fog
                 let avg_z = (az + bz) * 0.5;
                 let depth_fog = smoothstep(avg_z, -10.0, 4.0);
                 let final_bright = brightness * (0.3 + depth_fog * 0.7);
@@ -408,10 +293,10 @@ impl NeuralEngine {
                 let i6 = line_idx * 6;
                 self.conn_positions[i6]     = ax;
                 self.conn_positions[i6 + 1] = ay;
-                self.conn_positions[i6 + 2] = az + breathe * 0.2;
+                self.conn_positions[i6 + 2] = az;
                 self.conn_positions[i6 + 3] = bx;
                 self.conn_positions[i6 + 4] = by;
-                self.conn_positions[i6 + 5] = bz + breathe * 0.2;
+                self.conn_positions[i6 + 5] = bz;
 
                 let r = self.color_r * final_bright;
                 let g = self.color_g * final_bright;
@@ -427,6 +312,7 @@ impl NeuralEngine {
             }
         }
 
+        // Zero-fill remaining
         for k in (line_idx * 6)..(self.max_connections * 6) {
             self.conn_positions[k] = 0.0;
             self.conn_colors[k] = 0.0;
@@ -466,25 +352,34 @@ impl NeuralEngine {
 
             let s = 1.0 + (p * PI).sin() * 1.2;
 
+            // Build 4×4 scale+translate matrix (column-major for Three.js)
             let m = i * 16;
+            // Column 0
             self.pulse_matrices[m]      = s;
             self.pulse_matrices[m + 1]  = 0.0;
             self.pulse_matrices[m + 2]  = 0.0;
             self.pulse_matrices[m + 3]  = 0.0;
+            // Column 1
             self.pulse_matrices[m + 4]  = 0.0;
             self.pulse_matrices[m + 5]  = s;
             self.pulse_matrices[m + 6]  = 0.0;
             self.pulse_matrices[m + 7]  = 0.0;
+            // Column 2
             self.pulse_matrices[m + 8]  = 0.0;
             self.pulse_matrices[m + 9]  = 0.0;
             self.pulse_matrices[m + 10] = s;
             self.pulse_matrices[m + 11] = 0.0;
+            // Column 3 (translation)
             self.pulse_matrices[m + 12] = px;
             self.pulse_matrices[m + 13] = py;
-            self.pulse_matrices[m + 14] = pz + breathe * 0.2;
+            self.pulse_matrices[m + 14] = pz;
             self.pulse_matrices[m + 15] = 1.0;
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  BUFFER ACCESS — zero-copy views for JS
+    // ═══════════════════════════════════════════════════════════════
 
     pub fn positions_ptr(&self) -> *const f32 { self.live_positions.as_ptr() }
     pub fn positions_len(&self) -> usize { self.live_positions.len() }
@@ -514,6 +409,7 @@ impl NeuralEngine {
     pub fn color_b(&self) -> f32 { self.color_b }
 }
 
+// ── GLSL-style smoothstep ──────────────────────────────────────────
 fn smoothstep(x: f32, edge0: f32, edge1: f32) -> f32 {
     let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
