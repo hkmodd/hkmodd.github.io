@@ -1780,3 +1780,41 @@ html.cyber-cursor-active * {
   box-shadow: 0 0 20px rgba(255, 0, 51, 0.15);
 }
 
+
+/* -- Holographic Card Flashlight Effect -- */
+.holo-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+    var(--color-border), 
+    transparent 40%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.holo-card:hover::before {
+  opacity: 0.15;
+}
+.arsenal-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+    var(--color-border), 
+    transparent 40%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+.arsenal-card:hover::before {
+  opacity: 0.15;
+}

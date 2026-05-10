@@ -48,6 +48,15 @@ function CoreMesh({ isHovered }: { isHovered: boolean }) {
       {/* Inner solid glowing sphere */}
       <Sphere ref={innerRef} args={[0.6, 32, 32]}>
         <meshBasicMaterial color={targetColor} transparent opacity={0.8} />
+        
+        {/* Fake Bloom Layers - "90s demoscene style" optimization 
+            Zero post-processing passes, completely GPU hardware blended */}
+        <Sphere args={[1.3, 16, 16]}>
+          <meshBasicMaterial color={targetColor} transparent opacity={0.2} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </Sphere>
+        <Sphere args={[1.8, 16, 16]}>
+          <meshBasicMaterial color={targetColor} transparent opacity={0.05} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </Sphere>
       </Sphere>
 
       {/* Point light to cast a glow */}
@@ -68,7 +77,7 @@ export default function DataCore() {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Canvas camera={{ position: [0, 0, 3], fov: 45 }}>
+      <Canvas camera={{ position: [0, 0, 3], fov: 45 }} dpr={[1, 1.5]}>
         <Float speed={hovered ? 4 : 2} rotationIntensity={0.5} floatIntensity={1}>
           <CoreMesh isHovered={hovered} />
         </Float>
