@@ -50,9 +50,19 @@ const getInitialReducedMotion = () => {
   return false;
 };
 
+const getInitialTheme = (): ThemeMode => {
+  if (typeof window === 'undefined') return 'default';
+  const saved = localStorage.getItem('hkmodd-theme') as ThemeMode;
+  if (saved) return saved;
+  if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+    return 'light';
+  }
+  return 'default';
+};
+
 export const useAppStore = create<AppState>((set) => ({
-  // Theme - restore from localStorage (SSR-safe)
-  theme: ((typeof window !== 'undefined' ? localStorage.getItem('hkmodd-theme') : null) as ThemeMode) || 'default',
+  // Theme - auto-detect or restore (SSR-safe)
+  theme: getInitialTheme(),
   setTheme: (theme) => {
     localStorage.setItem('hkmodd-theme', theme);
     set({ theme });
