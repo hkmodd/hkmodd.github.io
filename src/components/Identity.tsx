@@ -145,15 +145,22 @@ export default function Identity() {
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        className="mb-12 relative z-10"
+        className="mb-24 relative z-10 text-center flex flex-col items-center"
       >
-        <h2
-          className="text-3xl md:text-4xl font-black font-mono tracking-tight"
-          style={{ color: accent }}
+        <div 
+          className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full mb-6 backdrop-blur-md"
+          style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}
         >
-          {'// '}<ScrambledTitle text={t.identity.title.toUpperCase()} />
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
+          <span className="text-xs font-mono tracking-widest text-text-dim uppercase">Personnel File</span>
+        </div>
+        <h2
+          className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
+          style={{ color: 'var(--color-text)' }}
+        >
+          <ScrambledTitle text={t.identity.title.toUpperCase()} />
         </h2>
-        <div className="h-[1px] mt-3 w-16" style={{ background: accent, opacity: 0.4 }} />
+        <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
       </motion.div>
 
       {/* Dossier grid - 2-col auto-fit, last card full-width */}

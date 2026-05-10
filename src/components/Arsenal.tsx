@@ -166,10 +166,10 @@ const SkillCard = memo(function SkillCard({
           {getIcon(skill.icon)}
         </div>
         <div>
-          <h3 className="font-mono text-lg md:text-xl font-bold text-white tracking-tight mb-2">
+          <h3 className="font-mono text-lg md:text-xl font-bold text-text tracking-tight mb-2">
             {skill.name}
           </h3>
-          <p className="text-xs md:text-sm text-gray-400 font-sans leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity max-w-[200px] mx-auto">
+          <p className="text-xs md:text-sm text-text-muted font-sans leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity max-w-[200px] mx-auto">
             {skill.desc}
           </p>
         </div>
@@ -216,13 +216,16 @@ export default function Arsenal() {
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           className="mb-24 relative z-10 text-center flex flex-col items-center"
         >
-          <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-6 backdrop-blur-md">
+          <div 
+            className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full mb-6 backdrop-blur-md"
+            style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}
+          >
             <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
-            <span className="text-xs font-mono tracking-widest text-white/70 uppercase">Technical Core</span>
+            <span className="text-xs font-mono tracking-widest text-text-dim uppercase">Technical Core</span>
           </div>
           <h2
             className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
-            style={{ color: '#fff' }}
+            style={{ color: 'var(--color-text)' }}
           >
             <ScrambledTitle text={t.arsenal.title.toUpperCase()} />
           </h2>
@@ -247,7 +250,7 @@ export default function Arsenal() {
             >
               <div className="flex items-center gap-4">
                 <span className="w-8 h-[1px] opacity-30" style={{ background: accent }} />
-                <h3 className="text-sm md:text-base font-mono tracking-[0.2em] text-white/50 uppercase">
+                <h3 className="text-sm md:text-base font-mono tracking-[0.2em] text-text-dim uppercase">
                   {category}
                 </h3>
                 <span className="flex-1 h-[1px] opacity-10" style={{ background: accent }} />

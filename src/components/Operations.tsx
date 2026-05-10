@@ -207,44 +207,38 @@ export default function Operations() {
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        className="mb-12 relative z-10"
+        className="mb-24 relative z-10 text-center flex flex-col items-center"
       >
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2
-              className="text-3xl md:text-4xl font-black font-mono tracking-tight"
-              style={{ color: accent }}
-            >
-              {'// '}<ScrambledTitle text={t.ops.title.toUpperCase()} />
-            </h2>
-            <div className="h-[1px] mt-3 w-16" style={{ background: accent, opacity: 0.4 }} />
-          </div>
-
-          {/* Live indicator */}
-          <span
-            className="font-mono text-[10px] tracking-widest flex items-center gap-2"
-            style={{ color: 'var(--color-text-dim)' }}
-          >
-            {loading ? (
-              <>
-                <Loader2 size={12} className="animate-spin" style={{ color: accent }} />
-                SYNCING GITHUB…
-              </>
-            ) : (
-              <>
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{
-                    background: '#00ff88',
-                    boxShadow: '0 0 8px rgba(0, 255, 136, 0.4)',
-                    animation: 'status-pulse 2s ease-in-out infinite',
-                  }}
-                />
-                {repos.length} REPOS LIVE
-              </>
-            )}
-          </span>
+        <div 
+          className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full mb-6 backdrop-blur-md"
+          style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}
+        >
+          {loading ? (
+            <>
+              <Loader2 size={12} className="animate-spin" style={{ color: accent }} />
+              <span className="text-xs font-mono tracking-widest text-text-dim uppercase">SYNCING GITHUB…</span>
+            </>
+          ) : (
+            <>
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{
+                  background: '#00ff88',
+                  boxShadow: '0 0 8px rgba(0, 255, 136, 0.4)',
+                  animation: 'status-pulse 2s ease-in-out infinite',
+                }}
+              />
+              <span className="text-xs font-mono tracking-widest text-text-dim uppercase">{repos.length} REPOS LIVE</span>
+            </>
+          )}
         </div>
+        <h2
+          className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
+          style={{ color: 'var(--color-text)' }}
+        >
+          <ScrambledTitle text={t.ops.title.toUpperCase()} />
+        </h2>
+        <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
       </motion.div>
 
       {/* Error state */}

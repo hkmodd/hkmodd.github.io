@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
 import { TerminalEngine, type TerminalLine } from '@/lib/terminal';
+import ScrambledTitle from '@/components/ScrambledTitle';
 
 export default function Terminal() {
   const { t } = useTranslation();
@@ -96,15 +97,23 @@ export default function Terminal() {
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        className="mb-8 relative z-10"
+        className="mb-12 relative z-10 text-center flex flex-col items-center"
       >
-        <h2
-          className="text-3xl md:text-4xl font-black font-mono tracking-tight"
-          style={{ color: accent }}
+        <div 
+          className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full mb-6 backdrop-blur-md"
+          style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}
         >
-          {`// ${t.terminal.title}`}
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
+          <span className="text-xs font-mono tracking-widest text-text-dim uppercase">System Access</span>
+        </div>
+        <h2
+          className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
+          style={{ color: 'var(--color-text)' }}
+        >
+          <ScrambledTitle text={t.terminal.title.toUpperCase()} />
         </h2>
-        <p className="text-text-muted text-sm mt-3 max-w-lg">
+        <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
+        <p className="text-text-muted text-sm mt-6 max-w-lg">
           {t.terminal.subtitle}
         </p>
       </motion.div>
