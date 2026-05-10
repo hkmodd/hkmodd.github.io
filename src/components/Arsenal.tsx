@@ -26,99 +26,104 @@ const svgProps = {
 const ICON_MAP: Record<string, React.ReactNode> = {
   /* Recon & Analysis */
   ghidra: (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <circle cx="32" cy="32" r="26" stroke="#e63946" strokeWidth="4" fill="rgba(230,57,70,0.05)" />
-      <path d="M32 16c-8 0-16 6-16 16s8 16 16 16 16-6 16-16-8-16-16-16z" stroke="#e63946" strokeWidth="3" />
-      <circle cx="32" cy="32" r="5" fill="#e63946" />
-      <path d="M32 6v10M32 48v10" stroke="#e63946" strokeWidth="4" strokeLinecap="round" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <circle cx="64" cy="64" r="56" stroke="#e63946" strokeWidth="8" fill="rgba(230,57,70,0.1)" />
+      <path d="M32 64 C 48 32, 80 32, 96 64 C 80 96, 48 96, 32 64 Z" stroke="#e63946" strokeWidth="8" strokeLinejoin="round" />
+      <circle cx="64" cy="64" r="14" fill="#e63946" />
+      <path d="M64 8V24 M64 104V120" stroke="#e63946" strokeWidth="8" strokeLinecap="round" />
     </svg>
   ),
   wireshark: (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <path d="M12 54C12 54 22 26 32 26C42 26 52 54 52 54" stroke="#0077b6" strokeWidth="6" strokeLinecap="round" fill="rgba(0,119,182,0.05)" />
-      <path d="M32 26V10L40 18" stroke="#00b4d8" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="32" cy="54" r="4" fill="#90e0ef" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <polygon points="64,6 122,64 64,122 6,64" fill="#005E9C" stroke="#1679A7" strokeWidth="4" />
+      <path d="M48 78 Q 54 44 76 32 Q 74 56 86 78 Z" fill="#FFFFFF" />
+      <path d="M32 86 Q 48 74 64 86 T 96 86" stroke="#FFFFFF" strokeWidth="8" strokeLinecap="round" fill="none" />
     </svg>
   ),
   osint: (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <circle cx="32" cy="32" r="26" stroke="#2a9d8f" strokeWidth="4" />
-      <circle cx="32" cy="32" r="14" stroke="#2a9d8f" strokeWidth="3" strokeDasharray="6 6" />
-      <path d="M32 6v52M6 32h52" stroke="#2a9d8f" strokeWidth="2" opacity="0.4" />
-      <circle cx="42" cy="22" r="5" fill="#e9c46a" />
-      <path d="M32 32l10-10" stroke="#e9c46a" strokeWidth="4" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <circle cx="64" cy="64" r="50" stroke="#2a9d8f" strokeWidth="8" />
+      <circle cx="64" cy="64" r="30" stroke="#2a9d8f" strokeWidth="6" strokeDasharray="12 12" />
+      <path d="M64 8v120M8 64h120" stroke="#2a9d8f" strokeWidth="4" opacity="0.3" />
+      <circle cx="84" cy="44" r="10" fill="#e9c46a" />
+      <path d="M64 64l20-20" stroke="#e9c46a" strokeWidth="8" strokeLinecap="round" />
     </svg>
   ),
 
   /* SOC & Defense */
   splunk: (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <path d="M16 22l16 10-16 10" stroke="#f72585" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M38 42h10" stroke="#f72585" strokeWidth="8" strokeLinecap="round" />
-      <circle cx="32" cy="32" r="26" stroke="rgba(247,37,133,0.15)" strokeWidth="4" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <rect x="12" y="12" width="104" height="104" rx="20" stroke="#f72585" strokeWidth="8" fill="rgba(247,37,133,0.05)" />
+      <path d="M36 44l24 20-24 20" stroke="#f72585" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M72 84h20" stroke="#f72585" strokeWidth="12" strokeLinecap="round" />
     </svg>
   ),
   'threat-intel': (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <circle cx="32" cy="32" r="24" stroke="#7209b7" strokeWidth="5" strokeDasharray="10 8" />
-      <circle cx="32" cy="32" r="8" fill="#f72585" />
-      <path d="M32 4v8M32 52v8M4 32h8M52 32h8" stroke="#7209b7" strokeWidth="5" strokeLinecap="round" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <polygon points="64,12 112,32 112,80 64,120 16,80 16,32" stroke="#7209b7" strokeWidth="8" fill="rgba(114,9,183,0.05)" strokeLinejoin="round" />
+      <circle cx="64" cy="64" r="16" fill="#f72585" />
+      <path d="M64 12v52 M16 32l48 32 M112 32L64 64" stroke="#7209b7" strokeWidth="6" opacity="0.5" />
     </svg>
   ),
   'incident-response': (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <path d="M32 6L10 16v16c0 14.5 10 28 22 32 12-4 22-17.5 22-32V16L32 6z" stroke="#00f5d4" strokeWidth="4" fill="rgba(0,245,212,0.05)" strokeLinejoin="round" />
-      <path d="M32 22v10" stroke="#f15bb5" strokeWidth="6" strokeLinecap="round" />
-      <circle cx="32" cy="42" r="4" fill="#f15bb5" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <path d="M64 12 L20 32 V64 C20 92, 40 112, 64 120 C88 112, 108 92, 108 64 V32 L64 12 Z" stroke="#00f5d4" strokeWidth="8" fill="rgba(0,245,212,0.05)" strokeLinejoin="round" />
+      <path d="M36 64h16l8-20 12 40 8-20h12" stroke="#f15bb5" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
 
   /* Engineering */
   rust: (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <circle cx="32" cy="32" r="24" stroke="#f46623" strokeWidth="5" strokeDasharray="8 6" />
-      <path d="M26 22h10c5 0 8 3 8 7s-3 7-8 7H26v-14z" stroke="#f46623" strokeWidth="4" />
-      <path d="M26 46V22M34 36l8 10" stroke="#f46623" strokeWidth="4" strokeLinecap="square" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <circle cx="64" cy="64" r="50" stroke="#f46623" strokeWidth="10" strokeDasharray="16 10" />
+      <path d="M52 44h18c10 0 16 6 16 14s-6 14-16 14H52V44z" stroke="#f46623" strokeWidth="8" strokeLinejoin="round" />
+      <path d="M52 92V44M68 72l16 20" stroke="#f46623" strokeWidth="8" strokeLinecap="square" />
     </svg>
   ),
   python: (
     <svg {...svgProps} viewBox="0 0 128 128" fill="none">
-      <path fill="#3776AB" d="M64 10C42 10 40 20 40 20v10h24v4H29s-22-1-22 23c0 23 12 25 12 25h10V68s0-15 15-15h21s14 0 14-14V27s1-17-15-17z"/>
-      <path fill="#FFD43B" d="M64 118c22 0 24-10 24-10V98H64v-4h36s22 1 22-23c0-23-12-25-12-25h-10v14s0 15-15 15H64s-14 0-14 14v12s-1 17 15 17z"/>
-      <circle fill="#FFF" cx="47" cy="24" r="4"/>
-      <circle fill="#FFF" cx="81" cy="104" r="4"/>
+      <path fill="#3776AB" d="M64 12C42 12 40 22 40 22v14h24v6H29s-22-1-22 23c0 23 12 25 12 25h10V72s0-15 15-15h21s14 0 14-14V29s1-17-15-17z"/>
+      <path fill="#FFD43B" d="M64 116c22 0 24-10 24-10V92H64v-6h36s22 1 22-23c0-23-12-25-12-25h-10v14s0 15-15 15H64s-14 0-14 14v12s-1 17 15 17z"/>
+      <circle fill="#FFF" cx="47" cy="26" r="5"/>
+      <circle fill="#FFF" cx="81" cy="102" r="5"/>
     </svg>
   ),
   'c-cpp': (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <path d="M34 16c-8 0-14 6-14 16s6 16 14 16c5 0 9-2 12-5" stroke="#00599C" strokeWidth="6" strokeLinecap="round" />
-      <path d="M44 32h10M49 27v10" stroke="#00599C" strokeWidth="4" strokeLinecap="round" />
-      <path d="M54 32h6M57 29v6" stroke="#00599C" strokeWidth="3" strokeLinecap="round" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <polygon points="64,6 116,36 116,92 64,122 12,92 12,36" fill="#004482" stroke="#00599C" strokeWidth="4" />
+      <path d="M58 84A22 22 0 1 1 58 44" stroke="white" strokeWidth="12" strokeLinecap="round" />
+      <path d="M72 64H92 M82 54V74" stroke="white" strokeWidth="8" strokeLinecap="round" />
+      <path d="M94 54H114 M104 44V64" stroke="white" strokeWidth="8" strokeLinecap="round" />
     </svg>
   ),
   typescript: (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <rect x="6" y="6" width="52" height="52" rx="6" fill="#3178C6" />
-      <path d="M36 48c-4 0-7-2-7-5v-2h12v2c0 2-2 5-5 5z" fill="white" />
-      <path d="M36 32V28H22v3h6v17h6V31h2z" fill="white" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <rect x="8" y="8" width="112" height="112" rx="12" fill="#3178C6" />
+      <path d="M36 64H60 M48 64V96" stroke="white" strokeWidth="12" strokeLinecap="square" />
+      <path d="M96 66 C84 60 76 66 84 74 L88 78 C96 86 84 100 72 94" stroke="white" strokeWidth="12" strokeLinecap="square" strokeLinejoin="miter" fill="none" />
     </svg>
   ),
 
   /* Tooling */
   tauri: (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <circle cx="32" cy="32" r="26" stroke="#FFC131" strokeWidth="5" />
-      <path d="M22 32c0 5 4 10 10 10s10-5 10-10" stroke="#FFC131" strokeWidth="5" strokeLinecap="round" />
-      <path d="M32 42v10" stroke="#FFC131" strokeWidth="5" strokeLinecap="round" />
-      <circle cx="32" cy="22" r="6" fill="#FFC131" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <defs>
+        <linearGradient id="tauriGrad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FFC131" />
+          <stop offset="1" stopColor="#FF7A00" />
+        </linearGradient>
+      </defs>
+      <circle cx="64" cy="64" r="56" fill="url(#tauriGrad)" />
+      <rect x="36" y="40" width="56" height="16" rx="8" fill="#FFFFFF" />
+      <rect x="56" y="40" width="16" height="56" rx="8" fill="#FFFFFF" />
     </svg>
   ),
   'context-eng': (
-    <svg {...svgProps} viewBox="0 0 64 64" fill="none">
-      <path d="M32 6L6 20l26 14 26-14-26-14z" stroke="#00d4ff" strokeWidth="4" fill="rgba(0,212,255,0.1)" strokeLinejoin="round" />
-      <path d="M6 44l26 14 26-14M6 32l26 14 26-14" stroke="#00d4ff" strokeWidth="4" opacity="0.6" strokeLinejoin="round" />
-      <circle cx="32" cy="20" r="5" fill="#fff" />
-      <circle cx="32" cy="34" r="3" fill="#fff" opacity="0.8" />
+    <svg {...svgProps} viewBox="0 0 128 128" fill="none">
+      <path d="M64 16 L16 40 L64 64 L112 40 Z" fill="rgba(0,212,255,0.2)" stroke="#00d4ff" strokeWidth="6" strokeLinejoin="round" />
+      <path d="M16 64 L64 88 L112 64" stroke="#00d4ff" strokeWidth="6" strokeLinejoin="round" opacity="0.6" />
+      <path d="M16 88 L64 112 L112 88" stroke="#00d4ff" strokeWidth="6" strokeLinejoin="round" opacity="0.3" />
+      <circle cx="64" cy="40" r="8" fill="#fff" />
     </svg>
   ),
 };
