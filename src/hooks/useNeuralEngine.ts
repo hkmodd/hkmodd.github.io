@@ -5,10 +5,10 @@ import type { NeuralEngine, InitOutput } from '@/wasm/pkg/neural_engine';
    useNeuralEngine — singleton WASM loader
    ═══════════════════════════════════════════════════════════════════ */
 
-// Configuration — now that WASM handles the math, we can push these higher
-const NODE_COUNT = 450;
-const MAX_CONNECTIONS = 2000;
-const PULSE_COUNT = 40;
+// Configuration — Elegant Fluid Mode
+const NODE_COUNT = 550;
+const MAX_CONNECTIONS = 2500;
+const PULSE_COUNT = 50;
 const CONNECTION_DIST = 2.8;
 
 export interface NeuralEngineState {
@@ -41,7 +41,7 @@ async function ensureLoaded(): Promise<void> {
 
       if (import.meta.env.DEV) {
         console.log(
-          '%c🦀 WASM Neural Engine loaded',
+          '%c🦀 WASM Flow Field Engine (v2) loaded',
           'color: #00d4ff; font-weight: bold',
           `| ${NODE_COUNT} nodes, ${MAX_CONNECTIONS} max conn, ${PULSE_COUNT} pulses`,
         );
