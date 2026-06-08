@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Github, Linkedin, Download, ChevronDown } from 'lucide-react';
+import { Github, Linkedin, ChevronDown } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
 import { useScrambleText } from '@/hooks/useScrambleText';
@@ -364,15 +364,6 @@ export default function Hero() {
               >
                 <Linkedin size={15} />
                 <span>LinkedIn</span>
-              </a>
-              <a
-                href="/CV_Sebastiano_Gelmetti.pdf"
-                download
-                className="btn-cyber btn-cyber--primary col-span-2 sm:col-span-1 justify-self-center"
-                onClick={() => haptic('medium')}
-              >
-                <Download size={15} />
-                <span>{t.hero.cv}</span>
               </a>
             </motion.div>
 
