@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Github, Linkedin, Mail, Heart, Send } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
@@ -14,6 +15,13 @@ export default function Footer() {
   const theme = useAppStore((s) => s.theme);
   const ctfSolved = useAppStore((s) => s.ctfSolved);
   const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
+
+  const [emailHref, setEmailHref] = useState('#');
+  const handleEmailReveal = () => {
+    if (emailHref === '#') {
+      setEmailHref('mailto:' + atob('c2ViYXN0aWFuby5nZWxtZXR0aUBnbWFpbC5jb20='));
+    }
+  };
 
   return (
     <footer className="relative z-10">
@@ -33,11 +41,9 @@ export default function Footer() {
             {language === 'it' ? 'INTERESSATO? PARLIAMONE.' : 'INTERESTED? LET\'S TALK.'}
           </p>
           <motion.a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              window.location.href = 'mailto:' + atob('c2ViYXN0aWFuby5nZWxtZXR0aUBnbWFpbC5jb20=');
-            }}
+            href={emailHref}
+            onMouseEnter={handleEmailReveal}
+            onFocus={handleEmailReveal}
             className="inline-flex items-center gap-2 px-6 py-3 font-mono text-sm font-bold tracking-wider rounded-lg transition-all duration-300 cursor-pointer"
             style={{
               border: `1px solid ${accent}60`,
@@ -78,15 +84,11 @@ export default function Footer() {
               return (
                 <motion.a
                   key={label}
-                  href={href}
+                  href={isEmail ? emailHref : href}
+                  onMouseEnter={isEmail ? handleEmailReveal : undefined}
+                  onFocus={isEmail ? handleEmailReveal : undefined}
                   target={isEmail ? undefined : "_blank"}
                   rel={isEmail ? undefined : "noopener noreferrer"}
-                  onClick={(e) => {
-                    if (isEmail) {
-                      e.preventDefault();
-                      window.location.href = 'mailto:' + atob('c2ViYXN0aWFuby5nZWxtZXR0aUBnbWFpbC5jb20=');
-                    }
-                  }}
                   initial={{ opacity: 0, y: 8 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
