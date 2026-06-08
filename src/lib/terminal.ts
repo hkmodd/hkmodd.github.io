@@ -161,7 +161,7 @@ export class TerminalEngine {
         this.out([
           'GitHub:   https://github.com/HKModd',
           'LinkedIn: https://linkedin.com/in/gelmetti-sebastiano/',
-          'Email:    sebastiano.gelmetti@gmail.com',
+          'Email:    ' + atob('c2ViYXN0aWFuby5nZWxtZXR0aUBnbWFpbC5jb20='),
         ]);
         break;
 

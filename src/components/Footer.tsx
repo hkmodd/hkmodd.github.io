@@ -6,7 +6,7 @@ import { useTranslation } from '@/i18n';
 const socials = [
   { icon: Github, href: 'https://github.com/hkmodd', label: 'GitHub' },
   { icon: Linkedin, href: 'https://www.linkedin.com/in/gelmetti-sebastiano/', label: 'LinkedIn' },
-  { icon: Mail, href: 'mailto:sebastiano.gelmetti@gmail.com', label: 'Email' },
+  { icon: Mail, href: '#', label: 'Email' },
 ];
 
 export default function Footer() {
@@ -33,8 +33,12 @@ export default function Footer() {
             {language === 'it' ? 'INTERESSATO? PARLIAMONE.' : 'INTERESTED? LET\'S TALK.'}
           </p>
           <motion.a
-            href="mailto:sebastiano.gelmetti@gmail.com"
-            className="inline-flex items-center gap-2 px-6 py-3 font-mono text-sm font-bold tracking-wider rounded-lg transition-all duration-300"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = 'mailto:' + atob('c2ViYXN0aWFuby5nZWxtZXR0aUBnbWFpbC5jb20=');
+            }}
+            className="inline-flex items-center gap-2 px-6 py-3 font-mono text-sm font-bold tracking-wider rounded-lg transition-all duration-300 cursor-pointer"
             style={{
               border: `1px solid ${accent}60`,
               color: accent,
@@ -69,32 +73,41 @@ export default function Footer() {
 
           {/* Center: social icons with glow hover */}
           <div className="flex items-center gap-3">
-            {socials.map(({ icon: Icon, href, label }, idx) => (
-              <motion.a
-                key={label}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                className="p-2.5 rounded-lg transition-all duration-300"
-                style={{
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-muted)',
-                }}
-                whileHover={{
-                  borderColor: `${accent}40`,
-                  color: accent,
-                  scale: 1.15,
-                  boxShadow: `0 0 20px ${accent}15`,
-                }}
-                title={label}
-              >
-                <Icon size={16} />
-              </motion.a>
-            ))}
+            {socials.map(({ icon: Icon, href, label }, idx) => {
+              const isEmail = label === 'Email';
+              return (
+                <motion.a
+                  key={label}
+                  href={href}
+                  target={isEmail ? undefined : "_blank"}
+                  rel={isEmail ? undefined : "noopener noreferrer"}
+                  onClick={(e) => {
+                    if (isEmail) {
+                      e.preventDefault();
+                      window.location.href = 'mailto:' + atob('c2ViYXN0aWFuby5nZWxtZXR0aUBnbWFpbC5jb20=');
+                    }
+                  }}
+                  initial={{ opacity: 0, y: 8 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="p-2.5 rounded-lg transition-all duration-300 cursor-pointer"
+                  style={{
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-muted)',
+                  }}
+                  whileHover={{
+                    borderColor: `${accent}40`,
+                    color: accent,
+                    scale: 1.15,
+                    boxShadow: `0 0 20px ${accent}15`,
+                  }}
+                  title={label}
+                >
+                  <Icon size={16} />
+                </motion.a>
+              );
+            })}
           </div>
 
           {/* Right: CTF badge or copyright */}
