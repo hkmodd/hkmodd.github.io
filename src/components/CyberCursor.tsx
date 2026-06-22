@@ -18,15 +18,23 @@ export default function CyberCursor() {
   const cursorRef = useRef<HTMLDivElement>(null);
   const trailRef = useRef<HTMLDivElement>(null);
   const posRef = useRef({ x: -100, y: -100 }); // current lerped position
+  const trailPosRef = useRef({ x: -100, y: -100 }); // current lerped trail position
   const targetRef = useRef({ x: -100, y: -100 }); // raw mouse position
   const hoveringRef = useRef(false);
   const clickingRef = useRef(false);
+  const lastHoverRef = useRef(false); // last-applied hover state
+  const lastClickRef = useRef(false); // last-applied click state
   const rafRef = useRef<number>(0);
+  const runningRef = useRef(false); // is the rAF loop currently armed?
 
   const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
   const accentDim = theme === 'redteam' ? 'rgba(255,0,51,0.3)' : theme === 'light' ? 'rgba(0,102,204,0.3)' : 'rgba(0,212,255,0.3)';
 
   // ── Animation loop - smooth LERP following ──
+  // Self-arresting: once cursor + trail have caught up to the target AND no
+  // hover/click state is pending, the loop CANCELS itself and sleeps until the
+  // next pointer event re-arms it. A still mouse → zero scheduled frames
+  // (previously: a wake-up every single refresh, forever, doing nothing).
   const animate = useCallback(() => {
     const cursor = cursorRef.current;
     const trail = trailRef.current;
@@ -39,25 +47,52 @@ export default function CyberCursor() {
     const lerpCursor = 0.18;
     const lerpTrail = 0.08;
 
-    posRef.current.x += (targetRef.current.x - posRef.current.x) * lerpCursor;
-    posRef.current.y += (targetRef.current.y - posRef.current.y) * lerpCursor;
+    const tx = targetRef.current.x;
+    const ty = targetRef.current.y;
+    const pos = posRef.current;
+    const tp = trailPosRef.current;
 
-    const trailX = parseFloat(trail.dataset.x || '-100');
-    const trailY = parseFloat(trail.dataset.y || '-100');
-    const newTrailX = trailX + (targetRef.current.x - trailX) * lerpTrail;
-    const newTrailY = trailY + (targetRef.current.y - trailY) * lerpTrail;
-    trail.dataset.x = String(newTrailX);
-    trail.dataset.y = String(newTrailY);
+    pos.x += (tx - pos.x) * lerpCursor;
+    pos.y += (ty - pos.y) * lerpCursor;
+    tp.x += (tx - tp.x) * lerpTrail;
+    tp.y += (ty - tp.y) * lerpTrail;
 
-    cursor.style.transform = `translate(${posRef.current.x}px, ${posRef.current.y}px) ${
-      clickingRef.current ? 'scale(0.8)' : hoveringRef.current ? 'scale(1.3)' : 'scale(1)'
-    }`;
-    trail.style.transform = `translate(${newTrailX}px, ${newTrailY}px) ${
-      hoveringRef.current ? 'scale(1.8)' : 'scale(1)'
-    }`;
+    // Both followers within sub-pixel of the target → nothing visibly moving.
+    const settled =
+      Math.abs(tx - pos.x) < 0.15 && Math.abs(ty - pos.y) < 0.15 &&
+      Math.abs(tx - tp.x) < 0.15 && Math.abs(ty - tp.y) < 0.15;
 
+    const stateChanged =
+      hoveringRef.current !== lastHoverRef.current ||
+      clickingRef.current !== lastClickRef.current;
+
+    // Skip the two style writes while idle and no hover/click change — avoids
+    // forcing a style recalc + composite every frame when the mouse is still.
+    if (!settled || stateChanged) {
+      cursor.style.transform = `translate(${pos.x}px, ${pos.y}px) ${
+        clickingRef.current ? 'scale(0.8)' : hoveringRef.current ? 'scale(1.3)' : 'scale(1)'
+      }`;
+      trail.style.transform = `translate(${tp.x}px, ${tp.y}px) ${
+        hoveringRef.current ? 'scale(1.8)' : 'scale(1)'
+      }`;
+      lastHoverRef.current = hoveringRef.current;
+      lastClickRef.current = clickingRef.current;
+    }
+
+    // Caught up and no pending state change → sleep. Re-armed by pointer events.
+    if (settled && !stateChanged) {
+      runningRef.current = false;
+      return;
+    }
     rafRef.current = requestAnimationFrame(animate);
   }, []);
+
+  // (Re)arm the loop. Idempotent — cheap to call from every pointer event.
+  const startLoop = useCallback(() => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+    rafRef.current = requestAnimationFrame(animate);
+  }, [animate]);
 
   useEffect(() => {
     if (isTouchDevice) return;
@@ -68,10 +103,11 @@ export default function CyberCursor() {
     const onMouseMove = (e: MouseEvent) => {
       targetRef.current.x = e.clientX;
       targetRef.current.y = e.clientY;
+      startLoop();
     };
 
-    const onMouseDown = () => { clickingRef.current = true; };
-    const onMouseUp = () => { clickingRef.current = false; };
+    const onMouseDown = () => { clickingRef.current = true; startLoop(); };
+    const onMouseUp = () => { clickingRef.current = false; startLoop(); };
 
     const onMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -86,10 +122,12 @@ export default function CyberCursor() {
         if (!hoveringRef.current) playHoverTick();
         hoveringRef.current = true;
       }
+      startLoop();
     };
 
     const onMouseOut = () => {
       hoveringRef.current = false;
+      startLoop();
     };
 
     window.addEventListener('mousemove', onMouseMove, { passive: true });
@@ -98,7 +136,7 @@ export default function CyberCursor() {
     document.addEventListener('mouseover', onMouseOver, { passive: true });
     document.addEventListener('mouseout', onMouseOut, { passive: true });
 
-    rafRef.current = requestAnimationFrame(animate);
+    startLoop();
 
     return () => {
       document.documentElement.classList.remove('cyber-cursor-active');
@@ -109,7 +147,7 @@ export default function CyberCursor() {
       document.removeEventListener('mouseout', onMouseOut);
       cancelAnimationFrame(rafRef.current);
     };
-  }, [animate]);
+  }, [startLoop]);
 
   // Don't render on mobile / touch
   if (isTouchDevice) return null;
@@ -119,8 +157,6 @@ export default function CyberCursor() {
       {/* Trail - soft glow circle that follows slowly */}
       <div
         ref={trailRef}
-        data-x="-100"
-        data-y="-100"
         className="cyber-cursor-trail"
         style={{
           position: 'fixed',

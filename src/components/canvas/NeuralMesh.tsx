@@ -1,8 +1,12 @@
-import { useMemo, useRef, useCallback, useEffect } from 'react';
+import { useMemo, useRef, useCallback, useEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
+import { PerformanceMonitor } from '@react-three/drei';
 import { useAppStore } from '@/store/useAppStore';
 import { useNeuralEngine, NODE_COUNT, MAX_CONNECTIONS, PULSE_COUNT } from '@/hooks/useNeuralEngine';
 import type { NeuralEngine } from '@/wasm/pkg/neural_engine';
+import { getInitialDpr, MIN_DPR } from '@/lib/quality';
+import { getScrollProgress } from '@/lib/scrollProgress';
+import { useScrollProgress } from '@/hooks/useScrollProgress';
 import * as THREE from 'three';
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -55,6 +59,14 @@ const nodeFragmentShader = /* glsl */ `
     // Soft glow falloff - brighter core, softer edge
     float core = smoothstep(0.5, 0.0, d);
     float glow = exp(-d * 4.0) * 0.8;
+
+    // Subtle shallow-DOF: distant nodes drift toward soft bokeh (hard core
+    // recedes, glow spreads), as if shot through a fast lens focused on the
+    // mid layer. Kept gentle so the network silhouette reads the same.
+    float defocus = smoothstep(4.0, 16.0, vDist);
+    core *= (1.0 - defocus * 0.5);
+    glow *= (1.0 + defocus * 0.6);
+
     float alpha = (core + glow) * vOpacity;
 
     // Depth-based fog
@@ -192,14 +204,23 @@ function WasmConnections({ engine, memory }: WasmChildProps) {
     }
     const views = viewCache.current!;
     const count = engine.conn_count();
+    const used = count * 6; // active floats; the rest of the cap is stale/zeroed
 
-    (posAttr.array as Float32Array).set(views.pos);
-    (colAttr.array as Float32Array).set(views.col);
+    // Copy + upload ONLY the active range, not the full MAX_CONNECTIONS cap.
+    // Active connections are typically far below 2000, so this slashes the
+    // per-frame GPU upload (was 2×12000 floats every frame, unconditionally).
+    (posAttr.array as Float32Array).set(views.pos.subarray(0, used));
+    (colAttr.array as Float32Array).set(views.col.subarray(0, used));
 
+    posAttr.clearUpdateRanges();
+    posAttr.addUpdateRange(0, used);
     posAttr.needsUpdate = true;
+    colAttr.clearUpdateRanges();
+    colAttr.addUpdateRange(0, used);
     colAttr.needsUpdate = true;
 
-    // Light mode: hide connections entirely — they compound into gray
+    // Light mode: hide connections entirely — they compound into gray.
+    // Otherwise draw only the active lines (stale tail is never drawn).
     const theme = useAppStore.getState().theme;
     geometry.setDrawRange(0, theme === 'light' ? 0 : count * 2);
 
@@ -354,19 +375,23 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
   const colorRef = useRef(new THREE.Color('#00d4ff'));
 
   useFrame(({ clock }) => {
-    if (!shaderRef.current) return;
+    const mat = shaderRef.current;
+    if (!mat) return;
     // Read store inside frame loop — avoids React re-render on theme change
     const theme = useAppStore.getState().theme;
     const targetColor = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
     colorRef.current.lerp(tmpColor.set(targetColor), 0.04);
-    shaderRef.current.uniforms.uColor.value.copy(colorRef.current);
-    shaderRef.current.uniforms.uTime.value = clock.getElapsedTime();
+    mat.uniforms.uColor.value.copy(colorRef.current);
+    mat.uniforms.uTime.value = clock.getElapsedTime();
     // Ghost mode: barely visible grid in light theme
     // Light mode: grid hidden entirely — it adds gray wash
-    shaderRef.current.uniforms.uOpacity.value = theme === 'light' ? 0.0 : 1.0;
+    mat.uniforms.uOpacity.value = theme === 'light' ? 0.0 : 1.0;
 
     const p = pointerRef.current;
-    shaderRef.current.uniforms.uPointer.value.set(p.x / 60, p.y / 60);
+    mat.uniforms.uPointer.value.set(p.x / 60, p.y / 60);
+
+    // Blending depends on theme too — fold into this single frame callback
+    mat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
   });
 
   const uniforms = useMemo(
@@ -378,14 +403,6 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
     }),
     []
   );
-
-  // Switch blending for light theme inside frame loop
-  useFrame(() => {
-    const theme = useAppStore.getState().theme;
-    if (shaderRef.current) {
-      shaderRef.current.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
-    }
-  });
 
   return (
     <mesh rotation={[-Math.PI / 2.2, 0, 0]} position={[0, -6, -3]}>
@@ -443,6 +460,57 @@ function DepthFog() {
 // ═══════════════════════════════════════════════════════════════════
 //  SCENE - orchestrates WASM tick + Three.js rendering
 // ═══════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════
+//  CURSOR GLOW - additive orb that rides the pointer's 3D position, so
+//  the cursor visibly "lives" inside the network it is repelling. Hidden
+//  until the pointer actually enters the canvas (sentinel 999,999).
+// ═══════════════════════════════════════════════════════════════════
+function CursorGlow({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
+  const groupRef = useRef<THREE.Group>(null!);
+  const coreMatRef = useRef<THREE.MeshBasicMaterial>(null!);
+  const haloMatRef = useRef<THREE.MeshBasicMaterial>(null!);
+
+  useFrame(({ clock }) => {
+    const g = groupRef.current;
+    if (!g) return;
+    const p = pointerRef.current;
+    const active = p.x < 100; // sentinel 999 = pointer not yet over the canvas
+    g.visible = active;
+    if (!active) return;
+
+    g.position.copy(p);
+
+    const theme = useAppStore.getState().theme;
+    const hex = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
+    tmpColor.set(hex);
+    if (coreMatRef.current) coreMatRef.current.color.copy(tmpColor);
+    if (haloMatRef.current) haloMatRef.current.color.copy(tmpColor);
+
+    // Gentle breathing
+    g.scale.setScalar(1 + Math.sin(clock.getElapsedTime() * 4) * 0.12);
+
+    // Light theme: dim so the white canvas stays pristine
+    const dim = theme === 'light' ? 0.25 : 1;
+    if (coreMatRef.current) coreMatRef.current.opacity = 0.9 * dim;
+    if (haloMatRef.current) haloMatRef.current.opacity = 0.12 * dim;
+  });
+
+  return (
+    <group ref={groupRef} visible={false}>
+      {/* Hot core */}
+      <mesh>
+        <sphereGeometry args={[0.16, 12, 12]} />
+        <meshBasicMaterial ref={coreMatRef} transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+      </mesh>
+      {/* Soft halo */}
+      <mesh>
+        <sphereGeometry args={[0.5, 12, 12]} />
+        <meshBasicMaterial ref={haloMatRef} transparent opacity={0.12} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
 
 function NeuralMeshScene() {
   const pointerRef = useRef(new THREE.Vector3(999, 999, 0));
@@ -503,6 +571,9 @@ function NeuralMeshScene() {
       {/* Perspective grid (beneath neural mesh) */}
       <PerspectiveGrid pointerRef={pointerRef} />
 
+      {/* Cursor-reactive glow — rides the pointer in world space */}
+      <CursorGlow pointerRef={pointerRef} />
+
       {/* Neural network group with parallax */}
       <group ref={groupRef}>
         {isReady && engine && memory && (
@@ -523,70 +594,55 @@ function NeuralMeshScene() {
 
 export default function NeuralMesh() {
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const wasVisibleRef = useRef(true); // local guard against spamming the store
+
+  const theme = useAppStore((s) => s.theme);
 
   // ── Scroll-synced fade ──
-  useEffect(() => {
-    let rafId = 0;
-    let ticking = false;
-    let wasVisible = true; // Track local state to prevent spamming the store
+  // Rides the single shared scroll listener (no private scroll handler). The
+  // fade is also re-applied on theme change — light theme forces the canvas
+  // fully hidden regardless of scroll position.
+  const applyFade = useCallback((progress: number) => {
+    const el = wrapperRef.current;
+    if (!el) return;
 
-    const applyScroll = () => {
-      const el = wrapperRef.current;
-      if (!el) return;
+    const t = Math.min(progress / 0.7, 1);
+    // Light mode: hide canvas entirely — white bg must stay pristine
+    // NOTE: data-theme is on .app-root div, not <html>. Use store state.
+    const isLightTheme = useAppStore.getState().theme === 'light';
+    const baseOpacity = isLightTheme ? 0 : 0.8;
+    const opacity = baseOpacity * (1 - t);
+    const yShift = t * -120;
 
-      const scrollY = window.scrollY;
-      const vh = window.innerHeight;
-      const progress = Math.min(scrollY / vh, 1);
-      const t = Math.min(progress / 0.7, 1);
-      // Light mode: hide canvas entirely — white bg must stay pristine
-      // NOTE: data-theme is on .app-root div, not <html>. Use store state.
-      const isLightTheme = useAppStore.getState().theme === 'light';
-      const baseOpacity = isLightTheme ? 0 : 0.8;
-      const opacity = baseOpacity * (1 - t);
-      const yShift = t * -120;
+    el.style.opacity = String(Math.max(opacity, 0));
+    el.style.transform = `translateY(${yShift}px)`;
 
-      el.style.opacity = String(Math.max(opacity, 0));
-      el.style.transform = `translateY(${yShift}px)`;
-
-      // Update global visibility state only when crossing the threshold
-      const isVisible = opacity > 0.01;
-      if (isVisible !== wasVisible) {
-        wasVisible = isVisible;
-        useAppStore.getState().setCanvasVisible(isVisible);
-      }
-      
-      ticking = false;
-    };
-
-    const onScroll = () => {
-      if (!ticking) {
-        rafId = requestAnimationFrame(applyScroll);
-        ticking = true;
-      }
-    };
-
-    applyScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-
-    // Re-apply opacity when theme changes (store subscription)
-    const unsub = useAppStore.subscribe(
-      () => requestAnimationFrame(applyScroll),
-    );
-
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      cancelAnimationFrame(rafId);
-      unsub();
-    };
+    // Update global visibility state only when crossing the threshold
+    const isVisible = opacity > 0.01;
+    if (isVisible !== wasVisibleRef.current) {
+      wasVisibleRef.current = isVisible;
+      useAppStore.getState().setCanvasVisible(isVisible);
+    }
   }, []);
+
+  useScrollProgress((progress) => applyFade(progress));
+
+  // Re-apply on theme flip (scroll position is unchanged, but light theme
+  // forces baseOpacity 0). Reads the live progress from the shared module.
+  useEffect(() => {
+    applyFade(getScrollProgress());
+  }, [theme, applyFade]);
 
   // ── Sync canvas background with theme ──
   // Dark/redteam: transparent so the dark page shows through
   // Light: subtle bluish-gray tint that blends with the page bg
-  const theme = useAppStore((s) => s.theme);
   const canvasVisible = useAppStore((s) => s.canvasVisible);
   const reducedMotion = useAppStore((s) => s.reducedMotion);
-  
+
+  // Adaptive render resolution: starts at native (crisp), PerformanceMonitor
+  // drops it ONLY if the device can't hold its refresh rate, then recovers.
+  const [dpr, setDpr] = useState(getInitialDpr);
+
   // Ghost mode: pure white canvas for light theme
   const canvasBg = theme === 'light' ? '#ffffff' : 'transparent';
 
@@ -605,19 +661,32 @@ export default function NeuralMesh() {
           near: 0.1,
           far: 50,
         }}
-        dpr={[1, 1.5]}
+        dpr={dpr}
         flat
-        performance={{ min: 0.8 }}
+        performance={{ min: 0.5 }}
         gl={{
-          antialias: true,
+          // MSAA off: points use shader smoothstep edges, lines/grid use fwidth
+          // AA in-shader, and everything is additively blended — hardware MSAA
+          // adds GPU fill cost here for zero visible gain.
+          antialias: false,
           alpha: true,
           powerPreference: 'high-performance',
           stencil: false,
           depth: true,
         }}
         style={{ background: canvasBg, pointerEvents: 'auto' }}
+        // Render every frame while visible (butter-smooth native refresh);
+        // pause to on-demand when scrolled off-screen.
         frameloop={canvasVisible ? 'always' : 'demand'}
       >
+        {/* Self-tuning quality: keep FPS pinned to the display by trading
+            render resolution, never by capping the framerate. */}
+        <PerformanceMonitor
+          onDecline={() => setDpr((d) => Math.max(MIN_DPR, +(d - 0.5).toFixed(2)))}
+          onIncline={() => setDpr((d) => Math.min(getInitialDpr(), +(d + 0.5).toFixed(2)))}
+          flipflops={3}
+          onFallback={() => setDpr(MIN_DPR)}
+        />
         <NeuralMeshScene />
       </Canvas>
     </div>

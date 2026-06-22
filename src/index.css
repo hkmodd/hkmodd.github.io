@@ -381,7 +381,8 @@ html.cyber-cursor-active * {
   );
   pointer-events: none;
   z-index: 0;
-  will-change: transform;
+  /* No will-change: this glow is static (never transform-animated). Promoting
+     it to its own GPU layer ×5 instances just wasted compositor memory. */
 }
 
 [data-theme="redteam"] .section-backdrop {
@@ -496,8 +497,11 @@ html.cyber-cursor-active * {
   position: relative;
   overflow: hidden;
   background: rgba(10, 10, 10, 0.6);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* No backdrop-filter: these cards sit on the OPAQUE .main-content bg
+     (#000 dark / #fff light), so blurring a uniform backdrop produced zero
+     visible effect — while forcing every one of the (tilting) cards to
+     recompute a backdrop blur on each scroll frame. That was the main
+     Operations-section scroll jank. Removed → identical look, smooth scroll. */
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 16px;
   transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
@@ -575,11 +579,13 @@ html.cyber-cursor-active * {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s;
-  will-change: transform;
 }
 
 .holo-card:hover .card-shimmer {
   opacity: 1;
+  /* Promote to a GPU layer only while the sweep actually runs (on hover),
+     not permanently on every card in the grid. */
+  will-change: transform;
   animation: sweep-shimmer 1.2s ease-in-out;
 }
 
@@ -845,7 +851,8 @@ html.cyber-cursor-active * {
   /* Force GPU layer for iOS Safari background-position animation */
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
-  will-change: background-position;
+  /* (removed will-change: background-position — that property is not
+     compositor-accelerated, so the hint only reserved memory for nothing.) */
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }

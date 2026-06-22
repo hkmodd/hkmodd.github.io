@@ -81,6 +81,16 @@ pub struct NeuralEngine {
 
     // Elapsed time accumulator
     elapsed: f32,
+
+    // ── Spatial hash grid (O(n) connection builder) ──
+    // Reused every frame (counting sort) — zero per-frame heap allocation.
+    grid_half: f32,          // half-extent of the cubic grid, centred on origin
+    grid_dim: usize,         // cells per axis
+    n_cells: usize,          // grid_dim³
+    cell_count: Vec<u32>,    // per-cell tally, reused as scatter cursor
+    cell_start: Vec<u32>,    // prefix-sum bucket offsets (len n_cells + 1)
+    sorted_nodes: Vec<u32>,  // node indices bucketed by cell
+    node_cell: Vec<u32>,     // cached cell index per node
 }
 
 #[wasm_bindgen]
@@ -138,6 +148,13 @@ impl NeuralEngine {
             pulse_speed[i] = 0.3 + rand_f32(&mut seed) * 0.8;
         }
 
+        // ── Spatial grid sizing: cell = connection_dist, so any pair within
+        //    range falls inside the 3×3×3 neighbourhood. half-extent (±22)
+        //    comfortably covers node drift (base ±10 + Lissajous/pointer push).
+        let grid_half = 22.0_f32;
+        let grid_dim = ((2.0 * grid_half) / connection_dist).ceil() as usize;
+        let n_cells = grid_dim * grid_dim * grid_dim;
+
         NeuralEngine {
             node_count,
             max_connections,
@@ -169,6 +186,14 @@ impl NeuralEngine {
             color_b: 1.0,  // #00d4ff
 
             elapsed: 0.0,
+
+            grid_half,
+            grid_dim,
+            n_cells,
+            cell_count: vec![0u32; n_cells],
+            cell_start: vec![0u32; n_cells + 1],
+            sorted_nodes: vec![0u32; node_count],
+            node_cell: vec![0u32; node_count],
         }
     }
 
@@ -245,78 +270,139 @@ impl NeuralEngine {
         }
 
         // ══════════════════════════════════════════════════════════
-        //  2. CONNECTION BUILDER (O(n²) with early-exit)
+        //  2. CONNECTION BUILDER — uniform spatial hash grid, O(n)
+        //  Cell size = connection_dist, so any pair within range lies in the
+        //  3×3×3 neighbourhood. Same connections as the old O(n²) scan, minus
+        //  the ~100k-iteration-per-frame cost. Buckets are built with a
+        //  counting sort into pre-allocated buffers (no per-frame heap alloc).
         // ══════════════════════════════════════════════════════════
 
         let conn_dist = self.connection_dist;
+        let conn_dist_sq = conn_dist * conn_dist;
         let trans_mul = if transitioning { 2.0 } else { 1.0 };
+
+        let dim = self.grid_dim;
+        let dim_i = dim as i32;
+        let inv_cell = 1.0 / conn_dist;
+        let half = self.grid_half;
+
+        // (1) reset bucket tallies
+        for c in self.cell_count.iter_mut() { *c = 0; }
+
+        // (2) assign each node to a clamped cell and tally
+        for i in 0..self.node_count {
+            let i3 = i * 3;
+            let cx = (((self.live_positions[i3]     + half) * inv_cell) as i32).clamp(0, dim_i - 1);
+            let cy = (((self.live_positions[i3 + 1] + half) * inv_cell) as i32).clamp(0, dim_i - 1);
+            let cz = (((self.live_positions[i3 + 2] + half) * inv_cell) as i32).clamp(0, dim_i - 1);
+            let cell = (cx + cy * dim_i + cz * dim_i * dim_i) as usize;
+            self.node_cell[i] = cell as u32;
+            self.cell_count[cell] += 1;
+        }
+
+        // (3) prefix-sum → bucket start offsets
+        let mut acc = 0u32;
+        for c in 0..self.n_cells {
+            self.cell_start[c] = acc;
+            acc += self.cell_count[c];
+        }
+        self.cell_start[self.n_cells] = acc;
+
+        // (4) scatter node indices into contiguous buckets (cell_count → cursor)
+        for c in 0..self.n_cells { self.cell_count[c] = self.cell_start[c]; }
+        for i in 0..self.node_count {
+            let cell = self.node_cell[i] as usize;
+            let slot = self.cell_count[cell] as usize;
+            self.sorted_nodes[slot] = i as u32;
+            self.cell_count[cell] += 1;
+        }
+
+        // (5) for each node, scan its 3×3×3 neighbourhood; emit each pair once (j > i)
         let mut line_idx = 0usize;
-
         'outer: for i in 0..self.node_count {
-            let ax = self.live_positions[i * 3];
-            let ay = self.live_positions[i * 3 + 1];
-            let az = self.live_positions[i * 3 + 2];
+            let i3 = i * 3;
+            let ax = self.live_positions[i3];
+            let ay = self.live_positions[i3 + 1];
+            let az = self.live_positions[i3 + 2];
 
-            for j in (i + 1)..self.node_count {
-                if line_idx >= self.max_connections { break 'outer; }
+            let cell = self.node_cell[i] as usize;
+            let cx = (cell % dim) as i32;
+            let cy = ((cell / dim) % dim) as i32;
+            let cz = (cell / (dim * dim)) as i32;
 
-                let bx = self.live_positions[j * 3];
-                let by = self.live_positions[j * 3 + 1];
-                let bz = self.live_positions[j * 3 + 2];
+            for ndz in -1..=1 {
+                let nz = cz + ndz;
+                if nz < 0 || nz >= dim_i { continue; }
+                for ndy in -1..=1 {
+                    let ny = cy + ndy;
+                    if ny < 0 || ny >= dim_i { continue; }
+                    for ndx in -1..=1 {
+                        let nx = cx + ndx;
+                        if nx < 0 || nx >= dim_i { continue; }
 
-                // Axis-aligned early exit
-                let dx = ax - bx;
-                if dx > conn_dist || dx < -conn_dist { continue; }
-                let dy = ay - by;
-                if dy > conn_dist || dy < -conn_dist { continue; }
-                let dz = az - bz;
-                if dz > conn_dist || dz < -conn_dist { continue; }
+                        let ncell = (nx + ny * dim_i + nz * dim_i * dim_i) as usize;
+                        let start = self.cell_start[ncell] as usize;
+                        let end = self.cell_start[ncell + 1] as usize;
 
-                let d = (dx * dx + dy * dy + dz * dz).sqrt();
-                if d >= conn_dist { continue; }
+                        for s in start..end {
+                            let j = self.sorted_nodes[s] as usize;
+                            if j <= i { continue; }              // each pair once
+                            if line_idx >= self.max_connections { break 'outer; }
 
-                let alpha = 1.0 - d / conn_dist;
-                let mid_x = (ax + bx) * 0.5;
-                let mid_y = (ay + by) * 0.5;
-                let p_dx = mid_x - pointer_x;
-                let p_dy = mid_y - pointer_y;
-                let p_dist = (p_dx * p_dx + p_dy * p_dy).sqrt();
-                let proximity = (1.0 - p_dist / 4.0).max(0.0);
+                            let j3 = j * 3;
+                            let bx = self.live_positions[j3];
+                            let by = self.live_positions[j3 + 1];
+                            let bz = self.live_positions[j3 + 2];
 
-                let brightness = (alpha * 0.5 + proximity * 1.2) * trans_mul;
+                            let dx = ax - bx;
+                            let dy = ay - by;
+                            let dz = az - bz;
+                            let d_sq = dx * dx + dy * dy + dz * dz;
+                            if d_sq >= conn_dist_sq { continue; }
+                            let d = d_sq.sqrt();
 
-                // Depth fog
-                let avg_z = (az + bz) * 0.5;
-                let depth_fog = smoothstep(avg_z, -10.0, 4.0);
-                let final_bright = brightness * (0.3 + depth_fog * 0.7);
+                            let alpha = 1.0 - d / conn_dist;
+                            let mid_x = (ax + bx) * 0.5;
+                            let mid_y = (ay + by) * 0.5;
+                            let p_dx = mid_x - pointer_x;
+                            let p_dy = mid_y - pointer_y;
+                            let p_dist = (p_dx * p_dx + p_dy * p_dy).sqrt();
+                            let proximity = (1.0 - p_dist / 4.0).max(0.0);
 
-                let i6 = line_idx * 6;
-                self.conn_positions[i6]     = ax;
-                self.conn_positions[i6 + 1] = ay;
-                self.conn_positions[i6 + 2] = az;
-                self.conn_positions[i6 + 3] = bx;
-                self.conn_positions[i6 + 4] = by;
-                self.conn_positions[i6 + 5] = bz;
+                            let brightness = (alpha * 0.5 + proximity * 1.2) * trans_mul;
 
-                let r = self.color_r * final_bright;
-                let g = self.color_g * final_bright;
-                let b = self.color_b * final_bright;
-                self.conn_colors[i6]     = r;
-                self.conn_colors[i6 + 1] = g;
-                self.conn_colors[i6 + 2] = b;
-                self.conn_colors[i6 + 3] = r;
-                self.conn_colors[i6 + 4] = g;
-                self.conn_colors[i6 + 5] = b;
+                            // Depth fog
+                            let avg_z = (az + bz) * 0.5;
+                            let depth_fog = smoothstep(avg_z, -10.0, 4.0);
+                            let final_bright = brightness * (0.3 + depth_fog * 0.7);
 
-                line_idx += 1;
+                            let i6 = line_idx * 6;
+                            self.conn_positions[i6]     = ax;
+                            self.conn_positions[i6 + 1] = ay;
+                            self.conn_positions[i6 + 2] = az;
+                            self.conn_positions[i6 + 3] = bx;
+                            self.conn_positions[i6 + 4] = by;
+                            self.conn_positions[i6 + 5] = bz;
+
+                            let r = self.color_r * final_bright;
+                            let g = self.color_g * final_bright;
+                            let b = self.color_b * final_bright;
+                            self.conn_colors[i6]     = r;
+                            self.conn_colors[i6 + 1] = g;
+                            self.conn_colors[i6 + 2] = b;
+                            self.conn_colors[i6 + 3] = r;
+                            self.conn_colors[i6 + 4] = g;
+                            self.conn_colors[i6 + 5] = b;
+
+                            line_idx += 1;
+                        }
+                    }
+                }
             }
         }
 
-        // Zero-fill remaining
-        for k in (line_idx * 6)..(self.max_connections * 6) {
-            self.conn_positions[k] = 0.0;
-            self.conn_colors[k] = 0.0;
-        }
+        // No tail zero-fill needed: the JS side uploads only [0, conn_count*6]
+        // and draws conn_count*2 verts, so stale tail data is never read/drawn.
         self.conn_count = line_idx;
 
         // ══════════════════════════════════════════════════════════

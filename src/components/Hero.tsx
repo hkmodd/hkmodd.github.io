@@ -4,6 +4,7 @@ import { Github, Linkedin, ChevronDown } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
 import { useScrambleText } from '@/hooks/useScrambleText';
+import { useScrollProgress } from '@/hooks/useScrollProgress';
 import { haptic } from '@/lib/haptic';
 
 export default function Hero() {
@@ -18,62 +19,28 @@ export default function Hero() {
 
   const scrambledTitle = useScrambleText(t.hero.title, { speed: 40, delay: 1800 });
 
-  // --- Scroll-driven fadeout via rAF (synced with NeuralMesh bg) ---
+  // --- Scroll-driven fadeout (synced with NeuralMesh bg via the shared listener) ---
   const spacerRef = useRef<HTMLDivElement>(null);
   const heroScrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let rafId = 0;
-    let ticking = false;
-
-    const applyScroll = () => {
-      const el = heroScrollRef.current;
-      if (!el) return;
-
-      const scrollY = window.scrollY;
-      const vh = window.innerHeight;
-      const progress = Math.min(scrollY / vh, 1);
-      const t = Math.min(progress / 0.7, 1);
-
-      const opacity = 1 - t;
-      const yShift = t * -120;
-
-      el.style.opacity = String(Math.max(opacity, 0));
-      el.style.transform = `translateY(${yShift}px)`;
-      ticking = false;
-    };
-
-    const onScroll = () => {
-      if (!ticking) {
-        rafId = requestAnimationFrame(applyScroll);
-        ticking = true;
-      }
-    };
-
-    // Initial apply
-    applyScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      cancelAnimationFrame(rafId);
-    };
-  }, []);
-
-  // --- Gradient text animation via raw rAF (bypasses CSS/WAAPI limits on iOS Safari) ---
-  // ALL gradient styles (including color per-theme) are managed inside the rAF
-  // so that React re-renders on theme change never conflict with the animation.
+  // --- Gradient text animation ---
+  // The full per-frame background rewrite is KEPT on purpose: it's the
+  // documented iOS Safari repaint workaround for background-clip:text (CSS
+  // animations & WAAPI both stall there). What changed vs. the old loop: it
+  // now SLEEPS once the Hero scrolls off-screen instead of ticking forever,
+  // and it rides the single shared scroll listener instead of its own.
   const gradientRef = useRef<HTMLSpanElement>(null);
+  const gradientCtlRef = useRef<{ start: () => void; stop: () => void }>({
+    start: () => {},
+    stop: () => {},
+  });
+
   useEffect(() => {
     let rafId = 0;
+    let running = false;
     const duration = 6000; // 6s full cycle
 
     const tick = (now: number) => {
-      // Skip animation when Hero is scrolled out of view
-      if (window.scrollY > window.innerHeight * 1.2) {
-        rafId = requestAnimationFrame(tick);
-        return;
-      }
-
       const el = gradientRef.current;
       if (el) {
         // Read theme from store each frame — avoids stale closure on theme switch
@@ -88,7 +55,8 @@ export default function Hero() {
         const progress = (Math.sin((now / duration) * Math.PI * 2 - Math.PI / 2) + 1) / 2;
 
         // Apply ALL gradient styles every frame — prevents React re-render
-        // from resetting backgroundPosition or backgroundClip mid-animation
+        // from resetting backgroundPosition or backgroundClip mid-animation,
+        // and forces the iOS Safari repaint that background-clip:text needs.
         el.style.background = gradient;
         el.style.backgroundSize = '300% 100%';
         el.style.backgroundPosition = `${progress * 100}% 50%`;
@@ -98,14 +66,44 @@ export default function Hero() {
       }
       rafId = requestAnimationFrame(tick);
     };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
+
+    const start = () => {
+      if (!running) {
+        running = true;
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(rafId);
+    };
+
+    gradientCtlRef.current = { start, stop };
+    start(); // Hero is the first viewport — visible on mount
+    return () => stop();
   }, []);
+
+  // Single shared scroll subscription drives BOTH the Hero content fade AND
+  // the gradient animation lifecycle (run only while the Hero is on screen).
+  // No private scroll listener — this rides the global singleton.
+  useScrollProgress((progress, scrollY) => {
+    const el = heroScrollRef.current;
+    if (el) {
+      const t = Math.min(progress / 0.7, 1);
+      const opacity = 1 - t;
+      const yShift = t * -120;
+      el.style.opacity = String(Math.max(opacity, 0));
+      el.style.transform = `translateY(${yShift}px)`;
+    }
+
+    if (scrollY > window.innerHeight * 1.2) gradientCtlRef.current.stop();
+    else gradientCtlRef.current.start();
+  });
 
   // --- Avatar glitch state ---
   const [avatarGlitch, setAvatarGlitch] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState(
-    theme === 'redteam' ? '/foto_profilo_red.png' : '/foto_profilo.png'
+    theme === 'redteam' ? '/foto_profilo_red.webp' : '/foto_profilo.webp'
   );
 
   // Watch for red team transition → trigger glitch then swap image
@@ -121,7 +119,7 @@ export default function Hero() {
       // Swap image quickly (150ms) so it doesn't lag behind the flash
       const swapTimer = setTimeout(() => {
         setAvatarSrc(
-          theme === 'redteam' ? '/foto_profilo_red.png' : '/foto_profilo.png'
+          theme === 'redteam' ? '/foto_profilo_red.webp' : '/foto_profilo.webp'
         );
         setAvatarGlitch(false);
       }, 150);
