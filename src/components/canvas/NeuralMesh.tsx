@@ -2,28 +2,27 @@ import { useMemo, useRef, useCallback, useEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
 import { useAppStore } from '@/store/useAppStore';
-import { useNeuralEngine, NODE_COUNT, MAX_CONNECTIONS, PULSE_COUNT } from '@/hooks/useNeuralEngine';
-import type { NeuralEngine } from '@/wasm/pkg/neural_engine';
+import { useNeuralSource } from '@/hooks/useNeuralSource';
+import { NODE_COUNT, MAX_CONNECTIONS, PULSE_COUNT } from '@/lib/neuralProtocol';
 import { getInitialDpr, MIN_DPR } from '@/lib/quality';
 import { getScrollProgress } from '@/lib/scrollProgress';
 import { useScrollProgress } from '@/hooks/useScrollProgress';
 import * as THREE from 'three';
 
 /* ═══════════════════════════════════════════════════════════════════
-   NEURAL MESH v3 — Rust WASM-powered simulation
-   GPU shaders stay, JS loops replaced with Rust for near-native perf
+   NEURAL MESH v4 — Rust/WASM simulation, now off the main thread.
+
+   The per-frame physics runs in a Web Worker (useNeuralSource). This
+   component owns a SINGLE authoritative frame loop that pulls the freshest
+   packed frame from the source and writes it into three GPU buffers
+   (nodes / connections / pulses). GPU shaders are unchanged.
    ═════════════════════════════════════════════════════════════════ */
-
-const FIELD_SIZE = 20;
-
-// ── Module-level visibility flag removed in favor of AppStore state ─────────
 
 // ── Helpers ────────────────────────────────────────────────────────
 const tmpColor = new THREE.Color();
-const tmpVec3  = new THREE.Vector3();
 
 // ═══════════════════════════════════════════════════════════════════
-//  NODE MESH - reads positions/opacities/sizes from WASM memory
+//  NODE SHADERS (unchanged)
 // ═══════════════════════════════════════════════════════════════════
 
 const nodeVertexShader = /* glsl */ `
@@ -82,236 +81,8 @@ const nodeFragmentShader = /* glsl */ `
   }
 `;
 
-interface WasmChildProps {
-  engine: NeuralEngine;
-  memory: WebAssembly.Memory;
-}
-
-function WasmNodes({ engine, memory }: WasmChildProps) {
-  const pointsRef = useRef<THREE.Points>(null!);
-  // Cache WASM buffer views — only recreate if buffer detaches (memory.grow)
-  const viewCache = useRef<{ buf: ArrayBuffer; pos: Float32Array; opac: Float32Array; size: Float32Array } | null>(null);
-
-  const { posAttr, opacAttr, sizeAttr } = useMemo(() => {
-    const posArr = new Float32Array(NODE_COUNT * 3);
-    const opacArr = new Float32Array(NODE_COUNT);
-    const sizeArr = new Float32Array(NODE_COUNT);
-    const posAttr = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
-    const opacAttr = new THREE.BufferAttribute(opacArr, 1).setUsage(THREE.DynamicDrawUsage);
-    const sizeAttr = new THREE.BufferAttribute(sizeArr, 1).setUsage(THREE.DynamicDrawUsage);
-    return { posAttr, opacAttr, sizeAttr };
-  }, []);
-
-  const geometry = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', posAttr);
-    g.setAttribute('aOpacity', opacAttr);
-    g.setAttribute('aSize', sizeAttr);
-    return g;
-  }, [posAttr, opacAttr, sizeAttr]);
-
-  const uniforms = useMemo(() => ({
-    uColor: { value: new THREE.Color('#00d4ff') },
-    uBoost: { value: 1.0 },
-    uMinAlpha: { value: 0.0 },
-  }), []);
-
-  useFrame(() => {
-    const wasmBuf = memory.buffer;
-    const cache = viewCache.current;
-
-    // Only create new Float32Array views when buffer detaches
-    if (!cache || cache.buf !== wasmBuf) {
-      viewCache.current = {
-        buf: wasmBuf,
-        pos: new Float32Array(wasmBuf, engine.positions_ptr(), engine.positions_len()),
-        opac: new Float32Array(wasmBuf, engine.opacities_ptr(), engine.opacities_len()),
-        size: new Float32Array(wasmBuf, engine.sizes_ptr(), engine.sizes_len()),
-      };
-    }
-    const views = viewCache.current!;
-
-    // Copy into Three.js attributes
-    (posAttr.array as Float32Array).set(views.pos);
-    (opacAttr.array as Float32Array).set(views.opac);
-    (sizeAttr.array as Float32Array).set(views.size);
-
-    posAttr.needsUpdate = true;
-    opacAttr.needsUpdate = true;
-    sizeAttr.needsUpdate = true;
-
-    // Sync color
-    uniforms.uColor.value.setRGB(engine.color_r(), engine.color_g(), engine.color_b());
-
-    // Switch blending + boost for light theme visibility
-    const theme = useAppStore.getState().theme;
-    const mat = pointsRef.current?.material as THREE.ShaderMaterial | undefined;
-    if (mat) {
-      mat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
-    }
-    // Light mode: very subtle particles — avoid grey wash on white
-    uniforms.uBoost.value = theme === 'light' ? 0.35 : 1.0;
-    uniforms.uMinAlpha.value = 0.0;
-  });
-
-  return (
-    <points ref={pointsRef} geometry={geometry} frustumCulled={false}>
-      <shaderMaterial
-        vertexShader={nodeVertexShader}
-        fragmentShader={nodeFragmentShader}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════════
-//  CONNECTION LINES - reads WASM conn buffers
-// ═══════════════════════════════════════════════════════════════════
-
-function WasmConnections({ engine, memory }: WasmChildProps) {
-  const linesRef = useRef<THREE.LineSegments>(null!);
-  const viewCache = useRef<{ buf: ArrayBuffer; pos: Float32Array; col: Float32Array } | null>(null);
-
-  const { posAttr, colAttr } = useMemo(() => {
-    const posArr = new Float32Array(MAX_CONNECTIONS * 6);
-    const colArr = new Float32Array(MAX_CONNECTIONS * 6);
-    const posAttr = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
-    const colAttr = new THREE.BufferAttribute(colArr, 3).setUsage(THREE.DynamicDrawUsage);
-    return { posAttr, colAttr };
-  }, []);
-
-  const geometry = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', posAttr);
-    g.setAttribute('color', colAttr);
-    return g;
-  }, [posAttr, colAttr]);
-
-  useFrame(() => {
-    const wasmBuf = memory.buffer;
-    const cache = viewCache.current;
-
-    if (!cache || cache.buf !== wasmBuf) {
-      viewCache.current = {
-        buf: wasmBuf,
-        pos: new Float32Array(wasmBuf, engine.conn_positions_ptr(), engine.conn_positions_len()),
-        col: new Float32Array(wasmBuf, engine.conn_colors_ptr(), engine.conn_colors_len()),
-      };
-    }
-    const views = viewCache.current!;
-    const count = engine.conn_count();
-    const used = count * 6; // active floats; the rest of the cap is stale/zeroed
-
-    // Copy + upload ONLY the active range, not the full MAX_CONNECTIONS cap.
-    // Active connections are typically far below 2000, so this slashes the
-    // per-frame GPU upload (was 2×12000 floats every frame, unconditionally).
-    (posAttr.array as Float32Array).set(views.pos.subarray(0, used));
-    (colAttr.array as Float32Array).set(views.col.subarray(0, used));
-
-    posAttr.clearUpdateRanges();
-    posAttr.addUpdateRange(0, used);
-    posAttr.needsUpdate = true;
-    colAttr.clearUpdateRanges();
-    colAttr.addUpdateRange(0, used);
-    colAttr.needsUpdate = true;
-
-    // Light mode: hide connections entirely — they compound into gray.
-    // Otherwise draw only the active lines (stale tail is never drawn).
-    const theme = useAppStore.getState().theme;
-    geometry.setDrawRange(0, theme === 'light' ? 0 : count * 2);
-
-    const mat = linesRef.current?.material as THREE.LineBasicMaterial | undefined;
-    if (mat) {
-      mat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
-      mat.opacity = theme === 'light' ? 0 : 0.7;
-    }
-  });
-
-  return (
-    <lineSegments ref={linesRef} geometry={geometry} frustumCulled={false}>
-      <lineBasicMaterial
-        vertexColors
-        transparent
-        opacity={0.7}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-      />
-    </lineSegments>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  PULSE PARTICLES - instanced spheres from WASM matrices
-// ═══════════════════════════════════════════════════════════════════
-
-function WasmPulses({ engine, memory }: WasmChildProps) {
-  const meshRef = useRef<THREE.InstancedMesh>(null!);
-  const viewCache = useRef<{ buf: ArrayBuffer; mat: Float32Array } | null>(null);
-  const prevColorKey = useRef('');
-
-  const geo = useMemo(() => new THREE.SphereGeometry(0.04, 3, 3), []);
-  const mat = useMemo(
-    () => new THREE.MeshBasicMaterial({
-      toneMapped: false,
-      transparent: true,
-      opacity: 1,
-      blending: THREE.AdditiveBlending,
-    }),
-    []
-  );
-
-  useFrame(() => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-
-    const wasmBuf = memory.buffer;
-    const cache = viewCache.current;
-
-    if (!cache || cache.buf !== wasmBuf) {
-      viewCache.current = {
-        buf: wasmBuf,
-        mat: new Float32Array(wasmBuf, engine.pulse_matrices_ptr(), engine.pulse_matrices_len()),
-      };
-    }
-
-    // Write matrices directly into instanceMatrix.array
-    const instanceArr = mesh.instanceMatrix.array as Float32Array;
-    instanceArr.set(viewCache.current!.mat);
-    mesh.instanceMatrix.needsUpdate = true;
-
-    // Only update colors when they actually change
-    const r = engine.color_r();
-    const g = engine.color_g();
-    const b = engine.color_b();
-    const theme = useAppStore.getState().theme;
-    // Light mode: nearly invisible pulse orbs to keep white clean
-    const cMul = theme === 'light' ? 0.08 : 2.0;
-    const colorKey = `${(r * 100) | 0},${(g * 100) | 0},${(b * 100) | 0},${theme}`;
-    if (colorKey !== prevColorKey.current) {
-      prevColorKey.current = colorKey;
-      tmpColor.setRGB(r * cMul, g * cMul, b * cMul);
-      for (let i = 0; i < PULSE_COUNT; i++) {
-        mesh.setColorAt(i, tmpColor);
-      }
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    }
-
-    // Switch blending for light theme visibility
-    mat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
-    mat.opacity = theme === 'light' ? 0.03 : 1.0;
-  });
-
-  return (
-    <instancedMesh ref={meshRef} args={[geo, mat, PULSE_COUNT]} frustumCulled={false} />
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  PERSPECTIVE GRID - shader-based (stays as-is, already GPU)
+//  PERSPECTIVE GRID - shader-based (unchanged)
 // ═══════════════════════════════════════════════════════════════════
 
 const gridVertexShader = /* glsl */ `
@@ -422,7 +193,7 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  VOLUMETRIC FOG PLANE
+//  VOLUMETRIC FOG PLANE (unchanged)
 // ═══════════════════════════════════════════════════════════════════
 
 function DepthFog() {
@@ -458,13 +229,8 @@ function DepthFog() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  SCENE - orchestrates WASM tick + Three.js rendering
-// ═══════════════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════════
-//  CURSOR GLOW - additive orb that rides the pointer's 3D position, so
-//  the cursor visibly "lives" inside the network it is repelling. Hidden
-//  until the pointer actually enters the canvas (sentinel 999,999).
+//  CURSOR GLOW (unchanged) — additive orb that rides the pointer's 3D
+//  position, hidden until the pointer enters the canvas (sentinel 999).
 // ═══════════════════════════════════════════════════════════════════
 function CursorGlow({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
   const groupRef = useRef<THREE.Group>(null!);
@@ -512,10 +278,62 @@ function CursorGlow({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.V
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  SCENE — one authoritative frame loop drives all three WASM meshes.
+// ═══════════════════════════════════════════════════════════════════
+
 function NeuralMeshScene() {
   const pointerRef = useRef(new THREE.Vector3(999, 999, 0));
   const groupRef = useRef<THREE.Group>(null!);
-  const { engine, memory, isReady } = useNeuralEngine();
+  const { source, ready } = useNeuralSource();
+
+  // ── Node buffers ──
+  const nodeMatRef = useRef<THREE.ShaderMaterial>(null!);
+  const { nodeGeometry, nodePosAttr, nodeOpacAttr, nodeSizeAttr, nodeUniforms } = useMemo(() => {
+    const posArr = new Float32Array(NODE_COUNT * 3);
+    const opacArr = new Float32Array(NODE_COUNT);
+    const sizeArr = new Float32Array(NODE_COUNT);
+    const nodePosAttr = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
+    const nodeOpacAttr = new THREE.BufferAttribute(opacArr, 1).setUsage(THREE.DynamicDrawUsage);
+    const nodeSizeAttr = new THREE.BufferAttribute(sizeArr, 1).setUsage(THREE.DynamicDrawUsage);
+    const nodeGeometry = new THREE.BufferGeometry();
+    nodeGeometry.setAttribute('position', nodePosAttr);
+    nodeGeometry.setAttribute('aOpacity', nodeOpacAttr);
+    nodeGeometry.setAttribute('aSize', nodeSizeAttr);
+    const nodeUniforms = {
+      uColor: { value: new THREE.Color('#00d4ff') },
+      uBoost: { value: 1.0 },
+      uMinAlpha: { value: 0.0 },
+    };
+    return { nodeGeometry, nodePosAttr, nodeOpacAttr, nodeSizeAttr, nodeUniforms };
+  }, []);
+
+  // ── Connection buffers ──
+  const connMatRef = useRef<THREE.LineBasicMaterial>(null!);
+  const { connGeometry, connPosAttr, connColAttr } = useMemo(() => {
+    const posArr = new Float32Array(MAX_CONNECTIONS * 6);
+    const colArr = new Float32Array(MAX_CONNECTIONS * 6);
+    const connPosAttr = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
+    const connColAttr = new THREE.BufferAttribute(colArr, 3).setUsage(THREE.DynamicDrawUsage);
+    const connGeometry = new THREE.BufferGeometry();
+    connGeometry.setAttribute('position', connPosAttr);
+    connGeometry.setAttribute('color', connColAttr);
+    return { connGeometry, connPosAttr, connColAttr };
+  }, []);
+
+  // ── Pulse instanced mesh ──
+  const pulseMeshRef = useRef<THREE.InstancedMesh>(null!);
+  const prevPulseColorKey = useRef('');
+  const pulseGeo = useMemo(() => new THREE.SphereGeometry(0.04, 3, 3), []);
+  const pulseMat = useMemo(
+    () => new THREE.MeshBasicMaterial({
+      toneMapped: false,
+      transparent: true,
+      opacity: 1,
+      blending: THREE.AdditiveBlending,
+    }),
+    []
+  );
 
   const handlePointerMove = useCallback(
     (e: THREE.Event & { point: THREE.Vector3 }) => {
@@ -526,8 +344,7 @@ function NeuralMeshScene() {
 
   useFrame(({ clock }, delta) => {
     // ── Skip expensive work when canvas is scrolled off-screen ──
-    const { canvasVisible } = useAppStore.getState();
-    if (!canvasVisible) return;
+    if (!useAppStore.getState().canvasVisible) return;
 
     const group = groupRef.current;
     if (!group) return;
@@ -537,23 +354,77 @@ function NeuralMeshScene() {
     group.rotation.y = t * 0.015;
     group.rotation.x = Math.sin(t * 0.04) * 0.04;
 
-    // ── WASM tick — all per-frame math runs here ──
-    if (engine) {
-      // Read store inside frame loop — avoids reactive re-renders
-      const { theme, redTeamTransitioning } = useAppStore.getState();
-      const targetColor = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
-      tmpColor.set(targetColor);
+    if (!source) return;
 
-      engine.tick(
-        delta,
-        pointerRef.current.x,
-        pointerRef.current.y,
-        pointerRef.current.z,
-        tmpColor.r,
-        tmpColor.g,
-        tmpColor.b,
-        redTeamTransitioning,
-      );
+    // ── Per-frame inputs (theme colour resolved on the main thread) ──
+    const { theme, redTeamTransitioning } = useAppStore.getState();
+    const targetColor = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
+    tmpColor.set(targetColor);
+    const p = pointerRef.current;
+
+    const frame = source.update({
+      dt: delta,
+      px: p.x,
+      py: p.y,
+      pz: p.z,
+      r: tmpColor.r,
+      g: tmpColor.g,
+      b: tmpColor.b,
+      transitioning: redTeamTransitioning,
+    });
+    if (!frame) return;
+
+    // ══ NODES ══
+    (nodePosAttr.array as Float32Array).set(frame.positions);
+    (nodeOpacAttr.array as Float32Array).set(frame.opacities);
+    (nodeSizeAttr.array as Float32Array).set(frame.sizes);
+    nodePosAttr.needsUpdate = true;
+    nodeOpacAttr.needsUpdate = true;
+    nodeSizeAttr.needsUpdate = true;
+
+    nodeUniforms.uColor.value.setRGB(frame.colorR, frame.colorG, frame.colorB);
+    const nodeMat = nodeMatRef.current;
+    if (nodeMat) {
+      nodeMat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
+    }
+    nodeUniforms.uBoost.value = theme === 'light' ? 0.35 : 1.0;
+    nodeUniforms.uMinAlpha.value = 0.0;
+
+    // ══ CONNECTIONS ══
+    const used = frame.connCount * 6; // active floats; the rest is stale/never drawn
+    (connPosAttr.array as Float32Array).set(frame.connPositions.subarray(0, used));
+    (connColAttr.array as Float32Array).set(frame.connColors.subarray(0, used));
+    connPosAttr.clearUpdateRanges();
+    connPosAttr.addUpdateRange(0, used);
+    connPosAttr.needsUpdate = true;
+    connColAttr.clearUpdateRanges();
+    connColAttr.addUpdateRange(0, used);
+    connColAttr.needsUpdate = true;
+
+    // Light mode: hide connections entirely — they compound into gray.
+    connGeometry.setDrawRange(0, theme === 'light' ? 0 : frame.connCount * 2);
+    const connMat = connMatRef.current;
+    if (connMat) {
+      connMat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
+      connMat.opacity = theme === 'light' ? 0 : 0.7;
+    }
+
+    // ══ PULSES ══
+    const mesh = pulseMeshRef.current;
+    if (mesh) {
+      (mesh.instanceMatrix.array as Float32Array).set(frame.pulseMatrices);
+      mesh.instanceMatrix.needsUpdate = true;
+
+      const cMul = theme === 'light' ? 0.08 : 2.0;
+      const colorKey = `${(frame.colorR * 100) | 0},${(frame.colorG * 100) | 0},${(frame.colorB * 100) | 0},${theme}`;
+      if (colorKey !== prevPulseColorKey.current) {
+        prevPulseColorKey.current = colorKey;
+        tmpColor.setRGB(frame.colorR * cMul, frame.colorG * cMul, frame.colorB * cMul);
+        for (let i = 0; i < PULSE_COUNT; i++) mesh.setColorAt(i, tmpColor);
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      }
+      pulseMat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
+      pulseMat.opacity = theme === 'light' ? 0.03 : 1.0;
     }
   });
 
@@ -576,11 +447,32 @@ function NeuralMeshScene() {
 
       {/* Neural network group with parallax */}
       <group ref={groupRef}>
-        {isReady && engine && memory && (
+        {ready && (
           <>
-            <WasmNodes engine={engine} memory={memory} />
-            <WasmConnections engine={engine} memory={memory} />
-            <WasmPulses engine={engine} memory={memory} />
+            <points geometry={nodeGeometry} frustumCulled={false}>
+              <shaderMaterial
+                ref={nodeMatRef}
+                vertexShader={nodeVertexShader}
+                fragmentShader={nodeFragmentShader}
+                uniforms={nodeUniforms}
+                transparent
+                depthWrite={false}
+                blending={THREE.AdditiveBlending}
+              />
+            </points>
+
+            <lineSegments geometry={connGeometry} frustumCulled={false}>
+              <lineBasicMaterial
+                ref={connMatRef}
+                vertexColors
+                transparent
+                opacity={0.7}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
+            </lineSegments>
+
+            <instancedMesh ref={pulseMeshRef} args={[pulseGeo, pulseMat, PULSE_COUNT]} frustumCulled={false} />
           </>
         )}
       </group>
@@ -599,16 +491,12 @@ export default function NeuralMesh() {
   const theme = useAppStore((s) => s.theme);
 
   // ── Scroll-synced fade ──
-  // Rides the single shared scroll listener (no private scroll handler). The
-  // fade is also re-applied on theme change — light theme forces the canvas
-  // fully hidden regardless of scroll position.
   const applyFade = useCallback((progress: number) => {
     const el = wrapperRef.current;
     if (!el) return;
 
     const t = Math.min(progress / 0.7, 1);
     // Light mode: hide canvas entirely — white bg must stay pristine
-    // NOTE: data-theme is on .app-root div, not <html>. Use store state.
     const isLightTheme = useAppStore.getState().theme === 'light';
     const baseOpacity = isLightTheme ? 0 : 0.8;
     const opacity = baseOpacity * (1 - t);
@@ -627,20 +515,16 @@ export default function NeuralMesh() {
 
   useScrollProgress((progress) => applyFade(progress));
 
-  // Re-apply on theme flip (scroll position is unchanged, but light theme
-  // forces baseOpacity 0). Reads the live progress from the shared module.
+  // Re-apply on theme flip (light theme forces baseOpacity 0).
   useEffect(() => {
     applyFade(getScrollProgress());
   }, [theme, applyFade]);
 
-  // ── Sync canvas background with theme ──
-  // Dark/redteam: transparent so the dark page shows through
-  // Light: subtle bluish-gray tint that blends with the page bg
   const canvasVisible = useAppStore((s) => s.canvasVisible);
   const reducedMotion = useAppStore((s) => s.reducedMotion);
 
-  // Adaptive render resolution: starts at native (crisp), PerformanceMonitor
-  // drops it ONLY if the device can't hold its refresh rate, then recovers.
+  // Adaptive render resolution: starts at native, PerformanceMonitor drops
+  // it ONLY if the device can't hold its refresh rate, then recovers.
   const [dpr, setDpr] = useState(getInitialDpr);
 
   // Ghost mode: pure white canvas for light theme
@@ -665,9 +549,6 @@ export default function NeuralMesh() {
         flat
         performance={{ min: 0.5 }}
         gl={{
-          // MSAA off: points use shader smoothstep edges, lines/grid use fwidth
-          // AA in-shader, and everything is additively blended — hardware MSAA
-          // adds GPU fill cost here for zero visible gain.
           antialias: false,
           alpha: true,
           powerPreference: 'high-performance',
@@ -675,8 +556,6 @@ export default function NeuralMesh() {
           depth: true,
         }}
         style={{ background: canvasBg, pointerEvents: 'auto' }}
-        // Render every frame while visible (butter-smooth native refresh);
-        // pause to on-demand when scrolled off-screen.
         frameloop={canvasVisible ? 'always' : 'demand'}
       >
         {/* Self-tuning quality: keep FPS pinned to the display by trading
