@@ -4,10 +4,11 @@ import {
   Fn,
   If,
   Loop,
-  Break,
   uniform,
   instancedArray,
   instanceIndex,
+  vertexIndex,
+  select,
   uv,
   positionLocal,
   positionView,
@@ -66,9 +67,9 @@ extend(THREE as unknown as Parameters<typeof extend>[0]);
 const K_PER_NODE = 6;
 const CONN_COUNT = NODE_COUNT * K_PER_NODE;
 
-// Projection factor for px→world conversion at the reference viewport
-// (720p, fov 55°): (h/2) / tan(fov/2) ≈ 360 / 0.5206 ≈ 691.6.
-const PROJ_FACTOR = 691.6;
+// tan(fov/2) for the fixed 55° camera — used to convert the original
+// gl_PointSize device-pixel sizing into world units at any resolution.
+const TAN_HALF_FOV = Math.tan((55 * Math.PI) / 180 / 2);
 
 const tmpColor = new THREE.Color();
 
@@ -95,6 +96,9 @@ function createEngine() {
   const uPulseColor = uniform(new THREE.Color('#00d4ff').multiplyScalar(2));
   const uPulseOpacity = uniform(1);
   const uSeed = uniform(0);
+  // (drawing-buffer height / 2) / tan(fov/2) — updated per frame so the
+  // px→world size conversion tracks the real canvas like gl_PointSize did.
+  const uProjFactor = uniform(691.6);
 
   // ── Storage buffers ──
   const basePos = instancedArray(layout.basePositions, 'vec3');
@@ -118,12 +122,13 @@ function createEngine() {
   const pulsePos = instancedArray(PULSE_COUNT, 'vec3');
   const pulseScale = instancedArray(PULSE_COUNT, 'float');
 
-  // Every buffer READ inside a compute kernel needs PBO-texture backing on
-  // the WebGL2 fallback backend (official examples do the same); harmless
-  // no-op on real WebGPU.
+  // Every buffer READ inside a compute kernel or by index in a render
+  // shader needs PBO-texture backing on the WebGL2 fallback backend
+  // (official examples do the same); harmless no-op on real WebGPU.
   for (const b of [
     basePos, baseOpac, baseSize, phases, speeds,
     livePos, liveOpac, liveSize,
+    connA, connB, connCol,
     pulseFrom, pulseTo, pulseProg, pulseSpd,
   ]) {
     (b as unknown as { setPBO?: (v: boolean) => void }).setPBO?.(true);
@@ -169,7 +174,7 @@ function createEngine() {
   // the GLSL transform-feedback fallback.
   const computeConnections = Fn(() => {
     const c = instanceIndex;
-    const nodeI = c.div(uint(K_PER_NODE)).toVar();
+    const nodeI = int(c.div(uint(K_PER_NODE))).toVar();
     const slotWanted = int(c.mod(uint(K_PER_NODE))).toVar();
 
     const a = livePos.element(nodeI).toVar();
@@ -177,19 +182,16 @@ function createEngine() {
     const cnt = int(0).toVar();
     const distSq = float(CONNECTION_DIST * CONNECTION_DIST);
 
-    Loop({ start: int(nodeI).add(1), end: int(NODE_COUNT), type: 'int', condition: '<' }, ({ i: j }) => {
-      If(cnt.greaterThan(slotWanted), () => {
-        Break();
-      });
+    // Fixed-bound loop with straight-line (select-based) accumulation —
+    // no Break, no dynamic start, no divergent writes: the control-flow
+    // shape kernel 1 already proved safe on both WGSL and GLSL builders.
+    Loop({ start: int(0), end: int(NODE_COUNT), type: 'int', condition: '<' }, ({ i: j }) => {
       const b = livePos.element(j);
       const diff = a.sub(b);
       const dsq = dot(diff, diff);
-      If(dsq.lessThan(distSq), () => {
-        If(cnt.equal(slotWanted), () => {
-          found.assign(j);
-        });
-        cnt.addAssign(1);
-      });
+      const hit = j.greaterThan(nodeI).and(dsq.lessThan(distSq));
+      found.assign(select(hit.and(cnt.equal(slotWanted)), j, found));
+      cnt.addAssign(select(hit, int(1), int(0)));
     });
 
     // Default: degenerate segment (A==B rasterizes nothing) with black color.
@@ -250,7 +252,7 @@ function createEngine() {
   nodeMat.scaleNode = Fn(() => {
     const dist = length(livePos.toAttribute().sub(vec3(0, 0, 10))).max(0.1);
     const px = clamp(liveSize.toAttribute().mul(300).div(dist), 1, 12);
-    return px.mul(dist).div(PROJ_FACTOR);
+    return px.mul(dist).div(uProjFactor);
   })();
   nodeMat.colorNode = Fn(() => {
     const dC = length(uv().sub(0.5)).toVar();
@@ -272,10 +274,20 @@ function createEngine() {
   connMat.transparent = true;
   connMat.depthWrite = false;
   connMat.blending = THREE.AdditiveBlending;
-  // Instanced segment: base geometry is 2 verts with x = endpoint selector;
-  // per-instance endpoints/colors stream in from the compute buffers.
-  connMat.positionNode = mix(connA.toAttribute(), connB.toAttribute(), positionLocal.x);
-  connMat.colorNode = vec4(connCol.toAttribute(), uConnOpacity);
+  // Plain (non-instanced) LineSegments: each of the CONN_COUNT*2 vertices
+  // computes its segment index and reads endpoints/colors straight from
+  // the compute storage buffers by index — no instanced line draw, no
+  // per-instance attributes, just the vertexIndex pattern verified on
+  // both node builders.
+  connMat.positionNode = Fn(() => {
+    const c = vertexIndex.div(uint(2));
+    const endpoint = float(vertexIndex.mod(uint(2)));
+    return mix(connA.element(c), connB.element(c), endpoint);
+  })();
+  connMat.colorNode = Fn(() => {
+    const c = vertexIndex.div(uint(2));
+    return vec4(connCol.element(c), uConnOpacity);
+  })();
 
   // ═══ MATERIAL — pulses ═══
   const pulseMat = new THREE.MeshBasicNodeMaterial();
@@ -290,7 +302,7 @@ function createEngine() {
   return {
     uniforms: {
       uTime, uDt, uPointer, uColor, uBurst, uTransMul, uBoost,
-      uConnOpacity, uPulseColor, uPulseOpacity, uSeed,
+      uConnOpacity, uPulseColor, uPulseOpacity, uSeed, uProjFactor,
     },
     kernels: { computeNodes, computeConnections, computePulses },
     materials: { nodeMat, connMat, pulseMat },
@@ -429,10 +441,10 @@ function NeuralMeshGPUScene() {
   }, [engine]);
 
   const connGeometry = useMemo(() => {
-    // One 2-vertex segment, instanced CONN_COUNT times; x selects endpoint.
-    const g = new THREE.InstancedBufferGeometry();
-    g.instanceCount = CONN_COUNT;
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0, 1, 0, 0]), 3));
+    // Dummy positions — the material's positionNode sources the real
+    // endpoints from the compute storage buffers via vertexIndex.
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(CONN_COUNT * 2 * 3), 3));
     return g;
   }, []);
 
@@ -466,6 +478,8 @@ function NeuralMeshGPUScene() {
     u.uBurst.value = redTeamTransitioning ? 5 : 1;
     u.uTransMul.value = redTeamTransitioning ? 2 : 1;
     u.uSeed.value = (u.uSeed.value + 1) % 1000000;
+    const bufH = (gl as unknown as { domElement?: HTMLCanvasElement }).domElement?.height ?? 720;
+    u.uProjFactor.value = (bufH * 0.5) / TAN_HALF_FOV;
 
     // Theme colour lerp (same 0.04 rate the WASM engine used)
     tmpColor.set(themeHex(theme));
