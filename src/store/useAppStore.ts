@@ -39,6 +39,10 @@ interface AppState {
   canvasVisible: boolean;
   setCanvasVisible: (v: boolean) => void;
 
+  // Telemetry HUD (` key or `hud` terminal command)
+  hudOpen: boolean;
+  toggleHud: () => void;
+
   // A11y
   reducedMotion: boolean;
 }
@@ -136,6 +140,10 @@ export const useAppStore = create<AppState>((set) => ({
   // Canvas Perf
   canvasVisible: true,
   setCanvasVisible: (canvasVisible) => set({ canvasVisible }),
+
+  // Telemetry HUD
+  hudOpen: false,
+  toggleHud: () => set((s) => ({ hudOpen: !s.hudOpen })),
 
   // A11y
   reducedMotion: getInitialReducedMotion(),

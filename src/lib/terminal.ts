@@ -57,15 +57,21 @@ const VFS: FSNode = {
   },
 };
 
+export interface TerminalActions {
+  toggleHud?: () => void;
+}
+
 export class TerminalEngine {
   private history: TerminalLine[] = [];
   private commandHistory: string[] = [];
   private cwd: string[] = ['home', 'hkmodd'];
   private crackStage = 0;
   private ctfSolved = false;
+  private actions: TerminalActions;
 
-  constructor(greeting: string, ctfSolved = false) {
+  constructor(greeting: string, ctfSolved = false, actions: TerminalActions = {}) {
     this.ctfSolved = ctfSolved;
+    this.actions = actions;
     greeting.split('\n').forEach((line) => {
       this.history.push({ id: nextLineId(), type: 'system', text: line });
     });
@@ -114,6 +120,7 @@ export class TerminalEngine {
           '  history       - Command history',
           '  matrix        - Enter the Matrix',
           '  nmap          - Network scan (simulated)',
+          '  hud           - Toggle engine telemetry overlay (or press `)',
         ]);
         break;
 
@@ -220,6 +227,15 @@ export class TerminalEngine {
           'Nmap done: 1 IP address (1 host up) scanned in 2.41 seconds',
           '',
         ]);
+        break;
+
+      case 'hud':
+        if (this.actions.toggleHud) {
+          this.actions.toggleHud();
+          this.success(['📡 Telemetry overlay toggled. (` also works, operator.)']);
+        } else {
+          this.err(['hud: overlay unavailable']);
+        }
         break;
 
       case 'history':

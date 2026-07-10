@@ -21,7 +21,9 @@ export default function Terminal() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    engineRef.current = new TerminalEngine(t.terminal.greeting, ctfSolved);
+    engineRef.current = new TerminalEngine(t.terminal.greeting, ctfSolved, {
+      toggleHud: () => useAppStore.getState().toggleHud(),
+    });
     setLines(engineRef.current.getHistory());
   }, [t.terminal.greeting, ctfSolved]);
 

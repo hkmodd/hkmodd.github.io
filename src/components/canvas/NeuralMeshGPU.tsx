@@ -41,6 +41,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { NODE_COUNT, PULSE_COUNT, CONNECTION_DIST } from '@/lib/neuralProtocol';
 import { createNeuralLayout } from '@/lib/neuralLayout';
 import { getInitialDpr, MIN_DPR } from '@/lib/quality';
+import { neuralStats } from '@/lib/neuralStats';
 import { getScrollProgress } from '@/lib/scrollProgress';
 import { useScrollProgress } from '@/hooks/useScrollProgress';
 
@@ -478,8 +479,17 @@ function NeuralMeshGPUScene() {
     u.uBurst.value = redTeamTransitioning ? 5 : 1;
     u.uTransMul.value = redTeamTransitioning ? 2 : 1;
     u.uSeed.value = (u.uSeed.value + 1) % 1000000;
-    const bufH = (gl as unknown as { domElement?: HTMLCanvasElement }).domElement?.height ?? 720;
+    const dom = (gl as unknown as { domElement?: HTMLCanvasElement }).domElement;
+    const bufH = dom?.height ?? 720;
     u.uProjFactor.value = (bufH * 0.5) / TAN_HALF_FOV;
+
+    // ── Telemetry (plain assignments — read by the HUD at its own pace) ──
+    neuralStats.nodes = NODE_COUNT;
+    neuralStats.pulses = PULSE_COUNT;
+    neuralStats.connections = -1; // GPU-resident: the CPU never sees the count
+    neuralStats.resW = dom?.width ?? 0;
+    neuralStats.resH = bufH;
+    neuralStats.dpr = (gl as unknown as { getPixelRatio?: () => number }).getPixelRatio?.() ?? 1;
 
     // Theme colour lerp (same 0.04 rate the WASM engine used)
     tmpColor.set(themeHex(theme));
@@ -596,10 +606,11 @@ export default function NeuralMeshGPU() {
             forceWebGL: typeof navigator !== 'undefined' && !('gpu' in navigator),
           });
           await renderer.init();
+          const backend = (renderer as unknown as { backend?: { isWebGPUBackend?: boolean } }).backend;
+          neuralStats.backend = backend?.isWebGPUBackend ? 'webgpu' : 'webgpu:webgl2-fallback';
           if (import.meta.env.DEV) {
-            const backend = (renderer as unknown as { backend?: { isWebGPUBackend?: boolean } }).backend;
             console.log(
-              `%c⚡ Neural source ready [backend: ${backend?.isWebGPUBackend ? 'webgpu' : 'webgpu:webgl2-fallback'}]`,
+              `%c⚡ Neural source ready [backend: ${neuralStats.backend}]`,
               'color: #00d4ff; font-weight: bold',
             );
           }

@@ -13,6 +13,7 @@ import CyberCursor from '@/components/CyberCursor';
 import ResetButton from '@/components/ResetButton';
 import BackToTop from '@/components/BackToTop';
 import FloatingControls from '@/components/FloatingControls';
+import TelemetryHUD from '@/components/TelemetryHUD';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 // Lazy loaded components (Code Splitting for performance)
@@ -64,6 +65,9 @@ export default function App() {
 
       {/* Floating lang + theme controls */}
       <FloatingControls />
+
+      {/* Engine telemetry overlay (` key / `hud` terminal command) */}
+      <TelemetryHUD />
 
       {/* Film grain */}
       <div className="grain-overlay" />

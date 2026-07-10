@@ -5,6 +5,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useNeuralSource } from '@/hooks/useNeuralSource';
 import { NODE_COUNT, MAX_CONNECTIONS, PULSE_COUNT } from '@/lib/neuralProtocol';
 import { getInitialDpr, MIN_DPR } from '@/lib/quality';
+import { neuralStats } from '@/lib/neuralStats';
 import { getScrollProgress } from '@/lib/scrollProgress';
 import { useScrollProgress } from '@/hooks/useScrollProgress';
 import * as THREE from 'three';
@@ -342,7 +343,7 @@ function NeuralMeshScene() {
     []
   );
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock, gl }, delta) => {
     // ── Skip expensive work when canvas is scrolled off-screen ──
     if (!useAppStore.getState().canvasVisible) return;
 
@@ -355,6 +356,14 @@ function NeuralMeshScene() {
     group.rotation.x = Math.sin(t * 0.04) * 0.04;
 
     if (!source) return;
+
+    // ── Telemetry (plain assignments — read by the HUD at its own pace) ──
+    neuralStats.backend = source.mode === 'inline' ? 'wasm-inline' : 'wasm-worker';
+    neuralStats.nodes = NODE_COUNT;
+    neuralStats.pulses = PULSE_COUNT;
+    neuralStats.resW = gl.domElement.width;
+    neuralStats.resH = gl.domElement.height;
+    neuralStats.dpr = gl.getPixelRatio();
 
     // ── Per-frame inputs (theme colour resolved on the main thread) ──
     const { theme, redTeamTransitioning } = useAppStore.getState();
@@ -373,6 +382,7 @@ function NeuralMeshScene() {
       transitioning: redTeamTransitioning,
     });
     if (!frame) return;
+    neuralStats.connections = frame.connCount;
 
     // ══ NODES ══
     (nodePosAttr.array as Float32Array).set(frame.positions);
