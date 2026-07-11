@@ -415,6 +415,13 @@ html.cyber-cursor-active * {
 
 [data-theme="redteam"] .grain-overlay { opacity: 0.05; }
 
+/* Mobile: a full-screen mix-blend-mode layer forces the compositor to
+   blend the entire page every frame — a fixed tax on every scroll and
+   animation. At 3% opacity on a phone the grain is imperceptible anyway. */
+@media (hover: none), (pointer: coarse) {
+  .grain-overlay { display: none; }
+}
+
 /* ── CRT Scanline ─────────────────────────────────────────────── */
 .crt-scanline {
   position: fixed;

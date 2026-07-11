@@ -13,20 +13,12 @@
 import initWasm, { NeuralEngine } from '@/wasm/pkg/neural_engine';
 import type { InitOutput } from '@/wasm/pkg/neural_engine';
 import {
-  NODE_COUNT,
-  MAX_CONNECTIONS,
-  PULSE_COUNT,
-  CONNECTION_DIST,
   POS_OFF,
-  POS_LEN,
   OPAC_OFF,
-  OPAC_LEN,
   SIZE_OFF,
-  SIZE_LEN,
   CONN_POS_OFF,
   CONN_COL_OFF,
   PULSE_OFF,
-  PULSE_LEN,
   type ToWorker,
   type FromWorker,
 } from '@/lib/neuralProtocol';
@@ -72,7 +64,8 @@ self.onmessage = async (ev: MessageEvent<ToWorker>) => {
   if (msg.type === 'init') {
     try {
       const out: InitOutput = await initWasm();
-      engine = new NeuralEngine(NODE_COUNT, MAX_CONNECTIONS, PULSE_COUNT, CONNECTION_DIST);
+      const p = msg.params;
+      engine = new NeuralEngine(p.nodes, p.maxConnections, p.pulses, p.connectionDist);
       memory = out.memory;
       post({ type: 'ready' });
     } catch (err) {
@@ -102,17 +95,17 @@ self.onmessage = async (ev: MessageEvent<ToWorker>) => {
     out[2] = engine.color_g();
     out[3] = engine.color_b();
 
-    // ── Node blocks (small — copy in full) ──
-    out.set(v.pos.subarray(0, POS_LEN), POS_OFF);
-    out.set(v.opac.subarray(0, OPAC_LEN), OPAC_OFF);
-    out.set(v.size.subarray(0, SIZE_LEN), SIZE_OFF);
+    // ── Node blocks (engine-sized ≤ layout max — copy in full) ──
+    out.set(v.pos, POS_OFF);
+    out.set(v.opac, OPAC_OFF);
+    out.set(v.size, SIZE_OFF);
 
     // ── Connections: only the active range (rest is stale, never drawn) ──
     out.set(v.connPos.subarray(0, usedConn), CONN_POS_OFF);
     out.set(v.connCol.subarray(0, usedConn), CONN_COL_OFF);
 
     // ── Pulses (instanced matrices — small) ──
-    out.set(v.pulse.subarray(0, PULSE_LEN), PULSE_OFF);
+    out.set(v.pulse, PULSE_OFF);
 
     post({ type: 'frame', buffer: msg.buffer }, [msg.buffer]);
     return;

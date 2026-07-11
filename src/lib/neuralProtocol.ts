@@ -10,11 +10,23 @@
    Both sides import these constants so the layout can never drift.
    ═══════════════════════════════════════════════════════════════════ */
 
-// ── Simulation sizing (was previously private to useNeuralEngine) ──
+// ── Maximum simulation sizing ──────────────────────────────────────
+// The packed-frame layout below is dimensioned for these maxima; the
+// ACTUAL run size is chosen per device (see getSimQuality) and travels
+// in the worker init message. Running smaller than max just leaves the
+// tail of each block untouched — offsets never move.
 export const NODE_COUNT = 450;
 export const MAX_CONNECTIONS = 2000;
 export const PULSE_COUNT = 40;
 export const CONNECTION_DIST = 2.8;
+
+/** Per-run simulation size (≤ the maxima above). */
+export interface SimParams {
+  nodes: number;
+  maxConnections: number;
+  pulses: number;
+  connectionDist: number;
+}
 
 /* ── Packed frame layout (units = float32 slots) ──────────────────────
    [0] connCount   (integer stored as float; main rounds it)
@@ -61,7 +73,7 @@ export interface FrameInputs {
 
 /** main → worker */
 export type ToWorker =
-  | { type: 'init' }
+  | { type: 'init'; params: SimParams }
   | { type: 'tick'; inputs: FrameInputs; buffer: ArrayBuffer };
 
 /** worker → main */

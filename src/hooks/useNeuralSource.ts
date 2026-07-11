@@ -4,21 +4,16 @@ import { loadInlineEngine } from '@/hooks/useNeuralEngine';
 import {
   FRAME_FLOATS,
   POS_OFF,
-  POS_LEN,
   OPAC_OFF,
-  OPAC_LEN,
   SIZE_OFF,
-  SIZE_LEN,
   CONN_POS_OFF,
-  CONN_POS_LEN,
   CONN_COL_OFF,
-  CONN_COL_LEN,
   PULSE_OFF,
-  PULSE_LEN,
   type FrameInputs,
   type ToWorker,
   type FromWorker,
 } from '@/lib/neuralProtocol';
+import { getSimQuality } from '@/lib/quality';
 
 /* ═══════════════════════════════════════════════════════════════════
    useNeuralSource — one façade over two execution backends.
@@ -79,15 +74,17 @@ function createNeuralSource(onReady: () => void): NeuralSource {
   let accDt = 0;
   let disposed = false;
 
+  const q = getSimQuality();
+
   function buildFrame(buf: ArrayBuffer): NeuralFrame {
     const a = new Float32Array(buf);
     return {
-      positions: a.subarray(POS_OFF, POS_OFF + POS_LEN),
-      opacities: a.subarray(OPAC_OFF, OPAC_OFF + OPAC_LEN),
-      sizes: a.subarray(SIZE_OFF, SIZE_OFF + SIZE_LEN),
-      connPositions: a.subarray(CONN_POS_OFF, CONN_POS_OFF + CONN_POS_LEN),
-      connColors: a.subarray(CONN_COL_OFF, CONN_COL_OFF + CONN_COL_LEN),
-      pulseMatrices: a.subarray(PULSE_OFF, PULSE_OFF + PULSE_LEN),
+      positions: a.subarray(POS_OFF, POS_OFF + q.nodes * 3),
+      opacities: a.subarray(OPAC_OFF, OPAC_OFF + q.nodes),
+      sizes: a.subarray(SIZE_OFF, SIZE_OFF + q.nodes),
+      connPositions: a.subarray(CONN_POS_OFF, CONN_POS_OFF + q.maxConnections * 6),
+      connColors: a.subarray(CONN_COL_OFF, CONN_COL_OFF + q.maxConnections * 6),
+      pulseMatrices: a.subarray(PULSE_OFF, PULSE_OFF + q.pulses * 16),
       connCount: 0,
       colorR: 0,
       colorG: 0,
@@ -169,7 +166,15 @@ function createNeuralSource(onReady: () => void): NeuralSource {
       startInline();
     };
 
-    worker.postMessage({ type: 'init' } as ToWorker);
+    worker.postMessage({
+      type: 'init',
+      params: {
+        nodes: q.nodes,
+        maxConnections: q.maxConnections,
+        pulses: q.pulses,
+        connectionDist: q.connectionDist,
+      },
+    } as ToWorker);
   }
 
   startWorker();

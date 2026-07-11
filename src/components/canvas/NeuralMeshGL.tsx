@@ -3,12 +3,14 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
 import { useAppStore } from '@/store/useAppStore';
 import { useNeuralSource } from '@/hooks/useNeuralSource';
-import { NODE_COUNT, MAX_CONNECTIONS, PULSE_COUNT } from '@/lib/neuralProtocol';
-import { getInitialDpr, MIN_DPR } from '@/lib/quality';
+import { getSimQuality, getInitialDpr, MIN_DPR } from '@/lib/quality';
 import { neuralStats } from '@/lib/neuralStats';
 import { getScrollProgress } from '@/lib/scrollProgress';
 import { useScrollProgress } from '@/hooks/useScrollProgress';
 import * as THREE from 'three';
+
+// Device-tier simulation size, chosen once at load.
+const SIM = getSimQuality();
 
 /* ═══════════════════════════════════════════════════════════════════
    NEURAL MESH v4 — Rust/WASM simulation, now off the main thread.
@@ -295,9 +297,9 @@ function NeuralMeshScene() {
   // ── Node buffers ──
   const nodeMatRef = useRef<THREE.ShaderMaterial>(null!);
   const { nodeGeometry, nodePosAttr, nodeOpacAttr, nodeSizeAttr, nodeUniforms } = useMemo(() => {
-    const posArr = new Float32Array(NODE_COUNT * 3);
-    const opacArr = new Float32Array(NODE_COUNT);
-    const sizeArr = new Float32Array(NODE_COUNT);
+    const posArr = new Float32Array(SIM.nodes * 3);
+    const opacArr = new Float32Array(SIM.nodes);
+    const sizeArr = new Float32Array(SIM.nodes);
     const nodePosAttr = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
     const nodeOpacAttr = new THREE.BufferAttribute(opacArr, 1).setUsage(THREE.DynamicDrawUsage);
     const nodeSizeAttr = new THREE.BufferAttribute(sizeArr, 1).setUsage(THREE.DynamicDrawUsage);
@@ -316,8 +318,8 @@ function NeuralMeshScene() {
   // ── Connection buffers ──
   const connMatRef = useRef<THREE.LineBasicMaterial>(null!);
   const { connGeometry, connPosAttr, connColAttr } = useMemo(() => {
-    const posArr = new Float32Array(MAX_CONNECTIONS * 6);
-    const colArr = new Float32Array(MAX_CONNECTIONS * 6);
+    const posArr = new Float32Array(SIM.maxConnections * 6);
+    const colArr = new Float32Array(SIM.maxConnections * 6);
     const connPosAttr = new THREE.BufferAttribute(posArr, 3).setUsage(THREE.DynamicDrawUsage);
     const connColAttr = new THREE.BufferAttribute(colArr, 3).setUsage(THREE.DynamicDrawUsage);
     const connGeometry = new THREE.BufferGeometry();
@@ -363,8 +365,9 @@ function NeuralMeshScene() {
 
     // ── Telemetry (plain assignments — read by the HUD at its own pace) ──
     neuralStats.backend = source.mode === 'inline' ? 'wasm-inline' : 'wasm-worker';
-    neuralStats.nodes = NODE_COUNT;
-    neuralStats.pulses = PULSE_COUNT;
+    neuralStats.nodes = SIM.nodes;
+    neuralStats.connCap = SIM.maxConnections;
+    neuralStats.pulses = SIM.pulses;
     neuralStats.resW = gl.domElement.width;
     neuralStats.resH = gl.domElement.height;
     neuralStats.dpr = gl.getPixelRatio();
@@ -437,7 +440,7 @@ function NeuralMeshScene() {
       if (colorKey !== prevPulseColorKey.current) {
         prevPulseColorKey.current = colorKey;
         tmpColor.setRGB(frame.colorR * cMul, frame.colorG * cMul, frame.colorB * cMul);
-        for (let i = 0; i < PULSE_COUNT; i++) mesh.setColorAt(i, tmpColor);
+        for (let i = 0; i < SIM.pulses; i++) mesh.setColorAt(i, tmpColor);
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       }
       pulseMat.blending = theme === 'light' ? THREE.NormalBlending : THREE.AdditiveBlending;
@@ -456,8 +459,9 @@ function NeuralMeshScene() {
       {/* Deep background fog plane */}
       <DepthFog />
 
-      {/* Perspective grid (beneath neural mesh) */}
-      <PerspectiveGrid pointerRef={pointerRef} />
+      {/* Perspective grid (beneath neural mesh) — desktop only: on a
+          phone it reads as haze while costing a full-screen fragment pass */}
+      {SIM.grid && <PerspectiveGrid pointerRef={pointerRef} />}
 
       {/* Cursor-reactive glow — rides the pointer in world space */}
       <CursorGlow pointerRef={pointerRef} />
@@ -489,7 +493,7 @@ function NeuralMeshScene() {
               />
             </lineSegments>
 
-            <instancedMesh ref={pulseMeshRef} args={[pulseGeo, pulseMat, PULSE_COUNT]} frustumCulled={false} />
+            <instancedMesh ref={pulseMeshRef} args={[pulseGeo, pulseMat, SIM.pulses]} frustumCulled={false} />
           </>
         )}
       </group>

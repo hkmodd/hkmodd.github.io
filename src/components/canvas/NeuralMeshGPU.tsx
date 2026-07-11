@@ -38,7 +38,7 @@ import {
 import { Canvas, useFrame, extend } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
 import { useAppStore } from '@/store/useAppStore';
-import { NODE_COUNT, PULSE_COUNT, CONNECTION_DIST } from '@/lib/neuralProtocol';
+import { getSimQuality } from '@/lib/quality';
 import { createNeuralLayout } from '@/lib/neuralLayout';
 import { getInitialDpr, MIN_DPR } from '@/lib/quality';
 import { neuralStats } from '@/lib/neuralStats';
@@ -62,11 +62,14 @@ import { useScrollProgress } from '@/hooks/useScrollProgress';
 
 extend(THREE as unknown as Parameters<typeof extend>[0]);
 
-// Per-node connection budget. 6 slots × 450 nodes = 2700 instanced line
-// segments, drawn every frame with degenerate (A==B) segments for empty
-// slots — no compaction, no atomics, backend-portable.
-const K_PER_NODE = 6;
-const CONN_COUNT = NODE_COUNT * K_PER_NODE;
+// Device-tier simulation size, chosen once at load.
+const SIM = getSimQuality();
+
+// Per-node connection budget: K slots × nodes = fixed segment pool, drawn
+// every frame with degenerate (A==B) segments for empty slots — no
+// compaction, no atomics, backend-portable.
+const K_PER_NODE = SIM.kPerNode;
+const CONN_COUNT = SIM.nodes * K_PER_NODE;
 
 // tan(fov/2) for the fixed 55° camera — used to convert the original
 // gl_PointSize device-pixel sizing into world units at any resolution.
@@ -83,7 +86,7 @@ function themeHex(theme: string): string {
    ═══════════════════════════════════════════════════════════════════ */
 
 function createEngine() {
-  const layout = createNeuralLayout();
+  const layout = createNeuralLayout(SIM.nodes, SIM.pulses);
 
   // ── Uniforms (CPU → GPU, a few floats per frame) ──
   const uTime = uniform(0);
@@ -108,9 +111,9 @@ function createEngine() {
   const phases = instancedArray(layout.phases, 'float');
   const speeds = instancedArray(layout.speeds, 'float');
 
-  const livePos = instancedArray(NODE_COUNT, 'vec3');
-  const liveOpac = instancedArray(NODE_COUNT, 'float');
-  const liveSize = instancedArray(NODE_COUNT, 'float');
+  const livePos = instancedArray(SIM.nodes, 'vec3');
+  const liveOpac = instancedArray(SIM.nodes, 'float');
+  const liveSize = instancedArray(SIM.nodes, 'float');
 
   const connA = instancedArray(CONN_COUNT, 'vec3');
   const connB = instancedArray(CONN_COUNT, 'vec3');
@@ -120,8 +123,8 @@ function createEngine() {
   const pulseTo = instancedArray(layout.pulseTo, 'float');
   const pulseProg = instancedArray(layout.pulseProgress, 'float');
   const pulseSpd = instancedArray(layout.pulseSpeed, 'float');
-  const pulsePos = instancedArray(PULSE_COUNT, 'vec3');
-  const pulseScale = instancedArray(PULSE_COUNT, 'float');
+  const pulsePos = instancedArray(SIM.pulses, 'vec3');
+  const pulseScale = instancedArray(SIM.pulses, 'float');
 
   // Every buffer READ inside a compute kernel or by index in a render
   // shader needs PBO-texture backing on the WebGL2 fallback backend
@@ -165,7 +168,7 @@ function createEngine() {
     const prox = max(float(1).sub(pd.div(6)), 0);
     liveOpac.element(i).assign(baseOpac.element(i).add(prox.mul(0.7)));
     liveSize.element(i).assign(baseSize.element(i).mul(prox.add(1)));
-  })().compute(NODE_COUNT);
+  })().compute(SIM.nodes);
 
   // ═══ KERNEL 2 — connections: one thread per SEGMENT (instanced) ═══
   // Thread c owns (node i = c/K, slot s = c%K) and rescans i's forward
@@ -181,12 +184,12 @@ function createEngine() {
     const a = livePos.element(nodeI).toVar();
     const found = int(-1).toVar();
     const cnt = int(0).toVar();
-    const distSq = float(CONNECTION_DIST * CONNECTION_DIST);
+    const distSq = float(SIM.connectionDist * SIM.connectionDist);
 
     // Fixed-bound loop with straight-line (select-based) accumulation —
     // no Break, no dynamic start, no divergent writes: the control-flow
     // shape kernel 1 already proved safe on both WGSL and GLSL builders.
-    Loop({ start: int(0), end: int(NODE_COUNT), type: 'int', condition: '<' }, ({ i: j }) => {
+    Loop({ start: int(0), end: int(SIM.nodes), type: 'int', condition: '<' }, ({ i: j }) => {
       const b = livePos.element(j);
       const diff = a.sub(b);
       const dsq = dot(diff, diff);
@@ -203,7 +206,7 @@ function createEngine() {
     If(found.greaterThanEqual(0), () => {
       const b = livePos.element(found).toVar();
       const dd = length(a.sub(b));
-      const alpha = float(1).sub(dd.div(CONNECTION_DIST));
+      const alpha = float(1).sub(dd.div(SIM.connectionDist));
       const mid = a.add(b).mul(0.5);
       const pd = length(mid.xy.sub(uPointer.xy));
       const prox = max(float(1).sub(pd.div(4)), 0);
@@ -226,7 +229,7 @@ function createEngine() {
     If(prog.greaterThanEqual(1), () => {
       pulseFrom.element(i).assign(pulseTo.element(i));
       const h1 = hash(i.add(uint(uSeed)));
-      pulseTo.element(i).assign(floor(h1.mul(NODE_COUNT)).min(NODE_COUNT - 1));
+      pulseTo.element(i).assign(floor(h1.mul(SIM.nodes)).min(SIM.nodes - 1));
       prog.assign(0);
       const h2 = hash(i.add(uint(uSeed)).add(uint(7919)));
       pulseSpd.element(i).assign(h2.mul(0.8).add(0.3));
@@ -239,7 +242,7 @@ function createEngine() {
     const p = mix(f, tt, prog);
     pulsePos.element(i).assign(vec3(p.x, p.y, p.z.add(arc.mul(0.8))));
     pulseScale.element(i).assign(arc.mul(1.2).add(1));
-  })().compute(PULSE_COUNT);
+  })().compute(SIM.pulses);
 
   // ═══ MATERIAL — nodes (instanced sprites; port of the GLSL shaders) ═══
   const nodeMat = new THREE.SpriteNodeMaterial();
@@ -440,7 +443,7 @@ function NeuralMeshGPUScene() {
   // Sprite object with instance count (three's instanced-sprites path)
   const nodeSprite = useMemo(() => {
     const s = new THREE.Sprite(engine.materials.nodeMat);
-    s.count = NODE_COUNT;
+    s.count = SIM.nodes;
     s.frustumCulled = false;
     return s;
   }, [engine]);
@@ -488,9 +491,10 @@ function NeuralMeshGPUScene() {
     u.uProjFactor.value = (bufH * 0.5) / TAN_HALF_FOV;
 
     // ── Telemetry (plain assignments — read by the HUD at its own pace) ──
-    neuralStats.nodes = NODE_COUNT;
-    neuralStats.pulses = PULSE_COUNT;
+    neuralStats.nodes = SIM.nodes;
+    neuralStats.pulses = SIM.pulses;
     neuralStats.connections = -1; // GPU-resident: the CPU never sees the count
+    neuralStats.connCap = CONN_COUNT;
     neuralStats.resW = dom?.width ?? 0;
     neuralStats.resH = bufH;
     neuralStats.dpr = (gl as unknown as { getPixelRatio?: () => number }).getPixelRatio?.() ?? 1;
@@ -545,16 +549,18 @@ function NeuralMeshGPUScene() {
 
       <DepthFog />
 
-      <mesh rotation={[-Math.PI / 2.2, 0, 0]} position={[0, -6, -3]} material={grid.mat}>
-        <planeGeometry args={[60, 60, 32, 32]} />
-      </mesh>
+      {SIM.grid && (
+        <mesh rotation={[-Math.PI / 2.2, 0, 0]} position={[0, -6, -3]} material={grid.mat}>
+          <planeGeometry args={[60, 60, 32, 32]} />
+        </mesh>
+      )}
 
       <CursorGlow pointerRef={pointerRef} />
 
       <group ref={groupRef}>
         <primitive object={nodeSprite} />
         <lineSegments geometry={connGeometry} material={engine.materials.connMat} frustumCulled={false} />
-        <instancedMesh args={[pulseGeo, engine.materials.pulseMat, PULSE_COUNT]} frustumCulled={false} />
+        <instancedMesh args={[pulseGeo, engine.materials.pulseMat, SIM.pulses]} frustumCulled={false} />
       </group>
     </>
   );

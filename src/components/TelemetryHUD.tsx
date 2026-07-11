@@ -87,7 +87,7 @@ export default function TelemetryHUD() {
     ['FRAME', frameMs > 0 ? `${fps.toFixed(1)} fps · ${frameMs.toFixed(2)} ms` : '—'],
     ['RES', s.resW > 0 ? `${s.resW}×${s.resH} @${s.dpr.toFixed(2)}x` : '—'],
     ['NODES', String(s.nodes || '—')],
-    ['LINKS', s.connections < 0 ? 'gpu-resident · cap 2700' : String(s.connections)],
+    ['LINKS', s.connections < 0 ? `gpu-resident · cap ${s.connCap}` : String(s.connections)],
     ['PULSES', String(s.pulses || '—')],
   ];
   if (heap) rows.push(['HEAP', `${(heap.usedJSHeapSize / 1048576).toFixed(1)} MB`]);

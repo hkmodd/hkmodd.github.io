@@ -19,6 +19,8 @@ export interface NeuralStats {
   backend: EngineBackend;
   /** Active connection segments this frame; -1 = GPU-resident (CPU never sees it). */
   connections: number;
+  /** Connection pool capacity for the active tier. */
+  connCap: number;
   nodes: number;
   pulses: number;
   /** Drawing-buffer size in device px. */
@@ -31,6 +33,7 @@ export interface NeuralStats {
 export const neuralStats: NeuralStats = {
   backend: 'boot',
   connections: 0,
+  connCap: 0,
   nodes: 0,
   pulses: 0,
   resW: 0,

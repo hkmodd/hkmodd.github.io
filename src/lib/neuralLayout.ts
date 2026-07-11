@@ -7,8 +7,6 @@
    Rust/WASM path.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { NODE_COUNT, PULSE_COUNT } from '@/lib/neuralProtocol';
-
 const FIELD_SIZE = 20.0;
 
 const DEPTH_LAYERS = [
@@ -37,7 +35,7 @@ class Rng {
 }
 
 export interface NeuralLayout {
-  basePositions: Float32Array; // vec3 × NODE_COUNT
+  basePositions: Float32Array; // vec3 × nodeCount
   baseOpacities: Float32Array;
   baseSizes: Float32Array;
   phases: Float32Array;
@@ -48,20 +46,20 @@ export interface NeuralLayout {
   pulseSpeed: Float32Array;
 }
 
-export function createNeuralLayout(): NeuralLayout {
+export function createNeuralLayout(nodeCount: number, pulseCount: number): NeuralLayout {
   const rng = new Rng(42);
 
-  const basePositions = new Float32Array(NODE_COUNT * 3);
-  const baseOpacities = new Float32Array(NODE_COUNT);
-  const baseSizes = new Float32Array(NODE_COUNT);
-  const phases = new Float32Array(NODE_COUNT);
-  const speeds = new Float32Array(NODE_COUNT);
+  const basePositions = new Float32Array(nodeCount * 3);
+  const baseOpacities = new Float32Array(nodeCount);
+  const baseSizes = new Float32Array(nodeCount);
+  const phases = new Float32Array(nodeCount);
+  const speeds = new Float32Array(nodeCount);
 
   let idx = 0;
   for (const layer of DEPTH_LAYERS) {
-    const layerCount = Math.trunc(NODE_COUNT * layer.fraction);
+    const layerCount = Math.trunc(nodeCount * layer.fraction);
     for (let k = 0; k < layerCount; k++) {
-      if (idx >= NODE_COUNT) break;
+      if (idx >= nodeCount) break;
       const i3 = idx * 3;
       basePositions[i3] = (rng.next() - 0.5) * FIELD_SIZE;
       basePositions[i3 + 1] = (rng.next() - 0.5) * FIELD_SIZE;
@@ -73,7 +71,7 @@ export function createNeuralLayout(): NeuralLayout {
       idx++;
     }
   }
-  while (idx < NODE_COUNT) {
+  while (idx < nodeCount) {
     const i3 = idx * 3;
     basePositions[i3] = (rng.next() - 0.5) * FIELD_SIZE;
     basePositions[i3 + 1] = (rng.next() - 0.5) * FIELD_SIZE;
@@ -85,13 +83,13 @@ export function createNeuralLayout(): NeuralLayout {
     idx++;
   }
 
-  const pulseFrom = new Float32Array(PULSE_COUNT);
-  const pulseTo = new Float32Array(PULSE_COUNT);
-  const pulseProgress = new Float32Array(PULSE_COUNT);
-  const pulseSpeed = new Float32Array(PULSE_COUNT);
-  for (let i = 0; i < PULSE_COUNT; i++) {
-    pulseFrom[i] = Math.trunc(rng.next() * NODE_COUNT) % NODE_COUNT;
-    pulseTo[i] = Math.trunc(rng.next() * NODE_COUNT) % NODE_COUNT;
+  const pulseFrom = new Float32Array(pulseCount);
+  const pulseTo = new Float32Array(pulseCount);
+  const pulseProgress = new Float32Array(pulseCount);
+  const pulseSpeed = new Float32Array(pulseCount);
+  for (let i = 0; i < pulseCount; i++) {
+    pulseFrom[i] = Math.trunc(rng.next() * nodeCount) % nodeCount;
+    pulseTo[i] = Math.trunc(rng.next() * nodeCount) % nodeCount;
     pulseProgress[i] = rng.next();
     pulseSpeed[i] = 0.3 + rng.next() * 0.8;
   }

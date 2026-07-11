@@ -1,11 +1,6 @@
 import initWasm, { NeuralEngine } from '@/wasm/pkg/neural_engine';
 import type { InitOutput } from '@/wasm/pkg/neural_engine';
-import {
-  NODE_COUNT,
-  MAX_CONNECTIONS,
-  PULSE_COUNT,
-  CONNECTION_DIST,
-} from '@/lib/neuralProtocol';
+import { getSimQuality } from '@/lib/quality';
 
 /* ═══════════════════════════════════════════════════════════════════
    Inline WASM engine loader — the MAIN-THREAD fallback.
@@ -34,13 +29,14 @@ export function loadInlineEngine(): Promise<InlineEngine> {
 
   _loadPromise = (async () => {
     const out: InitOutput = await initWasm();
-    _engine = new NeuralEngine(NODE_COUNT, MAX_CONNECTIONS, PULSE_COUNT, CONNECTION_DIST);
+    const q = getSimQuality();
+    _engine = new NeuralEngine(q.nodes, q.maxConnections, q.pulses, q.connectionDist);
     _memory = out.memory;
     if (import.meta.env.DEV) {
       console.log(
         '%c🦀 WASM Neural Engine (inline fallback) loaded',
         'color: #ffb000; font-weight: bold',
-        `| ${NODE_COUNT} nodes`,
+        `| ${q.nodes} nodes`,
       );
     }
     return { engine: _engine, memory: _memory };
