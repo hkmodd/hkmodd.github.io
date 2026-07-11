@@ -28,7 +28,7 @@ export interface ProjectItem {
 }
 
 export interface Translations {
-  boot: { lines: string[] };
+  boot: { lines: string[]; warming: string };
   hero: {
     name: string;
     realName: string;
@@ -95,6 +95,7 @@ const en: Translations = {
       'All systems operational.',
       'ACCESS GRANTED',
     ],
+    warming: 'Warming neural engine...',
   },
 
   hero: {

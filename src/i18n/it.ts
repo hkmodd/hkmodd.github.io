@@ -10,6 +10,7 @@ const it: Translations = {
       'Tutti i sistemi operativi.',
       'ACCESSO GARANTITO',
     ],
+    warming: 'Riscaldamento motore neurale...',
   },
 
   hero: {

@@ -1,4 +1,4 @@
-import { useCallback, lazy, Suspense } from 'react';
+import { useCallback, useEffect, lazy, Suspense } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import { useKonamiCode } from '@/hooks/useKonamiCode';
@@ -16,13 +16,22 @@ import FloatingControls from '@/components/FloatingControls';
 import TelemetryHUD from '@/components/TelemetryHUD';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
-// Lazy loaded components (Code Splitting for performance)
-const NeuralMesh = lazy(() => import('@/components/canvas/NeuralMesh'));
-const Arsenal = lazy(() => import('@/components/Arsenal'));
-const Operations = lazy(() => import('@/components/Operations'));
-const Identity = lazy(() => import('@/components/Identity'));
-const AIIntel = lazy(() => import('@/components/AIIntel'));
-const Terminal = lazy(() => import('@/components/Terminal'));
+// Lazy loaded components (code splitting) with named loaders so the boot
+// window can prefetch every section chunk — by the time the boot screen
+// lifts, mounting a section is a cache hit, not a network+parse hitch.
+const loadNeuralMesh = () => import('@/components/canvas/NeuralMesh');
+const loadArsenal = () => import('@/components/Arsenal');
+const loadOperations = () => import('@/components/Operations');
+const loadIdentity = () => import('@/components/Identity');
+const loadAIIntel = () => import('@/components/AIIntel');
+const loadTerminal = () => import('@/components/Terminal');
+
+const NeuralMesh = lazy(loadNeuralMesh);
+const Arsenal = lazy(loadArsenal);
+const Operations = lazy(loadOperations);
+const Identity = lazy(loadIdentity);
+const AIIntel = lazy(loadAIIntel);
+const Terminal = lazy(loadTerminal);
 
 export default function App() {
   const booted = useAppStore((s) => s.booted);
@@ -33,6 +42,21 @@ export default function App() {
 
   // Auto-update: check for new version, clear cache & reload if stale
   useAutoUpdate();
+
+  // Prefetch every section chunk during the boot window (idle time), so
+  // the post-boot reveal mounts from cache with zero network/parse hitches.
+  useEffect(() => {
+    const prefetch = () => {
+      loadArsenal();
+      loadOperations();
+      loadIdentity();
+      loadAIIntel();
+      loadTerminal();
+    };
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    if (ric) ric(prefetch);
+    else setTimeout(prefetch, 300);
+  }, []);
 
   // Snap-scroll: desktop section snapping on wheel/keyboard
   useSnapScroll();

@@ -9,7 +9,10 @@ export default function BootScreen() {
   const { t } = useTranslation();
   const setBooted = useAppStore((s) => s.setBooted);
   const theme = useAppStore((s) => s.theme);
+  const engineReady = useAppStore((s) => s.engineReady);
   const [lines, setLines] = useState<string[]>([]);
+  const [linesDone, setLinesDone] = useState(false);
+  const [graceExpired, setGraceExpired] = useState(false);
   const [done, setDone] = useState(false);
 
   const accentColor = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
@@ -44,14 +47,36 @@ export default function BootScreen() {
         i++;
       } else {
         clearInterval(interval);
-        haptic('success');
-        setTimeout(() => setDone(true), 200);
-        setTimeout(() => setBooted(true), 500);
+        setLinesDone(true);
       }
     }, 120);
 
     return () => clearInterval(interval);
-  }, [t, setBooted]);
+  }, [t]);
+
+  // The boot screen is a WARM-UP window, not just theatre: while it types,
+  // the engine chunk streams in and the GPU pipelines compile behind it.
+  // Release only when the engine has produced real frames — capped by a
+  // grace timeout so a slow network can never hold the page hostage.
+  useEffect(() => {
+    if (!linesDone) return;
+    const grace = setTimeout(() => setGraceExpired(true), 4000);
+    return () => clearTimeout(grace);
+  }, [linesDone]);
+
+  useEffect(() => {
+    if (!linesDone || !(engineReady || graceExpired)) return;
+    haptic('success');
+    if (import.meta.env.DEV) {
+      console.log(`[boot] released — engineReady=${engineReady} grace=${graceExpired}`);
+    }
+    const t1 = setTimeout(() => setDone(true), 200);
+    const t2 = setTimeout(() => setBooted(true), 500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [linesDone, engineReady, graceExpired, setBooted]);
 
   useEffect(() => {
     // Only play boot sequence once. On mobile, this may be silent due to autoplay rules.
@@ -92,6 +117,27 @@ export default function BootScreen() {
                   </motion.div>
                 );
               })}
+
+              {/* Engine warm-up overflow: shown only when pipeline compilation
+                  outlives the typewriter — the wait is real work, say so */}
+              {linesDone && !engineReady && !graceExpired && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="opacity-60"
+                >
+                  <span className="opacity-40 mr-2 select-none">{'>'}&nbsp;</span>
+                  {t.boot.warming}
+                  <span
+                    className="inline-block w-2 h-3 ml-2"
+                    style={{
+                      backgroundColor: accentColor,
+                      animation: 'terminal-cursor 1s step-end infinite',
+                    }}
+                  />
+                </motion.div>
+              )}
 
               {/* Blinking cursor while loading */}
               {lines.length < t.boot.lines.length && (

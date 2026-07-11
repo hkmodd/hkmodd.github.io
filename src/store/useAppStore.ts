@@ -43,6 +43,11 @@ interface AppState {
   hudOpen: boolean;
   toggleHud: () => void;
 
+  // Engine warm-up: true once the neural engine has produced real frames.
+  // BootScreen holds the reveal until this flips (with a grace timeout).
+  engineReady: boolean;
+  setEngineReady: (v: boolean) => void;
+
   // A11y
   reducedMotion: boolean;
 }
@@ -144,6 +149,10 @@ export const useAppStore = create<AppState>((set) => ({
   // Telemetry HUD
   hudOpen: false,
   toggleHud: () => set((s) => ({ hudOpen: !s.hudOpen })),
+
+  // Engine warm-up
+  engineReady: false,
+  setEngineReady: (engineReady) => set({ engineReady }),
 
   // A11y
   reducedMotion: getInitialReducedMotion(),

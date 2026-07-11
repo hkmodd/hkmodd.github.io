@@ -430,6 +430,10 @@ function NeuralMeshGPUScene() {
   const [frameError, setFrameError] = useState<Error | null>(null);
   if (frameError) throw frameError;
 
+  // Boot-screen handshake: after a few real simulated+rendered frames the
+  // WGSL pipelines are compiled and the first-use hitches are behind us.
+  const warmFrames = useRef(0);
+
   const engine = useMemo(createEngine, []);
   const grid = useMemo(createGridMaterial, []);
 
@@ -524,6 +528,9 @@ function NeuralMeshGPUScene() {
       dispatch(engine.kernels.computeNodes);
       dispatch(engine.kernels.computeConnections);
       dispatch(engine.kernels.computePulses);
+      if (warmFrames.current < 3 && ++warmFrames.current === 3) {
+        useAppStore.getState().setEngineReady(true);
+      }
     } catch (err) {
       setFrameError(err instanceof Error ? err : new Error(String(err)));
     }
@@ -618,6 +625,13 @@ export default function NeuralMeshGPU() {
         }}
         style={{ background: canvasBg, pointerEvents: 'auto' }}
         frameloop={canvasVisible ? 'always' : 'demand'}
+        onCreated={({ gl: renderer, scene, camera }) => {
+          // Warm every render pipeline while the boot screen still covers
+          // the canvas — first-use WGSL compilation must not hit the user.
+          (renderer as unknown as { compileAsync?: (s: unknown, c: unknown) => Promise<unknown> })
+            .compileAsync?.(scene, camera)
+            ?.catch(() => {});
+        }}
       >
         <PerformanceMonitor
           onDecline={() => setDpr((d) => Math.max(MIN_DPR, +(d - 0.5).toFixed(2)))}

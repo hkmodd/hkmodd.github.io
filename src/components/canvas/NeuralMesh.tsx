@@ -1,4 +1,5 @@
 import { Component, Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
+import { useAppStore } from '@/store/useAppStore';
 
 /* ═══════════════════════════════════════════════════════════════════
    NEURAL MESH — backend selector.
@@ -6,51 +7,50 @@ import { Component, Suspense, lazy, useEffect, useState, type ReactNode } from '
    Picks the best available engine at runtime, with a strict
    never-worse-than-before guarantee:
 
-     1. WebGPU (TSL compute, GPU-resident simulation)   — NeuralMeshGPU
-     2. WebGL + Rust/WASM simulation in a Web Worker    — NeuralMeshGL
-     3. WebGL + WASM inline on the main thread          — (inside GL)
+     1. WebGPU + TSL compute        (NeuralMeshGPU)
+     2. WebGL + WASM in a Worker    (NeuralMeshGL)
+     3. WebGL + WASM inline         (fallback inside the GL path)
 
-   Only the chosen implementation's chunk is downloaded. If the WebGPU
-   path fails for ANY reason (init, shader compile, runtime error), the
-   boundary silently remounts the proven WebGL path.
+   The probe AND the winning chunk download start at MODULE LOAD — i.e.
+   the moment the app shell mounts, while the boot screen is still
+   typing — so pipeline warm-up overlaps the boot sequence instead of
+   following it. Only the chosen implementation's chunk is downloaded.
 
-   Test hooks: ?neural=gl forces the WebGL path, ?neural=gpu forces the
-   TSL path (which itself falls back to three's WebGL2 backend when the
-   browser has no WebGPU — used for CI/headless verification).
+   A GPUBoundary demotes silently to the WebGL path on any error.
+   Test hooks: ?neural=gl forces WebGL, ?neural=gpu forces the TSL path.
    ═══════════════════════════════════════════════════════════════════ */
 
-const NeuralMeshGL = lazy(() => import('./NeuralMeshGL'));
-const NeuralMeshGPU = lazy(() => import('./NeuralMeshGPU'));
-
-let probePromise: Promise<boolean> | null = null;
-
-function probeWebGPU(): Promise<boolean> {
-  if (!probePromise) {
-    probePromise = (async () => {
-      try {
-        const forced = new URLSearchParams(window.location.search).get('neural');
-        if (forced === 'gl') return false;
-        if (forced === 'gpu') return true;
-        const gpu = (navigator as { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
-        if (!gpu) return false;
-        return !!(await gpu.requestAdapter());
-      } catch {
-        return false;
-      }
-    })();
+async function probeWebGPU(): Promise<boolean> {
+  try {
+    const forced = new URLSearchParams(window.location.search).get('neural');
+    if (forced === 'gl') return false;
+    if (forced === 'gpu') return true;
+    const gpu = (navigator as { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
+    if (!gpu) return false;
+    return !!(await gpu.requestAdapter());
+  } catch {
+    return false;
   }
-  return probePromise;
 }
 
-/** Catches any error in the WebGPU path and demotes to WebGL instead of
-    surfacing a fault UI — the background must degrade invisibly. */
+const loadGL = () => import('./NeuralMeshGL');
+
+// Kicked off immediately at module evaluation — the engine chunk streams
+// in behind the boot screen.
+const enginePromise = probeWebGPU().then((ok) => (ok ? import('./NeuralMeshGPU') : loadGL()));
+
+const ChosenEngine = lazy(() => enginePromise);
+const GLEngine = lazy(loadGL);
+
+/** Catches any error in the chosen engine and demotes to the WebGL path
+    instead of surfacing a fault UI — the background must degrade invisibly. */
 class GPUBoundary extends Component<{ onFail: () => void; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
   componentDidCatch(error: unknown) {
-    console.warn('WebGPU neural mesh failed — falling back to WebGL path:', error);
+    console.warn('Neural engine failed — falling back to WebGL path:', error);
     this.props.onFail();
   }
   render() {
@@ -59,33 +59,27 @@ class GPUBoundary extends Component<{ onFail: () => void; children: ReactNode },
 }
 
 export default function NeuralMesh() {
-  const [mode, setMode] = useState<'pending' | 'gpu' | 'gl'>('pending');
+  const [forcedGL, setForcedGL] = useState(false);
+  const reducedMotion = useAppStore((s) => s.reducedMotion);
 
+  // Nothing to warm when the background is disabled — release the boot.
   useEffect(() => {
-    let cancelled = false;
-    probeWebGPU().then((ok) => {
-      if (!cancelled) setMode(ok ? 'gpu' : 'gl');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (reducedMotion) useAppStore.getState().setEngineReady(true);
+  }, [reducedMotion]);
 
-  if (mode === 'pending') return null;
-
-  if (mode === 'gpu') {
+  if (forcedGL) {
     return (
-      <GPUBoundary onFail={() => setMode('gl')}>
-        <Suspense fallback={null}>
-          <NeuralMeshGPU />
-        </Suspense>
-      </GPUBoundary>
+      <Suspense fallback={null}>
+        <GLEngine />
+      </Suspense>
     );
   }
 
   return (
-    <Suspense fallback={null}>
-      <NeuralMeshGL />
-    </Suspense>
+    <GPUBoundary onFail={() => setForcedGL(true)}>
+      <Suspense fallback={null}>
+        <ChosenEngine />
+      </Suspense>
+    </GPUBoundary>
   );
 }

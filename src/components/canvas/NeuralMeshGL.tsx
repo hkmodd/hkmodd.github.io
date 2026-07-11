@@ -288,6 +288,10 @@ function NeuralMeshScene() {
   const groupRef = useRef<THREE.Group>(null!);
   const { source, ready } = useNeuralSource();
 
+  // Boot-screen handshake: a few produced frames = shaders compiled,
+  // worker (or inline WASM) alive, first-use hitches absorbed.
+  const warmFrames = useRef(0);
+
   // ── Node buffers ──
   const nodeMatRef = useRef<THREE.ShaderMaterial>(null!);
   const { nodeGeometry, nodePosAttr, nodeOpacAttr, nodeSizeAttr, nodeUniforms } = useMemo(() => {
@@ -383,6 +387,9 @@ function NeuralMeshScene() {
     });
     if (!frame) return;
     neuralStats.connections = frame.connCount;
+    if (warmFrames.current < 3 && ++warmFrames.current === 3) {
+      useAppStore.getState().setEngineReady(true);
+    }
 
     // ══ NODES ══
     (nodePosAttr.array as Float32Array).set(frame.positions);
