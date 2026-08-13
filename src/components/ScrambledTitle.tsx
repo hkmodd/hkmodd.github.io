@@ -1,6 +1,6 @@
-import { useRef } from 'react';
-import { useInView } from 'motion/react';
+import { useRef, useState, useEffect } from 'react';
 import { useScrambleText } from '@/hooks/useScrambleText';
+import { observeIntersect } from '@/hooks/useReveal';
 
 interface ScrambledTitleProps {
   text: string;
@@ -9,10 +9,13 @@ interface ScrambledTitleProps {
 }
 
 export default function ScrambledTitle({ text, className, style }: ScrambledTitleProps) {
-  const ref = useRef<HTMLHeadingElement>(null);
-  // Trigger scramble every time it comes into view
-  const isInView = useInView(ref, { once: false, margin: '-50px' });
-  
+  const ref = useRef<HTMLSpanElement>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    return observeIntersect(ref.current, setIsInView, { once: false, margin: '-50px' });
+  }, []);
+
   const scrambled = useScrambleText(text, {
     enabled: isInView,
     speed: 30,

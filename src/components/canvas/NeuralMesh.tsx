@@ -35,9 +35,24 @@ async function probeWebGPU(): Promise<boolean> {
 
 const loadGL = () => import('./NeuralMeshGL');
 
+function preloadWinner<T>(load: () => Promise<T>): Promise<T> {
+  // Vite rewrites import() to a hashed /assets/*.js URL. Stamp a
+  // modulepreload for that href (winner only) then start the import.
+  const m = load.toString().match(/["']([^"']+\.js[^"']*)["']/);
+  if (m) {
+    const link = document.createElement('link');
+    link.rel = 'modulepreload';
+    link.href = m[1];
+    document.head.appendChild(link);
+  }
+  return load();
+}
+
 // Kicked off immediately at module evaluation — the engine chunk streams
-// in behind the boot screen.
-const enginePromise = probeWebGPU().then((ok) => (ok ? import('./NeuralMeshGPU') : loadGL()));
+// in behind the boot screen. modulepreload is injected only for the winner.
+const enginePromise = probeWebGPU().then((ok) =>
+  ok ? preloadWinner(() => import('./NeuralMeshGPU')) : preloadWinner(loadGL),
+);
 
 const ChosenEngine = lazy(() => enginePromise);
 const GLEngine = lazy(loadGL);
@@ -61,11 +76,14 @@ class GPUBoundary extends Component<{ onFail: () => void; children: ReactNode },
 export default function NeuralMesh() {
   const [forcedGL, setForcedGL] = useState(false);
   const reducedMotion = useAppStore((s) => s.reducedMotion);
+  const reducedData = useAppStore((s) => s.reducedData);
 
   // Nothing to warm when the background is disabled — release the boot.
   useEffect(() => {
-    if (reducedMotion) useAppStore.getState().setEngineReady(true);
-  }, [reducedMotion]);
+    if (reducedMotion || reducedData) useAppStore.getState().setEngineReady(true);
+  }, [reducedMotion, reducedData]);
+
+  if (reducedData) return null;
 
   if (forcedGL) {
     return (

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useCallback, useEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { PerformanceMonitor } from '@react-three/drei';
+import DprGovernor from '@/components/canvas/DprGovernor';
 import { useAppStore } from '@/store/useAppStore';
 import { useNeuralSource } from '@/hooks/useNeuralSource';
 import { getSimQuality, getInitialDpr, MIN_DPR } from '@/lib/quality';
@@ -581,7 +581,7 @@ export default function NeuralMesh() {
       >
         {/* Self-tuning quality: keep FPS pinned to the display by trading
             render resolution, never by capping the framerate. */}
-        <PerformanceMonitor
+        <DprGovernor
           onDecline={() => setDpr((d) => Math.max(MIN_DPR, +(d - 0.5).toFixed(2)))}
           onIncline={() => setDpr((d) => Math.min(getInitialDpr(), +(d + 0.5).toFixed(2)))}
           flipflops={3}

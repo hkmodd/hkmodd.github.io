@@ -18,9 +18,10 @@
     <title>hkmodd | Sebastiano Gelmetti</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <!-- Preload hero avatar: fetched during the boot sequence so it paints instantly -->
-    <link rel="preload" as="image" href="/foto_profilo.webp" type="image/webp" />
-    <!-- Fonts are self-hosted variable woff2 (bundled via index.css) — no
-         third-party font origin, nothing render-blocking beyond our own CSS -->
+    <link rel="preload" as="image" href="/foto_profilo.webp" type="image/webp" fetchpriority="high" />
+    <!-- Fonts are self-hosted variable woff2 (bundled via index.css).
+         Additional <link rel=preload> tags are injected by the fontPreload
+         Vite plugin once the hashed latin subsets are known. -->
     <!-- Prevent browser from caching this HTML (avoids stale JS/CSS chunk refs) -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
@@ -35,8 +36,148 @@
       in production build it bundles + hashes the file automatically.
     -->
     <link rel="stylesheet" href="/src/index.css" />
+    <style>
+      /* Critical LCP skeleton — paints before any JS. Geometry matches Hero.tsx. */
+      #hero-lcp {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 1.5rem;
+        text-align: center;
+        pointer-events: none;
+        background: #000;
+        color: #e8e8ec;
+        font-family: 'Inter Variable', Inter, system-ui, sans-serif;
+      }
+      [data-theme="light"] #hero-lcp { background: #fff; color: #1a1a2e; }
+      html.booted #hero-lcp { display: none; }
+      #hero-lcp .hero-lcp-inner { max-width: 48rem; width: 100%; }
+      #hero-lcp .hero-lcp-avatar {
+        width: 8rem; height: 8rem;
+        border-radius: 50%;
+        object-fit: cover;
+        object-position: 40% 20%;
+        filter: grayscale(20%);
+        border: 2px solid rgba(0, 212, 255, 0.25);
+        box-shadow: 0 0 50px rgba(0, 212, 255, 0.15);
+        margin: 0 auto 3.5rem;
+        display: block;
+      }
+      @media (min-width: 640px) {
+        #hero-lcp .hero-lcp-avatar { width: 10rem; height: 10rem; margin-bottom: 3rem; }
+      }
+      #hero-lcp .hero-lcp-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-family: 'JetBrains Mono Variable', ui-monospace, monospace;
+        font-size: 9px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #00ff88;
+        border: 1px solid rgba(0, 255, 136, 0.15);
+        background: rgba(0, 255, 136, 0.04);
+        margin-bottom: 2.5rem;
+      }
+      #hero-lcp .hero-lcp-dot {
+        width: 6px; height: 6px; border-radius: 50%; background: #00ff88;
+      }
+      #hero-lcp h1 {
+        font-size: 2.25rem;
+        font-weight: 900;
+        letter-spacing: -0.025em;
+        line-height: 1.08;
+        margin: 0;
+      }
+      @media (min-width: 640px) { #hero-lcp h1 { font-size: 3rem; } }
+      @media (min-width: 768px) { #hero-lcp h1 { font-size: 3.75rem; } }
+      @media (min-width: 1024px) { #hero-lcp h1 { font-size: 4.5rem; } }
+      #hero-lcp .hero-lcp-first {
+        background: linear-gradient(90deg, #00d4ff 0%, #ff0033 30%, #00d4ff 60%, #00ff88 80%, #00d4ff 100%);
+        background-size: 300% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      [data-theme="redteam"] #hero-lcp .hero-lcp-first {
+        background: linear-gradient(90deg, #ff0033 0%, #ff6b35 30%, #ff0033 60%, #ff6b35 80%, #ff0033 100%);
+        background-size: 300% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      [data-theme="light"] #hero-lcp .hero-lcp-first {
+        background: linear-gradient(90deg, #0066cc 0%, #0ea5e9 30%, #0066cc 60%, #06b6d4 80%, #0066cc 100%);
+        background-size: 300% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      #hero-lcp .hero-lcp-title {
+        font-family: 'JetBrains Mono Variable', ui-monospace, monospace;
+        font-size: 0.75rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: rgba(0, 212, 255, 0.8);
+        margin-top: 2rem;
+      }
+      [data-theme="redteam"] #hero-lcp .hero-lcp-title { color: rgba(255, 0, 51, 0.8); }
+      [data-theme="light"] #hero-lcp .hero-lcp-title { color: rgba(0, 102, 204, 0.8); }
+      html.reduced-data .grain-overlay,
+      html.reduced-data .crt-scanline { display: none !important; }
+    </style>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('hkmodd-theme');
+          if (!t && window.matchMedia('(prefers-color-scheme: light)').matches) t = 'light';
+          if (t && t !== 'default') document.documentElement.setAttribute('data-theme', t);
+          if (window.matchMedia('(prefers-reduced-data: reduce)').matches) {
+            document.documentElement.classList.add('reduced-data');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script type="speculationrules">
+      {
+        "prefetch": [{
+          "source": "document",
+          "where": { "href_matches": ["/*"] },
+          "eagerness": "conservative"
+        }]
+      }
+    </script>
   </head>
   <body>
+    <div id="hero-lcp" aria-hidden="true">
+      <div class="hero-lcp-inner">
+        <img
+          class="hero-lcp-avatar"
+          src="/foto_profilo.webp"
+          alt=""
+          width="160"
+          height="160"
+          fetchpriority="high"
+          decoding="async"
+        />
+        <div>
+          <span class="hero-lcp-badge">
+            <span class="hero-lcp-dot"></span>
+            OPEN TO OPPORTUNITIES
+          </span>
+        </div>
+        <h1>
+          <span class="hero-lcp-first">Sebastiano</span><br />
+          Gelmetti
+        </h1>
+        <p class="hero-lcp-title">Security Researcher &amp; Systems Engineer</p>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

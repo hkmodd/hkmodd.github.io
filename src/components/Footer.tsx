@@ -1,14 +1,101 @@
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { motion } from 'motion/react';
-import { Github, Linkedin, Mail, Heart, Send } from 'lucide-react';
+import { Mail, Heart, Send } from 'lucide-react';
+import { GithubIcon, LinkedinIcon } from '@/components/BrandIcons';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
+import { useReveal } from '@/hooks/useReveal';
 
 const socials = [
-  { icon: Github, href: 'https://github.com/hkmodd', label: 'GitHub' },
-  { icon: Linkedin, href: 'https://www.linkedin.com/in/gelmetti-sebastiano/', label: 'LinkedIn' },
+  { icon: GithubIcon, href: 'https://github.com/hkmodd', label: 'GitHub' },
+  { icon: LinkedinIcon, href: 'https://www.linkedin.com/in/gelmetti-sebastiano/', label: 'LinkedIn' },
   { icon: Mail, href: '#', label: 'Email' },
 ];
+
+function FooterCta({
+  language,
+  accent,
+  emailHref,
+  onReveal,
+}: {
+  language: string;
+  accent: string;
+  emailHref: string;
+  onReveal: () => void;
+}) {
+  const ref = useReveal<HTMLDivElement>({ duration: 0.5, y: 20 });
+  return (
+    <div ref={ref} className="text-center mb-10">
+      <p className="font-mono text-xs tracking-widest mb-3" style={{ color: 'var(--color-text-muted)' }}>
+        {language === 'it' ? 'INTERESSATO? PARLIAMONE.' : 'INTERESTED? LET\'S TALK.'}
+      </p>
+      <motion.a
+        href={emailHref}
+        onMouseEnter={onReveal}
+        onFocus={onReveal}
+        className="inline-flex items-center gap-2 px-6 py-3 font-mono text-sm font-bold tracking-wider rounded-lg transition-all duration-300 cursor-pointer"
+        style={{
+          border: `1px solid ${accent}60`,
+          color: accent,
+          background: `${accent}08`,
+        }}
+        whileHover={{
+          scale: 1.05,
+          borderColor: accent,
+          background: `${accent}15`,
+          boxShadow: `0 0 30px ${accent}20`,
+        }}
+        whileTap={{ scale: 0.97 }}
+      >
+        <Send size={14} />
+        {language === 'it' ? 'CONTATTAMI' : 'CONTACT ME'}
+      </motion.a>
+    </div>
+  );
+}
+
+function SocialLink({
+  href,
+  label,
+  idx,
+  accent,
+  Icon,
+  onReveal,
+}: {
+  href: string;
+  label: string;
+  idx: number;
+  accent: string;
+  Icon: ComponentType<{ size?: number }>;
+  onReveal?: () => void;
+}) {
+  const ref = useReveal<HTMLAnchorElement>({ delay: idx * 0.1, duration: 0.5, y: 8 });
+  const isEmail = label === 'Email';
+  return (
+    <motion.a
+      ref={ref}
+      href={href}
+      onMouseEnter={onReveal}
+      onFocus={onReveal}
+      target={isEmail ? undefined : '_blank'}
+      rel={isEmail ? undefined : 'noopener noreferrer'}
+      className="p-2.5 rounded-lg transition-all duration-300 cursor-pointer"
+      style={{
+        border: '1px solid var(--color-border)',
+        color: 'var(--color-text-muted)',
+      }}
+      whileHover={{
+        borderColor: `${accent}40`,
+        color: accent,
+        scale: 1.15,
+        boxShadow: `0 0 20px ${accent}15`,
+      }}
+      title={label}
+    >
+      <Icon size={16} />
+    </motion.a>
+  );
+}
 
 export default function Footer() {
   const { t, language } = useTranslation();
@@ -25,46 +112,12 @@ export default function Footer() {
 
   return (
     <footer className="relative z-10">
-      {/* Gradient border-top */}
       <div className="footer-border-top" />
 
       <div className="max-w-6xl mx-auto px-6 py-12">
-        {/* Contact CTA for recruiters */}
-        <motion.div
-          className="text-center mb-10"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-        >
-          <p className="font-mono text-xs tracking-widest mb-3" style={{ color: 'var(--color-text-muted)' }}>
-            {language === 'it' ? 'INTERESSATO? PARLIAMONE.' : 'INTERESTED? LET\'S TALK.'}
-          </p>
-          <motion.a
-            href={emailHref}
-            onMouseEnter={handleEmailReveal}
-            onFocus={handleEmailReveal}
-            className="inline-flex items-center gap-2 px-6 py-3 font-mono text-sm font-bold tracking-wider rounded-lg transition-all duration-300 cursor-pointer"
-            style={{
-              border: `1px solid ${accent}60`,
-              color: accent,
-              background: `${accent}08`,
-            }}
-            whileHover={{
-              scale: 1.05,
-              borderColor: accent,
-              background: `${accent}15`,
-              boxShadow: `0 0 30px ${accent}20`,
-            }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <Send size={14} />
-            {language === 'it' ? 'CONTATTAMI' : 'CONTACT ME'}
-          </motion.a>
-        </motion.div>
+        <FooterCta language={language} accent={accent} emailHref={emailHref} onReveal={handleEmailReveal} />
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-          {/* Left: branding */}
           <div className="text-center md:text-left">
             <p
               className="font-mono text-sm font-bold tracking-tight mb-1"
@@ -77,42 +130,23 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Center: social icons with glow hover */}
           <div className="flex items-center gap-3">
             {socials.map(({ icon: Icon, href, label }, idx) => {
               const isEmail = label === 'Email';
               return (
-                <motion.a
+                <SocialLink
                   key={label}
                   href={isEmail ? emailHref : href}
-                  onMouseEnter={isEmail ? handleEmailReveal : undefined}
-                  onFocus={isEmail ? handleEmailReveal : undefined}
-                  target={isEmail ? undefined : "_blank"}
-                  rel={isEmail ? undefined : "noopener noreferrer"}
-                  initial={{ opacity: 0, y: 8 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.1 }}
-                  className="p-2.5 rounded-lg transition-all duration-300 cursor-pointer"
-                  style={{
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-muted)',
-                  }}
-                  whileHover={{
-                    borderColor: `${accent}40`,
-                    color: accent,
-                    scale: 1.15,
-                    boxShadow: `0 0 20px ${accent}15`,
-                  }}
-                  title={label}
-                >
-                  <Icon size={16} />
-                </motion.a>
+                  label={label}
+                  idx={idx}
+                  accent={accent}
+                  Icon={Icon}
+                  onReveal={isEmail ? handleEmailReveal : undefined}
+                />
               );
             })}
           </div>
 
-          {/* Right: CTF badge or copyright */}
           <div className="text-center md:text-right">
             {ctfSolved ? (
               <div className="font-mono text-[10px] tracking-widest" style={{ color: '#00ff88' }}>

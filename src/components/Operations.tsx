@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { motion } from 'motion/react';
-import { ExternalLink, Star, GitFork, Loader2, Globe } from 'lucide-react';
+import { Star, GitFork, Loader2, Globe } from 'lucide-react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
 import { playHoverTick } from '@/lib/audio';
@@ -8,6 +8,8 @@ import ScrambledTitle from '@/components/ScrambledTitle';
 import MagneticButton from '@/components/MagneticButton';
 import { useHolographicTilt } from '@/hooks/useHolographicTilt';
 import { useGitHubRepos, type GitHubRepo } from '@/hooks/useGitHubRepos';
+import { useReveal } from '@/hooks/useReveal';
+import Chip3D from '@/components/Chip3D';
 
 /* ── Language → color mapping ─────────────────────────────────── */
 const LANG_COLORS: Record<string, string> = {
@@ -40,6 +42,7 @@ const RepoCard = memo(function RepoCard({
   idx: number;
 }) {
   const { ref: tiltRef, onMouseMove, onMouseLeave } = useHolographicTilt<HTMLDivElement>();
+  useReveal({ delay: idx * 0.06, duration: 0.5, y: 24 }, tiltRef);
 
   // Build tags from language + topics (max 3)
   const tags = [repo.language, ...repo.topics.slice(0, 2)]
@@ -55,10 +58,6 @@ const RepoCard = memo(function RepoCard({
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
       onMouseEnter={playHoverTick}
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: idx * 0.06, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="holo-card group flex flex-col relative"
       style={{ padding: '28px 26px 22px' }}
     >
@@ -185,6 +184,51 @@ function RepoSkeleton({ idx }: { idx: number }) {
   );
 }
 
+function OpsHeader({
+  loading,
+  count,
+  accent,
+  title,
+}: {
+  loading: boolean;
+  count: number;
+  accent: string;
+  title: string;
+}) {
+  const ref = useReveal<HTMLDivElement>({ duration: 0.6, y: 20 });
+  return (
+    <div ref={ref} className="mb-24 relative z-10 text-center flex flex-col items-center">
+      <Chip3D>
+        {loading ? (
+          <>
+            <Loader2 size={12} className="animate-spin" style={{ color: accent }} />
+            <span className="text-xs font-mono tracking-widest text-text-dim uppercase">SYNCING GITHUB…</span>
+          </>
+        ) : (
+          <>
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{
+                background: '#00ff88',
+                boxShadow: '0 0 8px rgba(0, 255, 136, 0.4)',
+                animation: 'status-pulse 2s ease-in-out infinite',
+              }}
+            />
+            <span className="text-xs font-mono tracking-widest text-text-dim uppercase">{count} REPOS LIVE</span>
+          </>
+        )}
+      </Chip3D>
+      <h2
+        className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
+        style={{ color: 'var(--color-text)' }}
+      >
+        <ScrambledTitle text={title} />
+      </h2>
+      <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
+    </div>
+  );
+}
+
 /* ── Main component ───────────────────────────────────────────── */
 export default function Operations() {
   const { t } = useTranslation();
@@ -203,43 +247,7 @@ export default function Operations() {
         style={{ top: '20%', left: '-10%' }}
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        className="mb-24 relative z-10 text-center flex flex-col items-center"
-      >
-        <div 
-          className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full mb-6 backdrop-blur-md"
-          style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}
-        >
-          {loading ? (
-            <>
-              <Loader2 size={12} className="animate-spin" style={{ color: accent }} />
-              <span className="text-xs font-mono tracking-widest text-text-dim uppercase">SYNCING GITHUB…</span>
-            </>
-          ) : (
-            <>
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{
-                  background: '#00ff88',
-                  boxShadow: '0 0 8px rgba(0, 255, 136, 0.4)',
-                  animation: 'status-pulse 2s ease-in-out infinite',
-                }}
-              />
-              <span className="text-xs font-mono tracking-widest text-text-dim uppercase">{repos.length} REPOS LIVE</span>
-            </>
-          )}
-        </div>
-        <h2
-          className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
-          style={{ color: 'var(--color-text)' }}
-        >
-          <ScrambledTitle text={t.ops.title.toUpperCase()} />
-        </h2>
-        <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
-      </motion.div>
+      <OpsHeader loading={loading} count={repos.length} accent={accent} title={t.ops.title.toUpperCase()} />
 
       {/* Error state */}
       {error && (
@@ -258,7 +266,7 @@ export default function Operations() {
             <Globe size={14} /> // LIVE WEB APPS
           </h3>
           <div
-            className="grid relative z-10"
+            className="card-grid grid relative z-10"
             style={{
               gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
               gap: '24px',
@@ -280,7 +288,7 @@ export default function Operations() {
             <GitFork size={14} /> // OPEN SOURCE PROJECTS
           </h3>
           <div
-            className="grid relative z-10"
+            className="card-grid grid relative z-10"
             style={{
               gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
               gap: '24px',

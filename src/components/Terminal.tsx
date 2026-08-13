@@ -1,9 +1,40 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { useReveal } from '@/hooks/useReveal';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
 import { TerminalEngine, type TerminalLine } from '@/lib/terminal';
 import ScrambledTitle from '@/components/ScrambledTitle';
+import Chip3D from '@/components/Chip3D';
+
+function TermHeader({ accent, title, subtitle }: { accent: string; title: string; subtitle: string }) {
+  const ref = useReveal<HTMLDivElement>({ duration: 0.6, y: 20 });
+  return (
+    <div ref={ref} className="mb-12 relative z-10 text-center flex flex-col items-center">
+      <Chip3D>
+        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
+        <span className="text-xs font-mono tracking-widest text-text-dim uppercase">System Access</span>
+      </Chip3D>
+      <h2
+        className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
+        style={{ color: 'var(--color-text)' }}
+      >
+        <ScrambledTitle text={title} />
+      </h2>
+      <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
+      <p className="text-text-muted text-sm mt-6 max-w-lg">
+        {subtitle}
+      </p>
+    </div>
+  );
+}
+
+function TermFrame({ children, onFocusInput }: { children: ReactNode; onFocusInput: () => void }) {
+  return (
+    <div className="terminal-frame relative z-10" onClick={onFocusInput}>
+      {children}
+    </div>
+  );
+}
 
 export default function Terminal() {
   const { t } = useTranslation();
@@ -89,47 +120,14 @@ export default function Terminal() {
 
   return (
     <section id="terminal" className="py-24 px-6 max-w-6xl mx-auto relative">
-      {/* Ambient backdrop */}
       <div
         className="section-backdrop"
         style={{ bottom: '-10%', left: '50%', transform: 'translateX(-50%)' }}
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        className="mb-12 relative z-10 text-center flex flex-col items-center"
-      >
-        <div 
-          className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full mb-6 backdrop-blur-md"
-          style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}
-        >
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
-          <span className="text-xs font-mono tracking-widest text-text-dim uppercase">System Access</span>
-        </div>
-        <h2
-          className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
-          style={{ color: 'var(--color-text)' }}
-        >
-          <ScrambledTitle text={t.terminal.title.toUpperCase()} />
-        </h2>
-        <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
-        <p className="text-text-muted text-sm mt-6 max-w-lg">
-          {t.terminal.subtitle}
-        </p>
-      </motion.div>
+      <TermHeader accent={accent} title={t.terminal.title.toUpperCase()} subtitle={t.terminal.subtitle} />
 
-      {/* Terminal frame with breathing border */}
-      <motion.div
-        initial={{ opacity: 0, y: 35 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="terminal-frame relative z-10"
-        onClick={() => inputRef.current?.focus()}
-      >
-        {/* macOS-style title bar */}
+      <TermFrame onFocusInput={() => inputRef.current?.focus()}>
         <div
           style={{
             display: 'flex',
@@ -156,7 +154,6 @@ export default function Terminal() {
           </span>
         </div>
 
-        {/* Output area */}
         <div
           ref={scrollRef}
           className="font-mono terminal-scroll"
@@ -177,7 +174,6 @@ export default function Terminal() {
           ))}
         </div>
 
-        {/* Input line */}
         <form
           onSubmit={handleSubmit}
           style={{
@@ -209,7 +205,7 @@ export default function Terminal() {
           />
           <span className="terminal-cursor font-mono" style={{ color: accent }}>▊</span>
         </form>
-      </motion.div>
+      </TermFrame>
     </section>
   );
 }

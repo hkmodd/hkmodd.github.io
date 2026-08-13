@@ -50,11 +50,19 @@ interface AppState {
 
   // A11y
   reducedMotion: boolean;
+  reducedData: boolean;
 }
 
 const getInitialReducedMotion = () => {
   if (typeof window !== 'undefined') {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  return false;
+};
+
+const getInitialReducedData = () => {
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(prefers-reduced-data: reduce)').matches;
   }
   return false;
 };
@@ -76,31 +84,49 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.setItem('hkmodd-theme', theme);
     set({ theme });
   },
-  toggleRedTeam: () =>
-    set((s) => {
-      const next = s.theme === 'redteam' ? 'default' : 'redteam';
-      const enteringRed = next === 'redteam';
-      localStorage.setItem('hkmodd-theme', next);
-      // Auto-clear transition flag after cinematic sequence
-      if (enteringRed) {
-        playGlitchDistortion();
-        setTimeout(() => set({ redTeamTransitioning: false }), 2500);
-      }
-      // Auto-clear flash after animation completes (700ms)
-      setTimeout(() => set({ showFlash: false }), 700);
-      return {
-        theme: next,
-        showFlash: true,
-        flashDir: enteringRed ? 'enter' : 'exit',
-        redTeamTransitioning: enteringRed,
-      };
-    }),
-  toggleLightMode: () =>
-    set((s) => {
-      const next = s.theme === 'light' ? 'default' : 'light';
-      localStorage.setItem('hkmodd-theme', next);
-      return { theme: next };
-    }),
+  toggleRedTeam: () => {
+    const apply = () =>
+      set((s) => {
+        const next = s.theme === 'redteam' ? 'default' : 'redteam';
+        const enteringRed = next === 'redteam';
+        localStorage.setItem('hkmodd-theme', next);
+        const root = document.querySelector('.app-root');
+        if (root instanceof HTMLElement) {
+          if (next === 'default') root.removeAttribute('data-theme');
+          else root.setAttribute('data-theme', next);
+        }
+        if (enteringRed) {
+          playGlitchDistortion();
+          setTimeout(() => set({ redTeamTransitioning: false }), 2500);
+        }
+        setTimeout(() => set({ showFlash: false }), 700);
+        return {
+          theme: next,
+          showFlash: true,
+          flashDir: enteringRed ? 'enter' : 'exit',
+          redTeamTransitioning: enteringRed,
+        };
+      });
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
+    if (typeof doc.startViewTransition === 'function') doc.startViewTransition(apply);
+    else apply();
+  },
+  toggleLightMode: () => {
+    const apply = () =>
+      set((s) => {
+        const next = s.theme === 'light' ? 'default' : 'light';
+        localStorage.setItem('hkmodd-theme', next);
+        const root = document.querySelector('.app-root');
+        if (root instanceof HTMLElement) {
+          if (next === 'default') root.removeAttribute('data-theme');
+          else root.setAttribute('data-theme', next);
+        }
+        return { theme: next };
+      });
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
+    if (typeof doc.startViewTransition === 'function') doc.startViewTransition(apply);
+    else apply();
+  },
 
   // Red team cinematic transition
   redTeamTransitioning: false,
@@ -156,4 +182,5 @@ export const useAppStore = create<AppState>((set) => ({
 
   // A11y
   reducedMotion: getInitialReducedMotion(),
+  reducedData: getInitialReducedData(),
 }));

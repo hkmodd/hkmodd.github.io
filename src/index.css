@@ -4,8 +4,24 @@
    split per unicode-range so only the latin subset is actually fetched).
    Replaces the render-blocking Google Fonts stylesheet — zero third-party
    requests on the critical path. */
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/jetbrains-mono";
+/* Latin-only variable subsets, font-display: swap. No @import chain —
+   only the two woff2 files the page actually needs. */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 /* ══════════════════════════════════════════════════════════════════
    DESIGN SYSTEM - HKModd Portfolio v4 MASTERPIECE
@@ -98,9 +114,23 @@ html.cyber-cursor-active * {
 /* ── Render Budget - skip painting off-screen heavy sections ── */
 #arsenal,
 #operations,
-#terminal {
+#identity,
+#ai-intel,
+footer {
   content-visibility: auto;
   contain-intrinsic-size: auto 600px;   /* layout hint so scrollbar stays stable */
+}
+/* #terminal is always painted: content-visibility + view-timeline left it at opacity 0. */
+
+.card-grid,
+.arsenal-grid {
+  contain: layout style paint;
+}
+
+.holo-card,
+.dossier-card,
+.arsenal-card {
+  contain: layout style paint;
 }
 
 /* ── Boot Screen - Perfect centering, no scroll ────────────── */
@@ -457,49 +487,6 @@ html.cyber-cursor-active * {
   will-change: width;
 }
 
-/* ── Section Divider - breathing room ─────────────────────────── */
-.section-divider {
-  position: relative;
-  height: 1px;
-  max-width: 600px;
-  margin: 24px auto;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(0, 212, 255, 0.12) 20%,
-    rgba(0, 212, 255, 0.25) 50%,
-    rgba(0, 212, 255, 0.12) 80%,
-    transparent 100%
-  );
-}
-
-.section-divider::before {
-  content: '�-�';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 6px;
-  color: rgba(0, 212, 255, 0.3);
-  background: var(--color-bg);
-  padding: 0 12px;
-}
-
-[data-theme="redteam"] .section-divider {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 0, 51, 0.12) 20%,
-    rgba(255, 0, 51, 0.25) 50%,
-    rgba(255, 0, 51, 0.12) 80%,
-    transparent 100%
-  );
-}
-
-[data-theme="redteam"] .section-divider::before {
-  color: rgba(255, 0, 51, 0.3);
-}
-
 /* ══════════════════════════════════════════════════════════════════
    CARD & INTERACTIVE COMPONENTS
    ══════════════════════════════════════════════════════════════════ */
@@ -508,6 +495,9 @@ html.cyber-cursor-active * {
 .holo-card {
   --mouse-x: 50%;
   --mouse-y: 50%;
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --lift: 0;
   position: relative;
   overflow: hidden;
   background: rgba(10, 10, 10, 0.6);
@@ -518,17 +508,29 @@ html.cyber-cursor-active * {
      Operations-section scroll jank. Removed → identical look, smooth scroll. */
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 16px;
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.4s ease,
-              border-color 0.4s ease;
+  transform-style: preserve-3d;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 -12px 24px rgba(0, 0, 0, 0.25) inset,
+    0 10px 28px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.holo-card:not([data-tilting]) {
+  transition:
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
 }
 
-.holo-card:hover {
+.holo-card:hover,
+.holo-card[data-tilting] {
   border-color: rgba(0, 212, 255, 0.2);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 0 60px rgba(0, 212, 255, 0.04),
-    inset 0 0 60px rgba(0, 212, 255, 0.02);
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 -16px 32px rgba(0, 0, 0, 0.3) inset,
+    0 22px 40px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(0, 212, 255, 0.06);
 }
 
 [data-theme="redteam"] .holo-card:hover {
@@ -1116,6 +1118,17 @@ html.cyber-cursor-active * {
 .dossier-card {
   position: relative;
   overflow: hidden;
+  transform-style: preserve-3d;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 12px 32px rgba(0, 0, 0, 0.28);
+  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.dossier-card:not([data-tilting]) {
+  transition:
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
 }
 
 .dossier-card::after {
@@ -1419,11 +1432,22 @@ html.cyber-cursor-active * {
 
 /* ── Light: holo-cards (Operations) ────────────────────────────── */
 [data-theme="light"] .holo-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
   border-color: rgba(0, 0, 0, 0.08);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 4px 16px rgba(0, 0, 0, 0.04);
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 -10px 20px rgba(15, 23, 42, 0.04) inset,
+    0 10px 28px rgba(15, 23, 42, 0.08),
+    0 2px 6px rgba(15, 23, 42, 0.05);
+}
+[data-theme="light"] .holo-card:hover,
+[data-theme="light"] .holo-card[data-tilting] {
+  border-color: rgba(0, 102, 204, 0.28);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 -12px 24px rgba(0, 102, 204, 0.05) inset,
+    0 24px 48px rgba(15, 23, 42, 0.14),
+    0 0 0 1px rgba(0, 102, 204, 0.08);
 }
 
 [data-theme="light"] .holo-card:hover {
@@ -1479,9 +1503,14 @@ html.cyber-cursor-active * {
 
 /* ── Light: terminal frame ─────────────────────────────────────── */
 [data-theme="light"] .terminal-frame {
-  background: #1a1a2e;
-  border-color: rgba(0, 102, 204, 0.3);
+  background: #12121c;
+  border-color: rgba(0, 102, 204, 0.35);
   animation-name: border-breathe;
+  opacity: 1;
+  color: #e8ecf0;
+  box-shadow:
+    0 24px 56px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(0, 102, 204, 0.08);
 }
 
 [data-theme="light"] .terminal-frame::before {
@@ -1536,8 +1565,10 @@ html.cyber-cursor-active * {
 
 /* ── Light: dossier card ───────────────────────────────────────── */
 [data-theme="light"] .dossier-card {
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
 [data-theme="light"] .dossier-card::after {
@@ -1838,4 +1869,205 @@ html.cyber-cursor-active * {
 }
 .arsenal-card:hover::before {
   opacity: 0.15;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SCROLL REVEALS — CSS scroll-driven (primary) + IO class (fallback)
+   ══════════════════════════════════════════════════════════════════ */
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    translate: 0 var(--reveal-y, 20px);
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* Use the independent `translate` property so holographic `transform`
+   (perspective + rotateX/Y) is never overwritten by the reveal. */
+.reveal {
+  opacity: 0;
+  translate: 0 var(--reveal-y, 20px);
+}
+
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation: reveal-up var(--reveal-duration, 0.6s) cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--reveal-delay, 0s);
+    animation-timeline: view();
+    animation-range: entry 0% entry 42%;
+  }
+}
+
+@supports not (animation-timeline: view()) {
+  .reveal.is-revealed {
+    opacity: 1;
+    translate: 0 0;
+    transition:
+      opacity var(--reveal-duration, 0.6s) cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+      translate var(--reveal-duration, 0.6s) cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal.is-revealed {
+    opacity: 1;
+    translate: 0 0;
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VIEW TRANSITIONS — theme switch + DeepDive modal
+   ══════════════════════════════════════════════════════════════════ */
+
+::view-transition-old(root) {
+  animation: vt-fade-out 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+::view-transition-new(root) {
+  animation: vt-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vt-fade-out {
+  to { opacity: 0; filter: blur(10px) saturate(1.3); }
+}
+@keyframes vt-fade-in {
+  from { opacity: 0; filter: blur(10px) saturate(1.4); }
+}
+
+::view-transition-old(deep-dive) {
+  animation: vt-dive-out 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+::view-transition-new(deep-dive) {
+  animation: vt-dive-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vt-dive-out {
+  to { opacity: 0; transform: scale(0.96) translateY(-12px); filter: blur(8px); }
+}
+@keyframes vt-dive-in {
+  from { opacity: 0; transform: scale(0.94) translateY(16px); filter: blur(8px); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DATA CORE — armillary reliquary (canvas 2D, no second WebGL)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 3D section chips (Technical Core / Personnel File / …) ──── */
+.chip-3d {
+  --mouse-x: 50%;
+  --mouse-y: 50%;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transform-style: preserve-3d;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 6px 16px rgba(0, 0, 0, 0.25);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  overflow: hidden;
+}
+.chip-3d:not([data-tilting]) {
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
+}
+.chip-3d::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    180px circle at var(--mouse-x) var(--mouse-y),
+    var(--color-accent-glow) 0%,
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.chip-3d[data-tilting]::before,
+.chip-3d:hover::before { opacity: 1; }
+.chip-3d[data-tilting],
+.chip-3d:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 10px 22px rgba(0, 0, 0, 0.35),
+    0 0 20px var(--color-accent-glow);
+}
+[data-theme="light"] .chip-3d {
+  background: #fff;
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 6px 16px rgba(15, 23, 42, 0.08);
+}
+[data-theme="light"] .chip-3d[data-tilting],
+[data-theme="light"] .chip-3d:hover {
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.data-core {
+  position: relative;
+  width: 100%;
+  height: 22rem;
+  cursor: crosshair;
+  display: grid;
+  place-items: center;
+  contain: layout style paint;
+  margin: 0.5rem 0 1.5rem;
+}
+@media (min-width: 640px) {
+  .data-core { height: 26rem; }
+}
+
+.data-core__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.data-core__caption {
+  position: absolute;
+  bottom: 0.35rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  opacity: 0.45;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.data-core__caption-rule {
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+[data-theme="light"] .data-core__caption {
+  opacity: 0.55;
 }

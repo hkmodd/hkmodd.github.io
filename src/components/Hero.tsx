@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Github, Linkedin, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import { GithubIcon, LinkedinIcon } from '@/components/BrandIcons';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
 import { useScrambleText } from '@/hooks/useScrambleText';
@@ -167,16 +168,18 @@ export default function Hero() {
 
   if (!booted) return null;
 
+  // LCP skeleton already painted the hero. Adopt with no entrance fade
+  // so CLS stays 0 — boot theatre is the reveal. Keep looped ornaments.
   const container = {
-    hidden: { opacity: 0 },
+    hidden: { opacity: 1 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.12, delayChildren: 0.8 },
+      transition: { staggerChildren: 0.12, delayChildren: 0 },
     },
   };
   const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+    hidden: { opacity: 1, y: 0 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.01 } },
   };
 
   return (
@@ -247,6 +250,10 @@ export default function Hero() {
                 <img
                   src={avatarSrc}
                   alt={t.hero.name}
+                  width={160}
+                  height={160}
+                  fetchPriority="high"
+                  decoding="async"
                   className={`relative z-10 w-32 h-32 sm:w-40 sm:h-40 rounded-full object-cover grayscale-[20%] transition-all duration-300 ${
                     avatarGlitch ? 'hero-avatar-glitch' : ''
                   }`}
@@ -350,7 +357,7 @@ export default function Hero() {
                 className="btn-cyber"
                 onClick={() => haptic('medium')}
               >
-                <Github size={15} />
+                <GithubIcon size={15} />
                 <span>GitHub</span>
               </a>
               <a
@@ -360,7 +367,7 @@ export default function Hero() {
                 className="btn-cyber"
                 onClick={() => haptic('medium')}
               >
-                <Linkedin size={15} />
+                <LinkedinIcon size={15} />
                 <span>LinkedIn</span>
               </a>
             </motion.div>

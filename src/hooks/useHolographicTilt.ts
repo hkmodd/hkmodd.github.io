@@ -32,9 +32,10 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
       const rotateX = (y - 0.5) * -intensity;
       const rotateY = (x - 0.5) * intensity;
 
-      el.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+      el.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03)`;
       el.style.setProperty('--mouse-x', `${x * 100}%`);
       el.style.setProperty('--mouse-y', `${y * 100}%`);
+      el.dataset.tilting = '';
       activeRef.current = true;
     },
     [intensity]
@@ -45,7 +46,8 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
     if (!el || !activeRef.current) return;
     cancelAnimationFrame(rafId.current);
     el.style.transform =
-      'perspective(800px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+      'perspective(900px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+    delete el.dataset.tilting;
     activeRef.current = false;
     rectCache.current = null;
   }, []);
@@ -107,9 +109,10 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
           const rotX = (ry - 0.5) * -intensity * touchIntensity;
           const rotY = (rx - 0.5) * intensity * touchIntensity;
 
-          el.style.transform = `perspective(800px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale3d(1.02, 1.02, 1.02)`;
+          el.style.transform = `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale3d(1.03, 1.03, 1.03)`;
           el.style.setProperty('--mouse-x', `${rx * 100}%`);
           el.style.setProperty('--mouse-y', `${ry * 100}%`);
+          el.dataset.tilting = '';
           activeRef.current = true;
         } else {
           resetTilt();

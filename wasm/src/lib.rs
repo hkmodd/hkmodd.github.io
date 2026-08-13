@@ -228,45 +228,50 @@ impl NeuralEngine {
         //  1. NODE SIMULATION
         // ══════════════════════════════════════════════════════════
 
-        for i in 0..self.node_count {
+        // Branchless node tick — no control-flow in the hot body so LLVM
+        // autovectorizes against wasm32 simd128. Repulsion is a mask-mul
+        // instead of an `if`, which was the previous vectorization barrier.
+        let n = self.node_count;
+        let pos = self.live_positions.as_mut_slice();
+        let base = self.base_positions.as_slice();
+        let phases = self.phases.as_slice();
+        let speeds = self.speeds.as_slice();
+        let base_op = self.base_opacities.as_slice();
+        let base_sz = self.base_sizes.as_slice();
+        let live_op = self.live_opacities.as_mut_slice();
+        let live_sz = self.live_sizes.as_mut_slice();
+
+        for i in 0..n {
             let i3 = i * 3;
-            let base_x = self.base_positions[i3];
-            let base_y = self.base_positions[i3 + 1];
-            let base_z = self.base_positions[i3 + 2];
-            let phase = self.phases[i];
-            let speed = self.speeds[i];
+            let phase = phases[i];
+            let speed = speeds[i];
 
-            // Lissajous drift + breathing
-            let mut x = base_x + (t * 0.25 * speed + phase).sin() * 1.2 * speed_burst;
-            let mut y = base_y + (t * 0.2 * speed + phase * 1.3).cos() * 1.2 * speed_burst;
-            let mut z = base_z + (t * 0.15 * speed + phase * 0.7).sin() * 0.6 + breathe;
+            let x0 = base[i3]     + (t * 0.25 * speed + phase).sin() * 1.2 * speed_burst;
+            let y0 = base[i3 + 1] + (t * 0.2 * speed + phase * 1.3).cos() * 1.2 * speed_burst;
+            let z0 = base[i3 + 2] + (t * 0.15 * speed + phase * 0.7).sin() * 0.6 + breathe;
 
-            // ── Pointer repulsion ──
-            let dx = x - pointer_x;
-            let dy = y - pointer_y;
-            let dz = z - pointer_z;
-            let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+            let dx = x0 - pointer_x;
+            let dy = y0 - pointer_y;
+            let dz = z0 - pointer_z;
+            let dist_sq = dx * dx + dy * dy + dz * dz;
+            let dist = dist_sq.sqrt();
+            // mask ∈ {0,1}: in-range repulsion, no branch
+            let mask = ((dist < 4.5) as i32 & (dist > 0.001) as i32) as f32;
+            let inv_dist = 1.0 / dist.max(1.0e-4);
+            let norm = (1.0 - dist / 4.5).max(0.0);
+            let force = norm * norm * 2.8 * mask;
+            let x = x0 + dx * inv_dist * force;
+            let y = y0 + dy * inv_dist * force;
+            let z = z0 + dz * inv_dist * force * 0.5;
 
-            if dist < 4.5 && dist > 0.001 {
-                let norm = 1.0 - dist / 4.5;
-                let force = norm * norm * 2.8;
-                let inv_dist = 1.0 / dist;
-                x += dx * inv_dist * force;
-                y += dy * inv_dist * force;
-                z += dz * inv_dist * force * 0.5;
-            }
+            pos[i3] = x;
+            pos[i3 + 1] = y;
+            pos[i3 + 2] = z;
 
-            self.live_positions[i3] = x;
-            self.live_positions[i3 + 1] = y;
-            self.live_positions[i3 + 2] = z;
-
-            // Proximity brightness boost
-            let p_dx = x - pointer_x;
-            let p_dy = y - pointer_y;
-            let p_dist = (p_dx * p_dx + p_dy * p_dy).sqrt();
+            let p_dist = ((x - pointer_x) * (x - pointer_x) + (y - pointer_y) * (y - pointer_y)).sqrt();
             let proximity = (1.0 - p_dist / 6.0).max(0.0);
-            self.live_opacities[i] = self.base_opacities[i] + proximity * 0.7;
-            self.live_sizes[i] = self.base_sizes[i] * (1.0 + proximity * 1.0);
+            live_op[i] = base_op[i] + proximity * 0.7;
+            live_sz[i] = base_sz[i] * (1.0 + proximity);
         }
 
         // ══════════════════════════════════════════════════════════
@@ -286,35 +291,44 @@ impl NeuralEngine {
         let inv_cell = 1.0 / conn_dist;
         let half = self.grid_half;
 
-        // (1) reset bucket tallies
-        for c in self.cell_count.iter_mut() { *c = 0; }
+        // (1) reset bucket tallies — tight slice fill, autovectorizable
+        self.cell_count.fill(0);
 
         // (2) assign each node to a clamped cell and tally
+        //     Arithmetic is branchless (clamp is min/max); the scatter
+        //     increment is necessarily scalar (data-dependent index).
+        let live = self.live_positions.as_slice();
+        let node_cell = self.node_cell.as_mut_slice();
+        let cell_count = self.cell_count.as_mut_slice();
         for i in 0..self.node_count {
             let i3 = i * 3;
-            let cx = (((self.live_positions[i3]     + half) * inv_cell) as i32).clamp(0, dim_i - 1);
-            let cy = (((self.live_positions[i3 + 1] + half) * inv_cell) as i32).clamp(0, dim_i - 1);
-            let cz = (((self.live_positions[i3 + 2] + half) * inv_cell) as i32).clamp(0, dim_i - 1);
+            let cx = (((live[i3]     + half) * inv_cell) as i32).clamp(0, dim_i - 1);
+            let cy = (((live[i3 + 1] + half) * inv_cell) as i32).clamp(0, dim_i - 1);
+            let cz = (((live[i3 + 2] + half) * inv_cell) as i32).clamp(0, dim_i - 1);
             let cell = (cx + cy * dim_i + cz * dim_i * dim_i) as usize;
-            self.node_cell[i] = cell as u32;
-            self.cell_count[cell] += 1;
+            node_cell[i] = cell as u32;
+            cell_count[cell] = cell_count[cell].wrapping_add(1);
         }
 
         // (3) prefix-sum → bucket start offsets
         let mut acc = 0u32;
+        let cell_start = self.cell_start.as_mut_slice();
         for c in 0..self.n_cells {
-            self.cell_start[c] = acc;
-            acc += self.cell_count[c];
+            cell_start[c] = acc;
+            acc = acc.wrapping_add(self.cell_count[c]);
         }
-        self.cell_start[self.n_cells] = acc;
+        cell_start[self.n_cells] = acc;
 
         // (4) scatter node indices into contiguous buckets (cell_count → cursor)
-        for c in 0..self.n_cells { self.cell_count[c] = self.cell_start[c]; }
+        self.cell_count.copy_from_slice(&self.cell_start[..self.n_cells]);
+        let sorted = self.sorted_nodes.as_mut_slice();
+        let cursors = self.cell_count.as_mut_slice();
+        let cells = self.node_cell.as_slice();
         for i in 0..self.node_count {
-            let cell = self.node_cell[i] as usize;
-            let slot = self.cell_count[cell] as usize;
-            self.sorted_nodes[slot] = i as u32;
-            self.cell_count[cell] += 1;
+            let cell = cells[i] as usize;
+            let slot = cursors[cell] as usize;
+            sorted[slot] = i as u32;
+            cursors[cell] = cursors[cell].wrapping_add(1);
         }
 
         // (5) for each node, scan its 3×3×3 neighbourhood; emit each pair once (j > i)

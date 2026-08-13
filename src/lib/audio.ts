@@ -47,8 +47,8 @@ if (typeof document !== 'undefined') {
 
 // Safe play wrapper checking reducedMotion
 const playSynth = (callback: (ctx: AudioContext, masterGain: GainNode) => void) => {
-  const { reducedMotion } = useAppStore.getState();
-  if (reducedMotion) return; // Mute all synth if reduced motion is active
+  const { reducedMotion, reducedData } = useAppStore.getState();
+  if (reducedMotion || reducedData) return;
   
   const ctx = initAudio();
   if (!ctx) return;

@@ -36,7 +36,7 @@ import {
   vec2,
 } from 'three/tsl';
 import { Canvas, useFrame, extend } from '@react-three/fiber';
-import { PerformanceMonitor } from '@react-three/drei';
+import DprGovernor from '@/components/canvas/DprGovernor';
 import { useAppStore } from '@/store/useAppStore';
 import { getSimQuality } from '@/lib/quality';
 import { createNeuralLayout } from '@/lib/neuralLayout';
@@ -70,6 +70,17 @@ const SIM = getSimQuality();
 // compaction, no atomics, backend-portable.
 const K_PER_NODE = SIM.kPerNode;
 const CONN_COUNT = SIM.nodes * K_PER_NODE;
+
+// Uniform grid for bounded-neighborhood connections (no atomics).
+// Cell size ≈ connectionDist so a 3×3×3 Moore neighbourhood is complete.
+// Each cell holds GRID_SLOTS last-writer-wins slots — portable across
+// WGSL compute and the GLSL transform-feedback fallback.
+const GRID_DIM = 16;
+const GRID_SLOTS = 4;
+const GRID_HALF = 22.0;
+const GRID_CELLS = GRID_DIM * GRID_DIM * GRID_DIM;
+const GRID_LEN = GRID_CELLS * GRID_SLOTS;
+const CELL_SIZE = (2 * GRID_HALF) / GRID_DIM;
 
 // tan(fov/2) for the fixed 55° camera — used to convert the original
 // gl_PointSize device-pixel sizing into world units at any resolution.
@@ -126,6 +137,10 @@ function createEngine() {
   const pulsePos = instancedArray(SIM.pulses, 'vec3');
   const pulseScale = instancedArray(SIM.pulses, 'float');
 
+  // Cell occupancy as float indices (-1 = empty). Float storage is the
+  // portable type on the WebGL2 transform-feedback fallback.
+  const gridSlot = instancedArray(GRID_LEN, 'float');
+
   // Every buffer READ inside a compute kernel or by index in a render
   // shader needs PBO-texture backing on the WebGL2 fallback backend
   // (official examples do the same); harmless no-op on real WebGPU.
@@ -134,6 +149,7 @@ function createEngine() {
     livePos, liveOpac, liveSize,
     connA, connB, connCol,
     pulseFrom, pulseTo, pulseProg, pulseSpd,
+    gridSlot,
   ]) {
     (b as unknown as { setPBO?: (v: boolean) => void }).setPBO?.(true);
   }
@@ -170,12 +186,31 @@ function createEngine() {
     liveSize.element(i).assign(baseSize.element(i).mul(prox.add(1)));
   })().compute(SIM.nodes);
 
-  // ═══ KERNEL 2 — connections: one thread per SEGMENT (instanced) ═══
-  // Thread c owns (node i = c/K, slot s = c%K) and rescans i's forward
-  // neighbours for its slot-th in-range partner. Redundant vs a shared
-  // scan, but every thread writes only its own index into instancedArray
-  // buffers — the one storage pattern portable to both WGSL compute and
-  // the GLSL transform-feedback fallback.
+  // ═══ KERNEL 2a — clear grid slots (one thread per slot) ═══
+  const computeClearGrid = Fn(() => {
+    gridSlot.element(instanceIndex).assign(float(-1));
+  })().compute(GRID_LEN);
+
+  // ═══ KERNEL 2b — scatter each node into its cell (last-writer-wins) ═══
+  const computeScatter = Fn(() => {
+    const i = instanceIndex;
+    const p = livePos.element(i);
+    const inv = float(1 / CELL_SIZE);
+    const half = float(GRID_HALF);
+    const dimMax = float(GRID_DIM - 0.001);
+    const dimi = int(GRID_DIM);
+    const cx = int(clamp(p.x.add(half).mul(inv), float(0), dimMax));
+    const cy = int(clamp(p.y.add(half).mul(inv), float(0), dimMax));
+    const cz = int(clamp(p.z.add(half).mul(inv), float(0), dimMax));
+    const cell = cx.add(cy.mul(dimi)).add(cz.mul(dimi).mul(dimi));
+    const slot = int(i.mod(uint(GRID_SLOTS)));
+    gridSlot.element(cell.mul(int(GRID_SLOTS)).add(slot)).assign(float(i));
+  })().compute(SIM.nodes);
+
+  // ═══ KERNEL 2c — connections: 27-cell × SLOTS neighbourhood ═══
+  // Thread c owns (node i = c/K, slot s = c%K) and scans only the
+  // Moore neighbourhood of i's cell. Each thread writes only its own
+  // index — portable across WGSL compute and GLSL transform-feedback.
   const computeConnections = Fn(() => {
     const c = instanceIndex;
     const nodeI = int(c.div(uint(K_PER_NODE))).toVar();
@@ -186,14 +221,37 @@ function createEngine() {
     const cnt = int(0).toVar();
     const distSq = float(SIM.connectionDist * SIM.connectionDist);
 
-    // Fixed-bound loop with straight-line (select-based) accumulation —
-    // no Break, no dynamic start, no divergent writes: the control-flow
-    // shape kernel 1 already proved safe on both WGSL and GLSL builders.
-    Loop({ start: int(0), end: int(SIM.nodes), type: 'int', condition: '<' }, ({ i: j }) => {
-      const b = livePos.element(j);
+    const inv = float(1 / CELL_SIZE);
+    const half = float(GRID_HALF);
+    const dimMax = float(GRID_DIM - 0.001);
+    const dimi = int(GRID_DIM);
+    const icx = int(clamp(a.x.add(half).mul(inv), float(0), dimMax)).toVar();
+    const icy = int(clamp(a.y.add(half).mul(inv), float(0), dimMax)).toVar();
+    const icz = int(clamp(a.z.add(half).mul(inv), float(0), dimMax)).toVar();
+
+    // Fixed-bound 108-iteration loop (27 cells × 4 slots). Straight-line
+    // select accumulation — no Break, no divergent writes.
+    Loop({ start: int(0), end: int(27 * GRID_SLOTS), type: 'int', condition: '<' }, ({ i: n }) => {
+      const neigh = n.div(int(GRID_SLOTS));
+      const slot = n.mod(int(GRID_SLOTS));
+      const ndx = neigh.mod(int(3)).sub(int(1));
+      const ndy = neigh.div(int(3)).mod(int(3)).sub(int(1));
+      const ndz = neigh.div(int(9)).sub(int(1));
+      const nx = icx.add(ndx);
+      const ny = icy.add(ndy);
+      const nz = icz.add(ndz);
+      const inside = nx.greaterThanEqual(0).and(nx.lessThan(dimi))
+        .and(ny.greaterThanEqual(0)).and(ny.lessThan(dimi))
+        .and(nz.greaterThanEqual(0)).and(nz.lessThan(dimi));
+      const cell = nx.add(ny.mul(dimi)).add(nz.mul(dimi).mul(dimi));
+      const safeCell = select(inside, cell, int(0));
+      const raw = gridSlot.element(safeCell.mul(int(GRID_SLOTS)).add(slot));
+      const j = int(raw);
+      const valid = inside.and(raw.greaterThanEqual(0)).and(j.greaterThan(nodeI));
+      const b = livePos.element(select(j.greaterThanEqual(0), uint(j), uint(0)));
       const diff = a.sub(b);
       const dsq = dot(diff, diff);
-      const hit = j.greaterThan(nodeI).and(dsq.lessThan(distSq));
+      const hit = valid.and(dsq.lessThan(distSq));
       found.assign(select(hit.and(cnt.equal(slotWanted)), j, found));
       cnt.addAssign(select(hit, int(1), int(0)));
     });
@@ -216,7 +274,7 @@ function createEngine() {
       const fb = bright.mul(fog.mul(0.7).add(0.3));
 
       connB.element(c).assign(b);
-      connCol.element(c).assign(vec3(uColor).mul(fb));
+      connCol.element(c).assign(uColor.rgb.mul(fb));
     });
   })().compute(CONN_COUNT);
 
@@ -270,7 +328,7 @@ function createEngine() {
       0,
       1,
     ).mul(step(dC, float(0.5)));
-    return vec4(vec3(uColor).mul(glow.mul(0.5).add(1)), alpha);
+    return vec4(uColor.rgb.mul(glow.mul(0.5).add(1)), alpha);
   })();
 
   // ═══ MATERIAL — connections ═══
@@ -301,14 +359,14 @@ function createEngine() {
   pulseMat.positionNode = positionLocal
     .mul(pulseScale.toAttribute())
     .add(pulsePos.toAttribute());
-  pulseMat.colorNode = vec4(vec3(uPulseColor), uPulseOpacity);
+  pulseMat.colorNode = vec4(uPulseColor.rgb, uPulseOpacity);
 
   return {
     uniforms: {
       uTime, uDt, uPointer, uColor, uBurst, uTransMul, uBoost,
       uConnOpacity, uPulseColor, uPulseOpacity, uSeed, uProjFactor,
     },
-    kernels: { computeNodes, computeConnections, computePulses },
+    kernels: { computeNodes, computeClearGrid, computeScatter, computeConnections, computePulses },
     materials: { nodeMat, connMat, pulseMat },
   };
 }
@@ -358,7 +416,7 @@ function createGridMaterial() {
     alpha.mulAssign(float(1).sub(scan).mul(0.4).add(0.8));
 
     alpha.mulAssign(uGridOpacity);
-    return vec4(vec3(uGridColor), alpha);
+    return vec4(uGridColor.rgb, alpha);
   })();
 
   return { mat, uGridColor, uGridTime, uGridPointer, uGridOpacity };
@@ -530,6 +588,8 @@ function NeuralMeshGPUScene() {
     try {
       const dispatch = (renderer.compute ?? renderer.computeAsync)!.bind(renderer);
       dispatch(engine.kernels.computeNodes);
+      dispatch(engine.kernels.computeClearGrid);
+      dispatch(engine.kernels.computeScatter);
       dispatch(engine.kernels.computeConnections);
       dispatch(engine.kernels.computePulses);
       if (warmFrames.current < 3 && ++warmFrames.current === 3) {
@@ -639,7 +699,7 @@ export default function NeuralMeshGPU() {
             ?.catch(() => {});
         }}
       >
-        <PerformanceMonitor
+        <DprGovernor
           onDecline={() => setDpr((d) => Math.max(MIN_DPR, +(d - 0.5).toFixed(2)))}
           onIncline={() => setDpr((d) => Math.min(getInitialDpr(), +(d + 0.5).toFixed(2)))}
           flipflops={3}

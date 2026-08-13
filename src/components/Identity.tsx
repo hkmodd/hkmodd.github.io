@@ -5,6 +5,8 @@ import { useHolographicTilt } from '@/hooks/useHolographicTilt';
 import { parseInlineMarkup } from '@/lib/parseInlineMarkup';
 import { playHoverTick } from '@/lib/audio';
 import ScrambledTitle from '@/components/ScrambledTitle';
+import { useReveal } from '@/hooks/useReveal';
+import Chip3D from '@/components/Chip3D';
 
 function IdentityCard({
   header,
@@ -22,6 +24,7 @@ function IdentityCard({
   fullWidth?: boolean;
 }) {
   const { ref: tiltRef, onMouseMove, onMouseLeave } = useHolographicTilt();
+  useReveal({ delay: idx * 0.1, duration: 0.5, y: 20 }, tiltRef);
   const theme = useAppStore((s) => s.theme);
   const isLight = theme === 'light';
   const isOrange = fullWidth;
@@ -43,10 +46,6 @@ function IdentityCard({
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
       onMouseEnter={playHoverTick}
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: idx * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="dossier-card"
       style={{
         background: bgColor,
@@ -54,8 +53,6 @@ function IdentityCard({
         padding: '36px',
         borderRadius: '8px',
         gridColumn: fullWidth ? '1 / -1' : undefined,
-        transition: 'all 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
-        boxShadow: isLight ? '0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)' : undefined,
       }}
       whileHover={{
         borderColor: isOrange && !isLight ? '#ff4d00' : accent,
@@ -128,6 +125,25 @@ function IdentityCard({
   );
 }
 
+function IdentityHeader({ accent, title }: { accent: string; title: string }) {
+  const ref = useReveal<HTMLDivElement>({ duration: 0.6, y: 20 });
+  return (
+    <div ref={ref} className="mb-24 relative z-10 text-center flex flex-col items-center">
+      <Chip3D>
+        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
+        <span className="text-xs font-mono tracking-widest text-text-dim uppercase">Personnel File</span>
+      </Chip3D>
+      <h2
+        className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
+        style={{ color: 'var(--color-text)' }}
+      >
+        <ScrambledTitle text={title} />
+      </h2>
+      <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
+    </div>
+  );
+}
+
 export default function Identity() {
   const { t } = useTranslation();
   const theme = useAppStore((s) => s.theme);
@@ -141,31 +157,11 @@ export default function Identity() {
         style={{ bottom: '0', right: '-20%' }}
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        className="mb-24 relative z-10 text-center flex flex-col items-center"
-      >
-        <div 
-          className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full mb-6 backdrop-blur-md"
-          style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}
-        >
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
-          <span className="text-xs font-mono tracking-widest text-text-dim uppercase">Personnel File</span>
-        </div>
-        <h2
-          className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
-          style={{ color: 'var(--color-text)' }}
-        >
-          <ScrambledTitle text={t.identity.title.toUpperCase()} />
-        </h2>
-        <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
-      </motion.div>
+      <IdentityHeader accent={accent} title={t.identity.title.toUpperCase()} />
 
       {/* Dossier grid - 2-col auto-fit, last card full-width */}
       <div
-        className="relative z-10"
+        className="card-grid relative z-10"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',

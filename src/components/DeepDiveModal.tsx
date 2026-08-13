@@ -63,6 +63,7 @@ export default function DeepDiveModal({ skillName, icon, onClose, accent }: Deep
           boxShadow: `0 30px 60px rgba(0,0,0,0.5), inset 0 1px 0 ${accent}20`,
           borderRadius: '24px',
           willChange: 'transform, opacity',
+          viewTransitionName: 'deep-dive',
         }}
       >
         {/* Glow & Scanlines Overlay */}

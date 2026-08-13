@@ -6,6 +6,9 @@ import { playHoverTick, playTypeTick } from '@/lib/audio';
 import ScrambledTitle from '@/components/ScrambledTitle';
 import type { SkillItem } from '@/i18n/en';
 import DeepDiveModal from '@/components/DeepDiveModal';
+import { useReveal } from '@/hooks/useReveal';
+import { withViewTransition } from '@/lib/viewTransition';
+import Chip3D from '@/components/Chip3D';
 
 /* ── Category → skill name mapping ─────────────────────────────── */
 const CATEGORIES: [string, string[]][] = [
@@ -148,13 +151,11 @@ const SkillCard = memo(function SkillCard({
   accent: string;
   onClick: () => void;
 }) {
+  const revealRef = useReveal<HTMLDivElement>({ delay, duration: 0.6, y: 30, margin: '-100px' });
   return (
     <motion.div
+      ref={revealRef}
       layoutId={`skill-card-${skill.name}`}
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      transition={{ delay, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       className="group relative cursor-pointer overflow-hidden rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm transition-all duration-500 hover:bg-white/10 hover:border-white/20 hover:shadow-2xl"
       style={{ '--card-accent': accent } as React.CSSProperties}
       onMouseEnter={playHoverTick}
@@ -183,105 +184,102 @@ const SkillCard = memo(function SkillCard({
   );
 });
 
+function ArsenalHeader({ accent, title }: { accent: string; title: string }) {
+  const ref = useReveal<HTMLDivElement>({ duration: 0.8, y: 30, margin: '-100px' });
+  return (
+    <div ref={ref} className="mb-24 relative z-10 text-center flex flex-col items-center">
+      <Chip3D>
+        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
+        <span className="text-xs font-mono tracking-widest text-text-dim uppercase">Technical Core</span>
+      </Chip3D>
+      <h2
+        className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
+        style={{ color: 'var(--color-text)' }}
+      >
+        <ScrambledTitle text={title} />
+      </h2>
+      <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
+    </div>
+  );
+}
+
+function CategoryBlock({ delay, children }: { delay: number; children: React.ReactNode }) {
+  const ref = useReveal<HTMLDivElement>({ delay, duration: 0.8, y: 20, margin: '-100px' });
+  return (
+    <div ref={ref} className="flex flex-col gap-8">
+      {children}
+    </div>
+  );
+}
+
 /* ── Arsenal Section ───────────────────────────────────────────── */
 export default function Arsenal() {
   const { t } = useTranslation();
   const theme = useAppStore((s) => s.theme);
   const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
-  
+
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
 
   const handleOpenModal = (name: string) => {
     playTypeTick();
-    setSelectedSkill(name);
+    withViewTransition(() => setSelectedSkill(name));
   };
 
   const handleCloseModal = () => {
     playHoverTick();
-    setSelectedSkill(null);
+    withViewTransition(() => setSelectedSkill(null));
   };
 
   return (
     <>
       <section id="arsenal" className="py-32 md:py-48 px-6 max-w-7xl mx-auto relative">
-        {/* Ambient backdrop */}
         <div
           className="absolute inset-0 pointer-events-none opacity-20"
-          style={{ 
+          style={{
             background: `radial-gradient(ellipse at 50% 50%, ${accent} 0%, transparent 60%)`,
             filter: 'blur(120px)',
-            zIndex: 0
+            zIndex: 0,
           }}
         />
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="mb-24 relative z-10 text-center flex flex-col items-center"
-        >
-          <div 
-            className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full mb-6 backdrop-blur-md"
-            style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}
-          >
-            <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
-            <span className="text-xs font-mono tracking-widest text-text-dim uppercase">Technical Core</span>
-          </div>
-          <h2
-            className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
-            style={{ color: 'var(--color-text)' }}
-          >
-            <ScrambledTitle text={t.arsenal.title.toUpperCase()} />
-          </h2>
-          <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
-        </motion.div>
+        <ArsenalHeader accent={accent} title={t.arsenal.title.toUpperCase()} />
 
         <div className="space-y-32 relative z-10">
-        {CATEGORIES.map(([category, skillNames], catIdx) => {
-          const matched = t.arsenal.skills.filter((s) =>
-            skillNames.includes(s.name)
-          );
-          if (matched.length === 0) return null;
+          {CATEGORIES.map(([category, skillNames], catIdx) => {
+            const matched = t.arsenal.skills.filter((s) => skillNames.includes(s.name));
+            if (matched.length === 0) return null;
 
-          return (
-            <motion.div
-              key={category}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ delay: catIdx * 0.1, duration: 0.8 }}
-              className="flex flex-col gap-8"
-            >
-              <div className="flex items-center gap-4">
-                <span className="w-8 h-[1px] opacity-30" style={{ background: accent }} />
-                <h3 className="text-sm md:text-base font-mono tracking-[0.2em] text-text-dim uppercase">
-                  {category}
-                </h3>
-                <span className="flex-1 h-[1px] opacity-10" style={{ background: accent }} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                {matched.map((s, i) => (
-                  <SkillCard
-                    key={s.name}
-                    skill={s}
-                    delay={i * 0.04}
-                    accent={accent}
-                    onClick={() => handleOpenModal(s.name)}
-                  />
-                ))}
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+            return (
+              <CategoryBlock key={category} delay={catIdx * 0.1}>
+                <div className="flex items-center gap-4">
+                  <span className="w-8 h-[1px] opacity-30" style={{ background: accent }} />
+                  <h3 className="text-sm md:text-base font-mono tracking-[0.2em] text-text-dim uppercase">
+                    {category}
+                  </h3>
+                  <span className="flex-1 h-[1px] opacity-10" style={{ background: accent }} />
+                </div>
+                <div className="card-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                  {matched.map((s, i) => (
+                    <SkillCard
+                      key={s.name}
+                      skill={s}
+                      delay={i * 0.04}
+                      accent={accent}
+                      onClick={() => handleOpenModal(s.name)}
+                    />
+                  ))}
+                </div>
+              </CategoryBlock>
+            );
+          })}
+        </div>
       </section>
 
       <AnimatePresence>
         {selectedSkill && (
           <DeepDiveModal
             skillName={selectedSkill}
-            icon={getIcon(t.arsenal.skills.find(s => s.name === selectedSkill)?.icon || '')}
+            icon={getIcon(t.arsenal.skills.find((s) => s.name === selectedSkill)?.icon || '')}
             onClose={handleCloseModal}
             accent={accent}
           />

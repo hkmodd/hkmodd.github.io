@@ -39,9 +39,19 @@ export default function App() {
   const showFlash = useAppStore((s) => s.showFlash);
   const toggleRedTeam = useAppStore((s) => s.toggleRedTeam);
   const flashDir = useAppStore((s) => s.flashDir);
+  const reducedMotion = useAppStore((s) => s.reducedMotion);
+  const reducedData = useAppStore((s) => s.reducedData);
 
   // Auto-update: check for new version, clear cache & reload if stale
   useAutoUpdate();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('booted', booted);
+  }, [booted]);
+
+  useEffect(() => {
+    if (reducedMotion || reducedData) useAppStore.getState().setEngineReady(true);
+  }, [reducedMotion, reducedData]);
 
   // Prefetch every section chunk during the boot window (idle time), so
   // the post-boot reveal mounts from cache with zero network/parse hitches.
@@ -77,12 +87,14 @@ export default function App() {
       {/* Boot sequence */}
       {!booted && <BootScreen />}
 
-      {/* 3D particle background */}
-      <ErrorBoundary>
-        <Suspense fallback={null}>
-          <NeuralMesh />
-        </Suspense>
-      </ErrorBoundary>
+      {/* 3D particle background — skipped on reduced-data / reduced-motion */}
+      {!reducedData && !reducedMotion && (
+        <ErrorBoundary>
+          <Suspense fallback={null}>
+            <NeuralMesh />
+          </Suspense>
+        </ErrorBoundary>
+      )}
 
       {/* Custom cursor (desktop only) */}
       <CyberCursor />
