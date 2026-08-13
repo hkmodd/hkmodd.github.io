@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build:wasm": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-wasm.ps1",
+    "build:wasm": "node scripts/build-wasm.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "clean": "npx rimraf dist",
