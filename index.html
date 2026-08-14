@@ -53,7 +53,12 @@
         font-family: 'Inter Variable', Inter, system-ui, sans-serif;
       }
       [data-theme="light"] #hero-lcp { background: #fff; color: #1a1a2e; }
-      html.booted #hero-lcp { display: none; }
+      html.booted #hero-lcp {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.35s ease, visibility 0.35s;
+      }
       #hero-lcp .hero-lcp-inner { max-width: 48rem; width: 100%; }
       #hero-lcp .hero-lcp-avatar {
         width: 8rem; height: 8rem;

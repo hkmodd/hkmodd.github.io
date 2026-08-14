@@ -168,18 +168,22 @@ export default function Hero() {
 
   if (!booted) return null;
 
-  // LCP skeleton already painted the hero. Adopt with no entrance fade
-  // so CLS stays 0 — boot theatre is the reveal. Keep looped ornaments.
+  // Boot dissolve reveals the canvas; this stagger is the entrance into the
+  // scene. LCP skeleton is already gone (html.booted) so we fade from empty.
   const container = {
-    hidden: { opacity: 1 },
+    hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.12, delayChildren: 0 },
+      transition: { staggerChildren: 0.12, delayChildren: 0.35 },
     },
   };
   const item = {
-    hidden: { opacity: 1, y: 0 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.01 } },
+    hidden: { opacity: 0, y: 22 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const },
+    },
   };
 
   return (

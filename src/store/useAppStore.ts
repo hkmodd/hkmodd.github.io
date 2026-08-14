@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { playGlitchDistortion } from '@/lib/audio';
+import { applyThemeToDom, withThemeTransition } from '@/lib/themeDom';
 
 export type ThemeMode = 'default' | 'redteam' | 'light';
 export type Language = 'en' | 'it';
@@ -82,50 +83,35 @@ export const useAppStore = create<AppState>((set) => ({
   theme: getInitialTheme(),
   setTheme: (theme) => {
     localStorage.setItem('hkmodd-theme', theme);
+    applyThemeToDom(theme);
     set({ theme });
   },
   toggleRedTeam: () => {
-    const apply = () =>
-      set((s) => {
-        const next = s.theme === 'redteam' ? 'default' : 'redteam';
-        const enteringRed = next === 'redteam';
-        localStorage.setItem('hkmodd-theme', next);
-        const root = document.querySelector('.app-root');
-        if (root instanceof HTMLElement) {
-          if (next === 'default') root.removeAttribute('data-theme');
-          else root.setAttribute('data-theme', next);
-        }
-        if (enteringRed) {
-          playGlitchDistortion();
-          setTimeout(() => set({ redTeamTransitioning: false }), 2500);
-        }
-        setTimeout(() => set({ showFlash: false }), 700);
-        return {
-          theme: next,
-          showFlash: true,
-          flashDir: enteringRed ? 'enter' : 'exit',
-          redTeamTransitioning: enteringRed,
-        };
+    const next = useAppStore.getState().theme === 'redteam' ? 'default' : 'redteam';
+    const enteringRed = next === 'redteam';
+    localStorage.setItem('hkmodd-theme', next);
+    withThemeTransition(() => {
+      applyThemeToDom(next);
+      set({
+        theme: next,
+        showFlash: true,
+        flashDir: enteringRed ? 'enter' : 'exit',
+        redTeamTransitioning: enteringRed,
       });
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
-    if (typeof doc.startViewTransition === 'function') doc.startViewTransition(apply);
-    else apply();
+    });
+    if (enteringRed) {
+      playGlitchDistortion();
+      setTimeout(() => set({ redTeamTransitioning: false }), 2500);
+    }
+    setTimeout(() => set({ showFlash: false }), 700);
   },
   toggleLightMode: () => {
-    const apply = () =>
-      set((s) => {
-        const next = s.theme === 'light' ? 'default' : 'light';
-        localStorage.setItem('hkmodd-theme', next);
-        const root = document.querySelector('.app-root');
-        if (root instanceof HTMLElement) {
-          if (next === 'default') root.removeAttribute('data-theme');
-          else root.setAttribute('data-theme', next);
-        }
-        return { theme: next };
-      });
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
-    if (typeof doc.startViewTransition === 'function') doc.startViewTransition(apply);
-    else apply();
+    const next = useAppStore.getState().theme === 'light' ? 'default' : 'light';
+    localStorage.setItem('hkmodd-theme', next);
+    withThemeTransition(() => {
+      applyThemeToDom(next);
+      set({ theme: next });
+    });
   },
 
   // Red team cinematic transition

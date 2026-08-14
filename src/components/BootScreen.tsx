@@ -18,23 +18,24 @@ export default function BootScreen() {
   const accentColor = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
   const sessionId = useRef(String(Math.floor(Math.random() * 9000) + 1000));
 
-  // Lock body scroll while boot screen is visible
+  // Lock body scroll only while the veil is up. BootScreen now stays
+  // mounted for the exit fade, so this must release on `done`, not unmount.
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
-    html.style.overflow = 'hidden';
-    body.style.overflow = 'hidden';
-    html.style.height = '100%';
-    body.style.height = '100%';
-
-    return () => {
+    if (done) {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       html.style.overflow = '';
       body.style.overflow = '';
       html.style.height = '';
       body.style.height = '';
-    };
-  }, []);
+      return;
+    }
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    html.style.height = '100%';
+    body.style.height = '100%';
+  }, [done]);
 
   const runBoot = useCallback(() => {
     const bootLines = t.boot.lines;
@@ -70,11 +71,14 @@ export default function BootScreen() {
     if (import.meta.env.DEV) {
       console.log(`[boot] released — engineReady=${engineReady} grace=${graceExpired}`);
     }
-    const t1 = setTimeout(() => setDone(true), 200);
-    const t2 = setTimeout(() => setBooted(true), 500);
+    // Mount the hero UNDER the veil first, then dissolve the boot.
+    // App used to unmount this component on `booted`, which aborted the
+    // exit fade — keep BootScreen mounted (App always renders it).
+    const tHero = setTimeout(() => setBooted(true), 80);
+    const tVeil = setTimeout(() => setDone(true), 140);
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
+      clearTimeout(tHero);
+      clearTimeout(tVeil);
     };
   }, [linesDone, engineReady, graceExpired, setBooted]);
 
@@ -93,8 +97,8 @@ export default function BootScreen() {
         <motion.div
           className="boot-screen"
           style={{ background: '#000000' }}
-          exit={{ opacity: 0, scale: 1.02, filter: 'blur(6px)' }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
+          exit={{ opacity: 0, scale: 1.015, filter: 'blur(8px)' }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="boot-screen__content">
             {/* Terminal lines */}

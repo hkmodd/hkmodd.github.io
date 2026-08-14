@@ -5,6 +5,7 @@ import { useKonamiCode } from '@/hooks/useKonamiCode';
 import { useSnapScroll } from '@/hooks/useSnapScroll';
 import { useMobileHapticScroll } from '@/hooks/useMobileHapticScroll';
 import { haptic } from '@/lib/haptic';
+import { applyThemeToDom } from '@/lib/themeDom';
 
 import BootScreen from '@/components/BootScreen';
 import Hero from '@/components/Hero';
@@ -50,6 +51,10 @@ export default function App() {
   }, [booted]);
 
   useEffect(() => {
+    applyThemeToDom(theme);
+  }, [theme]);
+
+  useEffect(() => {
     if (reducedMotion || reducedData) useAppStore.getState().setEngineReady(true);
   }, [reducedMotion, reducedData]);
 
@@ -84,8 +89,9 @@ export default function App() {
 
   return (
     <div data-theme={theme !== 'default' ? theme : undefined} className="app-root">
-      {/* Boot sequence */}
-      {!booted && <BootScreen />}
+      {/* Boot stays mounted so AnimatePresence can finish the dissolve.
+          Unmounting on `booted` was killing the exit and snapping the hero. */}
+      <BootScreen />
 
       {/* 3D particle background — skipped on reduced-data / reduced-motion */}
       {!reducedData && !reducedMotion && (
