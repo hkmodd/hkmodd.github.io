@@ -119,7 +119,8 @@ html.cyber-cursor-active * {
 }
 #hero .hero-avatar-wrap,
 #hero a,
-#hero button {
+#hero button,
+#hero .hero-scroll-hint {
   pointer-events: auto;
 }
 @media (pointer: coarse) {
@@ -231,45 +232,45 @@ html.gecko * {
 }
 .lock__bloom {
   stroke: #00e5ff;
-  stroke-width: 26;
-  stroke-linecap: square;
+  stroke-width: 22;
+  stroke-linecap: butt;
   stroke-linejoin: miter;
-  stroke-miterlimit: 3;
-  opacity: 0.12;
-  filter: blur(10px);
+  stroke-miterlimit: 12;
+  opacity: 0.1;
+  filter: blur(8px);
 }
 .lock__guide {
-  stroke: rgba(255, 255, 255, 0.16);
-  stroke-width: 10;
-  stroke-linecap: square;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 9;
+  stroke-linecap: butt;
   stroke-linejoin: miter;
-  stroke-miterlimit: 3;
+  stroke-miterlimit: 12;
 }
 .lock__shimmer {
-  stroke: rgba(255, 255, 255, 0.55);
-  stroke-width: 10;
-  stroke-linecap: square;
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 9;
+  stroke-linecap: butt;
   stroke-linejoin: miter;
-  stroke-miterlimit: 3;
-  stroke-dasharray: 0.12 0.88;
+  stroke-miterlimit: 12;
+  stroke-dasharray: 0.1 0.9;
   stroke-dashoffset: 1;
   animation: lock-shimmer 2.4s linear infinite;
 }
 .lock__ink {
   stroke: url(#boltInk);
-  stroke-width: 11;
-  stroke-linecap: square;
+  stroke-width: 10;
+  stroke-linecap: butt;
   stroke-linejoin: miter;
-  stroke-miterlimit: 3;
+  stroke-miterlimit: 12;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
 }
 .lock__core {
   stroke: #fff;
-  stroke-width: 3;
-  stroke-linecap: square;
+  stroke-width: 2.4;
+  stroke-linecap: butt;
   stroke-linejoin: miter;
-  stroke-miterlimit: 3;
+  stroke-miterlimit: 12;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   opacity: 0.95;
@@ -297,14 +298,38 @@ html.gecko * {
   stroke-dashoffset: 0;
 }
 .lock__stage.is-open .lock__bloom {
-  opacity: 0.5;
+  opacity: 0.55;
   stroke: #fff;
 }
 .lock__stage.is-open .lock__shimmer { animation: none; opacity: 0; }
 .lock__stage.is-open .lock__bead {
   fill: #fff;
   stroke: #fff;
-  filter: drop-shadow(0 0 16px #fff);
+  filter: drop-shadow(0 0 22px #fff);
+}
+
+.lock.is-unlocking {
+  animation: lock-veil 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+.lock.is-unlocking .lock__stage {
+  animation: lock-s-rise 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.lock.is-unlocking .lock__hint { opacity: 0; transition: opacity 0.2s linear; }
+.lock.is-unlocking .lock__ground {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+@keyframes lock-veil {
+  0% { opacity: 1; }
+  35% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes lock-s-rise {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  28% { transform: translateY(-10px) scale(1.045); opacity: 1; }
+  100% { transform: translateY(-56px) scale(1.12); opacity: 0; }
 }
 
 @keyframes lock-shimmer {
@@ -337,6 +362,11 @@ html.gecko * {
   position: relative;
   z-index: 5;
   background: var(--color-bg);
+  overflow: clip;
+  isolation: isolate;
+}
+.main-content > .section-divider:first-child {
+  display: none;
 }
 
 ::selection {
@@ -794,18 +824,20 @@ html.gecko * {
 /* ── Arsenal — 90s zine × night-market stickers ── */
 .arsenal {
   --ink: #00e5ff;
+  overflow: clip;
 }
 .arsenal__wash {
   position: absolute;
-  inset: -8% -10% auto;
-  height: 70%;
+  inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 12% 20%, rgba(255, 42, 109, 0.18), transparent 46%),
-    radial-gradient(ellipse at 88% 8%, rgba(0, 229, 255, 0.16), transparent 42%),
-    radial-gradient(ellipse at 50% 90%, rgba(255, 230, 0, 0.08), transparent 50%);
+    radial-gradient(ellipse at 12% 28%, rgba(255, 42, 109, 0.14), transparent 46%),
+    radial-gradient(ellipse at 88% 18%, rgba(0, 229, 255, 0.12), transparent 42%),
+    radial-gradient(ellipse at 50% 92%, rgba(255, 230, 0, 0.06), transparent 50%);
   filter: blur(8px);
   z-index: 0;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 100%);
 }
 .arsenal-head {
   position: relative;
@@ -2432,16 +2464,58 @@ html.gecko * {
   color: var(--color-text-dim);
   line-height: 1.6;
 }
+.hero-scroll-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 1.7rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  z-index: 4;
+  text-decoration: none;
+  color: inherit;
+}
 .hero-scroll-label {
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
   color: var(--color-text-dim);
+}
+.hero-scroll-rail {
+  position: relative;
+  width: 1px;
+  height: 2.15rem;
+  background: linear-gradient(180deg, transparent, var(--color-accent), transparent);
+  overflow: hidden;
+}
+.hero-scroll-rail::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  width: 3px;
+  height: 7px;
+  border-radius: 1px;
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent);
+  animation: hero-scroll-bead 1.8s ease-in-out infinite;
+}
+@keyframes hero-scroll-bead {
+  0% { top: -8px; opacity: 0; }
+  18% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.hero-scroll-hint:hover .hero-scroll-label {
+  color: var(--color-accent);
 }
 @media (max-width: 640px) {
   .hero-status-wrap,
-  #hero .proof-line,
-  .hero-scroll-hint { display: none !important; }
+  #hero .proof-line { display: none !important; }
+  .hero-scroll-hint { bottom: 1.1rem; }
   .hero-avatar {
     width: 8.25rem;
     height: 8.25rem;
@@ -2467,7 +2541,7 @@ html.gecko * {
     height: 11rem;
   }
 }
-@media (max-height: 780px) {
+@media (max-height: 560px) {
   .hero-scroll-hint { display: none; }
 }
 

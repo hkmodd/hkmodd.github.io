@@ -11,13 +11,22 @@ interface ScrambledTitleProps {
 export default function ScrambledTitle({ text, className, style }: ScrambledTitleProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const [isInView, setIsInView] = useState(false);
+  const [wave, setWave] = useState(0);
 
   useEffect(() => {
-    return observeIntersect(ref.current, setIsInView, { once: true, margin: '-50px' });
+    return observeIntersect(
+      ref.current,
+      (visible) => {
+        setIsInView(visible);
+        if (visible) setWave((n) => n + 1);
+      },
+      { once: false, margin: '-80px 0px' },
+    );
   }, []);
 
   const scrambled = useScrambleText(text, {
     enabled: isInView,
+    trigger: wave,
     speed: 30,
   });
 

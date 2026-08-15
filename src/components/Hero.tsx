@@ -283,23 +283,14 @@ export default function Hero() {
               </a>
             </motion.div>
 
-            {/* Scroll indicator */}
-            <motion.div
-              variants={item}
-              className="hero-scroll-hint mt-10 sm:mt-14 flex flex-col items-center gap-2"
-            >
-              <span className="hero-scroll-label">
-                {t.hero.scroll}
-              </span>
-              <motion.div
-                animate={{ y: [0, 6, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <ChevronDown size={16} className="text-text-dim" />
-              </motion.div>
-            </motion.div>
           </motion.div>
         </div>
+
+        <a href="#arsenal" className="hero-scroll-hint" aria-label={t.hero.scroll}>
+          <span className="hero-scroll-label">{t.hero.scroll}</span>
+          <span className="hero-scroll-rail" aria-hidden />
+          <ChevronDown size={14} className="text-text-dim" />
+        </a>
       </section>
 
       {/* ── Scroll spacer - occupies 100vh of document flow ──── */}

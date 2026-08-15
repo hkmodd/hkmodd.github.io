@@ -2,8 +2,8 @@ import type { Translations } from './en';
 
 const it: Translations = {
   boot: {
-    hint: 'Dal suolo',
-    hintTap: 'Tocca il fulmine',
+    hint: 'Traccia la S',
+    hintTap: 'Tocca la S',
   },
 
   hero: {
@@ -11,7 +11,7 @@ const it: Translations = {
     realName: 'Sebastiano Gelmetti',
     title: 'Sistemi LLM, orchestrazione, difesa',
     bio: 'Ricerca su come i language model diventano sistemi veri: contesto, tool, harness multi-agente, runtime locali e cloud. Dodici anni sul metal, seicento ore certificate, Rust e Tauri in produzione.',
-    scroll: 'Continua',
+    scroll: 'Scorri',
     status: 'Aperto a nuove collaborazioni',
     github: '⟨/⟩ GitHub',
     linkedin: 'in LinkedIn',

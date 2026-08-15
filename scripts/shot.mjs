@@ -42,7 +42,7 @@ await page.addInitScript(() => {
 });
 const bust = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
 await page.goto(bust, { waitUntil: 'domcontentloaded', timeout: 30000 });
-await page.waitForSelector('#hero', { timeout: 20000 });
+await page.waitForSelector('#hero, .lock', { timeout: 20000 });
 await page.waitForTimeout(4000);
 await page.screenshot({ path: out });
 await browser.close();

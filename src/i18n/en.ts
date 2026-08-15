@@ -143,8 +143,8 @@ export interface Translations {
 
 const en: Translations = {
   boot: {
-    hint: 'From the ground',
-    hintTap: 'Tap the bolt',
+    hint: 'Trace the S',
+    hintTap: 'Tap the S',
   },
 
   hero: {
@@ -152,7 +152,7 @@ const en: Translations = {
     realName: 'Sebastiano Gelmetti',
     title: 'LLM systems, orchestration, defense',
     bio: 'I research how language models get built into real systems: context, tools, multi-agent harnesses, local and cloud runtimes. Twelve years on the metal, six hundred hours certified, Rust and Tauri in production.',
-    scroll: 'Keep going',
+    scroll: 'Scroll',
     status: 'Open to new work',
     github: '⟨/⟩ GitHub',
     linkedin: 'in LinkedIn',
