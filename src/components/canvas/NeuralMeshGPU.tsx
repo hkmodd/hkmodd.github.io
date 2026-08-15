@@ -20,6 +20,7 @@ import {
   sin,
   cos,
   exp,
+  pow,
   length,
   dot,
   max,
@@ -374,7 +375,7 @@ function createEngine() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   GRID — TSL port of the GLSL perspective grid
+   AESTHETIC WAVE — TSL. Crests only, no filled disc.
    ═══════════════════════════════════════════════════════════════════ */
 
 function createGridMaterial() {
@@ -389,36 +390,47 @@ function createGridMaterial() {
   mat.side = THREE.DoubleSide;
   mat.blending = THREE.AdditiveBlending;
 
-  // Vertex warp: pointer-reactive ripple
+  const waveH = Fn(() => {
+    const t = uGridTime;
+    const p = positionLocal;
+    const x = p.x;
+    const y = p.y;
+    const w1 = sin(x.mul(0.28).add(t.mul(0.72))).mul(1.15);
+    const w2 = sin(y.mul(0.18).sub(t.mul(0.48)).add(x.mul(0.06))).mul(0.72);
+    const w3 = sin(x.mul(0.7).add(y).mul(0.48).add(t.mul(1.15))).mul(0.32);
+    const w4 = sin(x.mul(1.15).sub(y.mul(0.7)).add(t.mul(1.9))).mul(0.14);
+    const gc = uv().sub(0.5);
+    const pDist = length(gc.sub(uGridPointer));
+    const ripple = exp(pDist.mul(-3.4)).mul(sin(t.mul(2.8).sub(pDist.mul(16)))).mul(0.55);
+    return w1.add(w2).add(w3).add(w4).add(ripple);
+  });
+
   mat.positionNode = Fn(() => {
-    const gridCenter = uv().sub(0.5);
-    const pDist = length(gridCenter.sub(uGridPointer));
-    const warp = exp(pDist.mul(-3)).mul(1.5);
-    const zOff = warp.mul(sin(uGridTime.mul(2).add(pDist.mul(10)))).mul(0.3);
-    return positionLocal.add(vec3(0, 0, zOff));
+    const h = waveH();
+    return positionLocal.add(vec3(0, h.mul(0.45), h.mul(0.22)));
   })();
 
-  // Fragment: scrolling grid + radial fade + hotspot + scanline
   mat.colorNode = Fn(() => {
-    const uvS = uv().add(vec2(0, uGridTime.mul(0.012)));
-    const coord = uvS.mul(50);
-    const grid = abs(fract(coord.sub(0.5)).sub(0.5)).div(fwidth(coord));
-    const line = min(grid.x, grid.y);
-    const alpha = float(1).sub(min(line, float(1))).toVar();
-
+    const h = waveH();
+    const crest = clamp(h.mul(0.5).add(0.38), 0, 1);
     const dist = length(uv().sub(0.5)).mul(2);
-    alpha.mulAssign(smoothstep(float(1.1), float(0.1), dist));
+    const band = smoothstep(float(0), float(0.12), uv().y).mul(smoothstep(float(0.82), float(0.36), uv().y));
+    const sides = smoothstep(float(0), float(0.08), uv().x).mul(smoothstep(float(1), float(0.92), uv().x));
+    const fade = band.mul(sides);
 
-    const gridCenter = uv().sub(0.5);
-    const pDist = length(gridCenter.sub(uGridPointer));
-    const hotspot = exp(pDist.mul(-4)).mul(0.35);
-    alpha.assign(alpha.mul(0.12).add(hotspot));
+    const foam = pow(smoothstep(float(0.48), float(0.92), crest), 1.2);
+    const ridges = float(1).sub(smoothstep(float(0), float(0.07), abs(fract(crest.mul(4.2)).sub(0.5))))
+      .mul(smoothstep(float(0.35), float(0.7), crest));
+    const drift = uv().add(vec2(uGridTime.mul(0.01), 0));
+    const cx = abs(fract(drift.x.mul(3.2)).sub(0.5));
+    const cables = float(1).sub(smoothstep(float(0), float(0.012), cx)).mul(0.12).mul(foam);
 
-    const scan = smoothstep(float(0), float(0.02), abs(fract(uvS.y.mul(2).sub(uGridTime.mul(0.05))).sub(0.5)));
-    alpha.mulAssign(float(1).sub(scan).mul(0.4).add(0.8));
+    const alpha = foam.mul(0.55).add(ridges.mul(0.85)).add(cables).mul(fade).mul(uGridOpacity);
 
-    alpha.mulAssign(uGridOpacity);
-    return vec4(uGridColor.rgb, alpha);
+    const magenta = vec3(1, 0.16, 0.42);
+    const trough = mix(uGridColor.rgb, magenta, 0.42).mul(0.7);
+    const col = mix(trough, uGridColor.rgb.mul(1.35), foam);
+    return vec4(col, alpha);
   })();
 
   return { mat, uGridColor, uGridTime, uGridPointer, uGridOpacity };
@@ -434,7 +446,7 @@ function DepthFog() {
     const theme = useAppStore.getState().theme;
     if (matRef.current) {
       matRef.current.color.set(theme === 'light' ? '#ffffff' : '#000000');
-      matRef.current.opacity = theme === 'light' ? 1.0 : 0.6;
+      matRef.current.opacity = theme === 'light' ? 1.0 : 0.0;
     }
   });
   return (
@@ -611,11 +623,11 @@ function NeuralMeshGPUScene() {
         </mesh>
       )}
 
-      <DepthFog />
+      {useAppStore.getState().theme === 'light' && <DepthFog />}
 
       {SIM.grid && (
-        <mesh rotation={[-Math.PI / 2.2, 0, 0]} position={[0, -6, -3]} material={grid.mat}>
-          <planeGeometry args={[60, 60, 32, 32]} />
+        <mesh rotation={[-1.02, 0.22, 0]} position={[1.1, -3.4, 2.5]} material={grid.mat}>
+          <planeGeometry args={[30, 11, SIM.waveSegX, SIM.waveSegY]} />
         </mesh>
       )}
 
@@ -690,7 +702,9 @@ export default function NeuralMeshGPU() {
             antialias: false,
             alpha: true,
             powerPreference: 'high-performance',
-            forceWebGL: typeof navigator !== 'undefined' && !('gpu' in navigator),
+            forceWebGL:
+              typeof navigator !== 'undefined' &&
+              (!('gpu' in navigator) || /Gecko\/|Firefox\//.test(navigator.userAgent)),
           });
           await renderer.init();
           const backend = (renderer as unknown as { backend?: { isWebGPUBackend?: boolean } }).backend;

@@ -29,6 +29,7 @@ export default function Hero() {
     const t = Math.min(progress / 0.7, 1);
     el.style.opacity = String(Math.max(1 - t, 0));
     el.style.transform = `translateY(${t * -120}px)`;
+    el.style.willChange = t > 0 && t < 1 ? 'transform, opacity' : '';
   });
 
   // --- Avatar glitch state ---
@@ -132,7 +133,7 @@ export default function Hero() {
 
         <div
           ref={heroScrollRef}
-          className="max-w-4xl w-full text-center relative z-10 will-change-transform"
+          className="max-w-4xl w-full text-center relative z-10"
         >
           <motion.div
             variants={container}

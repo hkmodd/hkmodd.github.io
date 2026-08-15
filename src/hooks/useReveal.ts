@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react';
+import { isGecko } from '@/lib/runtime';
 
 /**
  * Single shared IntersectionObserver for scroll-reveal fallback.
@@ -19,6 +20,7 @@ export interface RevealOpts {
 type IntersectCb = (visible: boolean) => void;
 
 const supportsViewTimeline =
+  !isGecko &&
   typeof CSS !== 'undefined' &&
   typeof CSS.supports === 'function' &&
   CSS.supports('animation-timeline: view()');
@@ -94,6 +96,9 @@ export function useReveal<T extends HTMLElement>(
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Gecko + coarse: cards exist. Scroll-linked choreography is compositor tax.
+    if (isGecko) return;
+    if (window.matchMedia('(pointer: coarse)').matches) return;
     applyVars(el, opts);
     if (supportsViewTimeline) return;
     return observeIntersect(el, () => {}, { once: opts.once ?? true, margin: opts.margin });

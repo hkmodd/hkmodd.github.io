@@ -87,24 +87,37 @@ const nodeFragmentShader = /* glsl */ `
 `;
 
 // ═══════════════════════════════════════════════════════════════════
-//  PERSPECTIVE GRID - shader-based (unchanged)
+//  AESTHETIC WAVE — crests only, no filled disc ("lake")
 // ═══════════════════════════════════════════════════════════════════
 
 const gridVertexShader = /* glsl */ `
   varying vec2 vUv;
+  varying float vCrest;
+  varying float vDist;
   uniform float uTime;
   uniform vec2 uPointer;
 
   void main() {
     vUv = uv;
     vec3 pos = position;
+    float t = uTime;
+    float x = position.x;
+    float y = position.y;
 
-    // ── Pointer-reactive warping ──
-    vec2 gridCenter = uv - 0.5;
-    vec2 pointerUV = uPointer;
-    float pDist = length(gridCenter - pointerUV);
-    float warp = exp(-pDist * 3.0) * 1.5;
-    pos.z += warp * sin(uTime * 2.0 + pDist * 10.0) * 0.3;
+    float w1 = sin(x * 0.28 + t * 0.72) * 1.15;
+    float w2 = sin(y * 0.18 - t * 0.48 + x * 0.06) * 0.72;
+    float w3 = sin((x * 0.7 + y) * 0.48 + t * 1.15) * 0.32;
+    float w4 = sin(x * 1.15 - y * 0.7 + t * 1.9) * 0.14;
+
+    vec2 gc = uv - 0.5;
+    float pDist = length(gc - uPointer);
+    float ripple = exp(-pDist * 3.4) * sin(t * 2.8 - pDist * 16.0) * 0.55;
+
+    float h = w1 + w2 + w3 + w4 + ripple;
+    pos.y += h * 0.45;
+    pos.z += h * 0.22;
+    vCrest = clamp(h * 0.5 + 0.38, 0.0, 1.0);
+    vDist = length(uv - 0.5) * 2.0;
 
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
   }
@@ -112,41 +125,38 @@ const gridVertexShader = /* glsl */ `
 
 const gridFragmentShader = /* glsl */ `
   varying vec2 vUv;
+  varying float vCrest;
+  varying float vDist;
   uniform vec3 uColor;
   uniform float uTime;
   uniform vec2 uPointer;
   uniform float uOpacity;
 
   void main() {
-    // Scrolling grid
-    vec2 uv = vUv + vec2(0.0, uTime * 0.012);
-    vec2 coord = uv * 50.0;
-    vec2 grid = abs(fract(coord - 0.5) - 0.5) / fwidth(coord);
-    float line = min(grid.x, grid.y);
-    float alpha = 1.0 - min(line, 1.0);
+    // Ribbon: dissolve the top into void, keep sides soft. No floor horizon.
+    float band = smoothstep(0.0, 0.12, vUv.y) * smoothstep(0.82, 0.36, vUv.y);
+    float sides = smoothstep(0.0, 0.08, vUv.x) * smoothstep(1.0, 0.92, vUv.x);
+    float fade = band * sides;
 
-    // Radial fade
-    float dist = length(vUv - 0.5) * 2.0;
-    alpha *= smoothstep(1.1, 0.1, dist);
+    float foam = pow(smoothstep(0.48, 0.92, vCrest), 1.2);
+    float ridges = 1.0 - smoothstep(0.0, 0.07, abs(fract(vCrest * 4.2) - 0.5));
+    ridges *= smoothstep(0.35, 0.7, vCrest);
 
-    // ── Pointer glow hotspot ──
-    vec2 gridCenter = vUv - 0.5;
-    float pDist = length(gridCenter - uPointer);
-    float hotspot = exp(-pDist * 4.0) * 0.35;
-    alpha = alpha * 0.12 + hotspot;
+    vec2 drift = vUv + vec2(uTime * 0.01, 0.0);
+    float cx = abs(fract(drift.x * 3.2) - 0.5);
+    float cables = (1.0 - smoothstep(0.0, 0.012, cx)) * 0.12 * foam;
 
-    // ── Scan line sweep ──
-    float scan = smoothstep(0.0, 0.02, abs(fract(uv.y * 2.0 - uTime * 0.05) - 0.5));
-    alpha *= 0.8 + (1.0 - scan) * 0.4;
-
-    // Ghost mode: global opacity multiplier for light theme
+    float alpha = (foam * 0.55 + ridges * 0.85 + cables) * fade;
     alpha *= uOpacity;
 
-    gl_FragColor = vec4(uColor, alpha);
+    vec3 magenta = vec3(1.0, 0.16, 0.42);
+    vec3 col = mix(mix(uColor, magenta, 0.42) * 0.7, uColor * 1.35, foam);
+
+    gl_FragColor = vec4(col, alpha);
   }
 `;
 
-function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
+function AestheticWave({ pointerRef }: { pointerRef: React.MutableRefObject<THREE.Vector3> }) {
   const shaderRef = useRef<THREE.ShaderMaterial>(null!);
   const colorRef = useRef(new THREE.Color('#00d4ff'));
 
@@ -181,8 +191,8 @@ function PerspectiveGrid({ pointerRef }: { pointerRef: React.MutableRefObject<TH
   );
 
   return (
-    <mesh rotation={[-Math.PI / 2.2, 0, 0]} position={[0, -6, -3]}>
-      <planeGeometry args={[60, 60, 32, 32]} />
+    <mesh rotation={[-1.02, 0.22, 0]} position={[1.1, -3.4, 2.5]}>
+      <planeGeometry args={[30, 11, SIM.waveSegX, SIM.waveSegY]} />
       <shaderMaterial
         ref={shaderRef}
         transparent
@@ -212,9 +222,8 @@ function DepthFog() {
         matRef.current.color.set('#ffffff');
         matRef.current.opacity = 1.0;
       } else {
-        // Dark / redteam: deep black fog plane as before
-        matRef.current.color.set('#000000');
-        matRef.current.opacity = 0.6;
+        // Dark is already void — a black quad read as a lake.
+        matRef.current.opacity = 0.0;
       }
     }
   });
@@ -460,12 +469,13 @@ function NeuralMeshScene() {
         </mesh>
       )}
 
-      {/* Deep background fog plane */}
-      <DepthFog />
+      {useAppStore.getState().theme === 'light' && <DepthFog />}
 
       {/* Perspective grid (beneath neural mesh) — desktop only: on a
           phone it reads as haze while costing a full-screen fragment pass */}
-      {SIM.grid && <PerspectiveGrid pointerRef={pointerRef} />}
+      {SIM.grid && !new URLSearchParams(window.location.search).has('nowave') && (
+        <AestheticWave pointerRef={pointerRef} />
+      )}
 
       {/* Cursor-reactive glow — rides the pointer in world space */}
       <CursorGlow pointerRef={pointerRef} />

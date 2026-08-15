@@ -134,27 +134,34 @@ html.cyber-cursor-active * {
   .cert-tile,
   .flagship {
     touch-action: pan-y;
-    transform: perspective(1400px) rotateX(5deg) translateZ(0);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.1) inset,
-      0 22px 48px rgba(0, 0, 0, 0.5);
   }
 }
 
-/* ── Render Budget - skip painting off-screen heavy sections ── */
-#arsenal,
-#identity,
-#ai-intel,
-footer {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 900px;
+/* Gecko: never blend the WebGL canvas into CSS every frame.
+   mix-blend / backdrop-filter / view() are compositor cliffs on Firefox. */
+html.gecko .grain-overlay { display: none; }
+html.gecko .hero-name::before,
+html.gecko .hero-name::after,
+html.gecko .zine-title::before,
+html.gecko .zine-title::after,
+html.gecko .arsenal-title::before,
+html.gecko .arsenal-title::after {
+  mix-blend-mode: normal;
+  opacity: 0.22;
 }
-#operations,
-#certs {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 2800px;
+html.gecko .reveal,
+html.gecko .reveal.is-revealed {
+  opacity: 1;
+  translate: 0;
+  animation: none;
 }
-/* #terminal is always painted: content-visibility + view-timeline left it at opacity 0. */
+html.gecko,
+html.gecko * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* content-visibility on tall sections made Firefox relayout mid-fling. */
 
 .card-grid,
 .arsenal-grid {

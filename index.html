@@ -145,6 +145,9 @@
           if (window.matchMedia('(prefers-reduced-data: reduce)').matches) {
             document.documentElement.classList.add('reduced-data');
           }
+          if (window.CSS && CSS.supports('-moz-appearance', 'none')) {
+            document.documentElement.classList.add('gecko');
+          }
         } catch (e) {}
       })();
     </script>

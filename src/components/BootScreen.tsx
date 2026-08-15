@@ -38,8 +38,10 @@ export default function BootScreen() {
   const setBooted = useAppStore((s) => s.setBooted);
   const theme = useAppStore((s) => s.theme);
   const reducedMotion = useAppStore((s) => s.reducedMotion);
-  const [done, setDone] = useState(false);
-  const [unlocked, setUnlocked] = useState(false);
+  const skipLock =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('shot');
+  const [done, setDone] = useState(skipLock);
+  const [unlocked, setUnlocked] = useState(skipLock);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const guideRef = useRef<SVGPathElement>(null);
@@ -175,6 +177,14 @@ export default function BootScreen() {
       resetStroke();
     }
   }, [resetStroke, unlock]);
+
+  useEffect(() => {
+    if (!skipLock) return;
+    localStorage.setItem('hkmodd-theme', 'default');
+    document.documentElement.removeAttribute('data-theme');
+    document.querySelector('.app-root')?.removeAttribute('data-theme');
+    useAppStore.setState({ theme: 'default', booted: true });
+  }, [skipLock]);
 
   useEffect(() => {
     const html = document.documentElement;

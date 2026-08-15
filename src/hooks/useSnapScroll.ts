@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { isGecko } from '@/lib/runtime';
 
 /**
  * useSnapScroll — Desktop-only section-snapping via wheel/keyboard.
@@ -99,8 +100,9 @@ export function useSnapScroll() {
   }, []);
 
   useEffect(() => {
-    // Desktop-only. Any coarse pointer (phone, tablet, landscape) keeps
-    // native pan — width checks used to re-enable snap on big phones.
+    // Native pan on touch. Native wheel on Gecko — preventDefault + 480ms
+    // snap lock is why Firefox felt like the whole page was stuck.
+    if (isGecko) return;
     if (matchMedia('(pointer: coarse)').matches) return;
 
     updateTargets();

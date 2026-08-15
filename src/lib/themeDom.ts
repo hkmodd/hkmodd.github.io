@@ -18,7 +18,12 @@ export function withThemeTransition(commit: () => void) {
   const doc = document as Document & {
     startViewTransition?: (cb: () => void) => { finished: Promise<void> };
   };
-  if (typeof doc.startViewTransition === 'function') {
+  // Gecko's View Transitions snapshot the WebGL canvas as a still —
+  // then every frame of the transition is a full-layer blit. Skip.
+  if (
+    typeof doc.startViewTransition === 'function' &&
+    !(typeof CSS !== 'undefined' && CSS.supports?.('-moz-appearance', 'none'))
+  ) {
     doc.startViewTransition(commit);
     return;
   }

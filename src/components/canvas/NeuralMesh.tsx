@@ -1,5 +1,6 @@
 import { Component, Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { preferWebGPU } from '@/lib/runtime';
 
 /* ═══════════════════════════════════════════════════════════════════
    NEURAL MESH — backend selector.
@@ -22,9 +23,7 @@ import { useAppStore } from '@/store/useAppStore';
 
 async function probeWebGPU(): Promise<boolean> {
   try {
-    const forced = new URLSearchParams(window.location.search).get('neural');
-    if (forced === 'gl') return false;
-    if (forced === 'gpu') return true;
+    if (!preferWebGPU()) return false;
     const gpu = (navigator as { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
     if (!gpu) return false;
     return !!(await gpu.requestAdapter());

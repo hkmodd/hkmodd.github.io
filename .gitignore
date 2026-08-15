@@ -19,6 +19,9 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Local visual debug
+tmp/
+
 # Rust / WASM
 wasm/target/
 wasm/pkg/          # leftover wasm-pack default out-dir — unused

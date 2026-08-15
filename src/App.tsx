@@ -6,6 +6,7 @@ import { useSnapScroll } from '@/hooks/useSnapScroll';
 import { useMobileHapticScroll } from '@/hooks/useMobileHapticScroll';
 import { haptic } from '@/lib/haptic';
 import { applyThemeToDom } from '@/lib/themeDom';
+import { stampRuntimeClass } from '@/lib/runtime';
 
 import BootScreen from '@/components/BootScreen';
 import Hero from '@/components/Hero';
@@ -49,6 +50,10 @@ export default function App() {
 
   // Auto-update: check for new version, clear cache & reload if stale
   useAutoUpdate();
+
+  useEffect(() => {
+    stampRuntimeClass();
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('booted', booted);
@@ -122,7 +127,9 @@ export default function App() {
       <div className="grain-overlay" />
 
       {/* CRT scanline sweep */}
-      {booted && <div className="crt-scanline" />}
+      {booted && !new URLSearchParams(window.location.search).has('shot') && (
+        <div className="crt-scanline" />
+      )}
 
       {/* Screen flash on theme switch */}
       {showFlash && (

@@ -1,3 +1,5 @@
+import { isGecko } from '@/lib/runtime';
+
 /* ═══════════════════════════════════════════════════════════════════
    Quality knobs.
 
@@ -19,7 +21,8 @@
 export function getInitialDpr(): number {
   if (typeof window === 'undefined') return 1.5;
   const isCoarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
-  const cap = isCoarse ? 1.5 : 2;
+  // Gecko + 2× additive canvas is a fill-rate cliff Chromium hides.
+  const cap = isCoarse || isGecko ? 1.5 : 2;
   return Math.min(window.devicePixelRatio || 1, cap);
 }
 
@@ -40,8 +43,10 @@ export interface SimQuality {
   connectionDist: number;
   /** Per-node connection budget on the GPU-compute path. */
   kPerNode: number;
-  /** Render the perspective grid plane. */
+  /** Render the aesthetic wave plane. */
   grid: boolean;
+  waveSegX: number;
+  waveSegY: number;
 }
 
 let _quality: SimQuality | null = null;
@@ -51,8 +56,14 @@ export function getSimQuality(): SimQuality {
   const coarse =
     typeof window !== 'undefined' &&
     (window.matchMedia?.('(pointer: coarse)').matches ?? false);
-  _quality = coarse
-    ? { nodes: 240, maxConnections: 1100, pulses: 22, connectionDist: 2.6, kPerNode: 5, grid: false }
-    : { nodes: 450, maxConnections: 2000, pulses: 40, connectionDist: 2.8, kPerNode: 6, grid: true };
+  if (coarse) {
+    _quality = { nodes: 240, maxConnections: 1100, pulses: 22, connectionDist: 2.6, kPerNode: 5, grid: false, waveSegX: 48, waveSegY: 20 };
+  } else if (isGecko) {
+    // Same art, smaller field + cheaper wave tessellation. Gecko's WebGL
+    // fragment path does not hide 13k-vert additive surfaces the way ANGLE/Chrome does.
+    _quality = { nodes: 300, maxConnections: 1300, pulses: 26, connectionDist: 2.65, kPerNode: 5, grid: true, waveSegX: 64, waveSegY: 28 };
+  } else {
+    _quality = { nodes: 450, maxConnections: 2000, pulses: 40, connectionDist: 2.8, kPerNode: 6, grid: true, waveSegX: 168, waveSegY: 80 };
+  }
   return _quality;
 }
