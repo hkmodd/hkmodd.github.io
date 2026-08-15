@@ -1,25 +1,181 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
 import { haptic } from '@/lib/haptic';
-import { playBootSequence } from '@/lib/audio';
+import { sfx } from '@/lib/audio';
+
+/**
+ * Angular S, viewBox 0 0 240 400.
+ * Bottom-left → sky. Two bowls, one waist.
+ */
+const S_D = 'M 52 372 L 178 348 L 178 228 L 58 192 L 58 78 L 182 38';
+
+const SAMPLE = 80;
+const GRAB_R = 48;
+const RAIL_R = 42;
+const UNLOCK_AT = 0.9;
+const BANDS = [0.22, 0.45, 0.68, 0.9];
+
+type Pt = { x: number; y: number };
+
+function dist(a: Pt, b: Pt) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function samplePath(path: SVGPathElement): Pt[] {
+  const len = path.getTotalLength();
+  const out: Pt[] = [];
+  for (let i = 0; i <= SAMPLE; i++) {
+    const p = path.getPointAtLength((len * i) / SAMPLE);
+    out.push({ x: p.x, y: p.y });
+  }
+  return out;
+}
 
 export default function BootScreen() {
   const { t } = useTranslation();
   const setBooted = useAppStore((s) => s.setBooted);
   const theme = useAppStore((s) => s.theme);
-  const engineReady = useAppStore((s) => s.engineReady);
-  const [lines, setLines] = useState<string[]>([]);
-  const [linesDone, setLinesDone] = useState(false);
-  const [graceExpired, setGraceExpired] = useState(false);
+  const reducedMotion = useAppStore((s) => s.reducedMotion);
   const [done, setDone] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
 
-  const accentColor = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
-  const sessionId = useRef(String(Math.floor(Math.random() * 9000) + 1000));
+  const svgRef = useRef<SVGSVGElement>(null);
+  const guideRef = useRef<SVGPathElement>(null);
+  const inkRef = useRef<SVGPathElement>(null);
+  const coreRef = useRef<SVGPathElement>(null);
+  const beadRef = useRef<SVGCircleElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
-  // Lock body scroll only while the veil is up. BootScreen now stays
-  // mounted for the exit fade, so this must release on `done`, not unmount.
+  const holding = useRef(false);
+  const cursor = useRef(0);
+  const lastBand = useRef(-1);
+  const template = useRef<Pt[]>([]);
+  const unlocking = useRef(false);
+
+  const toSvg = useCallback((clientX: number, clientY: number): Pt | null => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return null;
+    const p = pt.matrixTransform(ctm.inverse());
+    return { x: p.x, y: p.y };
+  }, []);
+
+  const placeBead = useCallback((i: number) => {
+    const p = template.current[i];
+    const bead = beadRef.current;
+    if (!p || !bead) return;
+    bead.setAttribute('cx', String(p.x));
+    bead.setAttribute('cy', String(p.y));
+  }, []);
+
+  const paint = useCallback((progress: number) => {
+    const off = String(1 - progress);
+    if (inkRef.current) inkRef.current.style.strokeDashoffset = off;
+    if (coreRef.current) coreRef.current.style.strokeDashoffset = off;
+    placeBead(cursor.current);
+    stageRef.current?.style.setProperty('--lock-p', String(progress));
+  }, [placeBead]);
+
+  const resetStroke = useCallback(() => {
+    holding.current = false;
+    cursor.current = 0;
+    lastBand.current = -1;
+    if (inkRef.current) inkRef.current.style.strokeDashoffset = '1';
+    if (coreRef.current) coreRef.current.style.strokeDashoffset = '1';
+    placeBead(0);
+    stageRef.current?.style.setProperty('--lock-p', '0');
+  }, [placeBead]);
+
+  const unlock = useCallback(() => {
+    if (unlocking.current) return;
+    unlocking.current = true;
+    cursor.current = Math.max(0, template.current.length - 1);
+    paint(1);
+    setUnlocked(true);
+    haptic('success');
+    sfx.confirm();
+    sfx.open();
+    window.setTimeout(() => setBooted(true), 160);
+    window.setTimeout(() => setDone(true), 820);
+  }, [paint, setBooted]);
+
+  const advance = useCallback((p: Pt) => {
+    const tpl = template.current;
+    if (tpl.length < 2) return 0;
+    let best = RAIL_R + 1;
+    let bestI = cursor.current;
+    for (let k = 0; k <= 8; k++) {
+      const j = cursor.current + k;
+      if (j >= tpl.length) break;
+      const d = dist(p, tpl[j]);
+      if (d < best) {
+        best = d;
+        bestI = j;
+      }
+    }
+    if (best > RAIL_R) return cursor.current / (tpl.length - 1);
+    cursor.current = bestI;
+    const progress = cursor.current / (tpl.length - 1);
+    const band = BANDS.findIndex((b) => progress >= b);
+    if (band > lastBand.current) {
+      lastBand.current = band;
+      haptic(band >= 3 ? 'medium' : 'light');
+      sfx.hover();
+    }
+    return progress;
+  }, []);
+
+  const onDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (unlocking.current) return;
+      if (reducedMotion) {
+        unlock();
+        return;
+      }
+      const p = toSvg(e.clientX, e.clientY);
+      if (!p || template.current.length === 0) return;
+      if (dist(p, template.current[0]) > GRAB_R) return;
+      cursor.current = 0;
+      holding.current = true;
+      lastBand.current = -1;
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      paint(0);
+      haptic('light');
+    },
+    [paint, reducedMotion, toSvg, unlock],
+  );
+
+  const onMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!holding.current || unlocking.current) return;
+      const p = toSvg(e.clientX, e.clientY);
+      if (!p) return;
+      const progress = advance(p);
+      paint(progress);
+      if (progress >= UNLOCK_AT) {
+        holding.current = false;
+        unlock();
+      }
+    },
+    [advance, paint, toSvg, unlock],
+  );
+
+  const onUp = useCallback(() => {
+    if (!holding.current || unlocking.current) return;
+    const progress = cursor.current / Math.max(1, template.current.length - 1);
+    if (progress >= UNLOCK_AT) unlock();
+    else {
+      haptic('error');
+      resetStroke();
+    }
+  }, [resetStroke, unlock]);
+
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -37,143 +193,76 @@ export default function BootScreen() {
     body.style.height = '100%';
   }, [done]);
 
-  const runBoot = useCallback(() => {
-    const bootLines = t.boot.lines;
-    let i = 0;
-
-    const interval = setInterval(() => {
-      if (i < bootLines.length) {
-        setLines((prev) => [...prev, bootLines[i]]);
-        haptic('light');
-        i++;
-      } else {
-        clearInterval(interval);
-        setLinesDone(true);
-      }
-    }, 120);
-
-    return () => clearInterval(interval);
-  }, [t]);
-
-  // The boot screen is a WARM-UP window, not just theatre: while it types,
-  // the engine chunk streams in and the GPU pipelines compile behind it.
-  // Release only when the engine has produced real frames — capped by a
-  // grace timeout so a slow network can never hold the page hostage.
   useEffect(() => {
-    if (!linesDone) return;
-    const grace = setTimeout(() => setGraceExpired(true), 4000);
-    return () => clearTimeout(grace);
-  }, [linesDone]);
-
-  useEffect(() => {
-    if (!linesDone || !(engineReady || graceExpired)) return;
-    haptic('success');
-    if (import.meta.env.DEV) {
-      console.log(`[boot] released — engineReady=${engineReady} grace=${graceExpired}`);
+    const path = guideRef.current;
+    if (!path) return;
+    template.current = samplePath(path);
+    for (const el of [inkRef.current, coreRef.current]) {
+      if (!el) continue;
+      el.style.strokeDasharray = '1';
+      el.style.strokeDashoffset = '1';
     }
-    // Mount the hero UNDER the veil first, then dissolve the boot.
-    // App used to unmount this component on `booted`, which aborted the
-    // exit fade — keep BootScreen mounted (App always renders it).
-    const tHero = setTimeout(() => setBooted(true), 80);
-    const tVeil = setTimeout(() => setDone(true), 140);
-    return () => {
-      clearTimeout(tHero);
-      clearTimeout(tVeil);
-    };
-  }, [linesDone, engineReady, graceExpired, setBooted]);
+    placeBead(0);
+  }, [placeBead]);
 
-  useEffect(() => {
-    // Only play boot sequence once. On mobile, this may be silent due to autoplay rules.
-    // Audio will be globally unlocked on the first touch/scroll later.
-    playBootSequence();
-    return runBoot();
-  }, [runBoot]);
-
-  const progress = lines.length / t.boot.lines.length;
+  const hint = reducedMotion ? t.boot.hintTap : t.boot.hint;
 
   return (
     <AnimatePresence>
       {!done && (
         <motion.div
-          className="boot-screen"
-          style={{ background: '#000000' }}
-          exit={{ opacity: 0, scale: 1.015, filter: 'blur(8px)' }}
-          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="lock"
+          data-theme={theme !== 'default' ? theme : undefined}
+          exit={{ opacity: 0, filter: 'blur(18px) brightness(2.2)', scale: 1.04 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onUp}
         >
-          <div className="boot-screen__content">
-            {/* Terminal lines */}
-            <div
-              className="font-mono text-xs sm:text-sm space-y-1.5"
-              style={{ color: accentColor }}
+          <div className="lock__sky" aria-hidden />
+          <div className="lock__ground" aria-hidden />
+
+          <div ref={stageRef} className={`lock__stage${unlocked ? ' is-open' : ''}`}>
+            <svg
+              ref={svgRef}
+              className="lock__svg"
+              viewBox="0 0 240 400"
+              preserveAspectRatio="xMidYMax meet"
+              aria-label={hint}
             >
-              {lines.map((line, idx) => {
-                const isLast = idx === lines.length - 1 && idx === t.boot.lines.length - 1;
-                return (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className={isLast ? 'font-bold text-sm sm:text-base mt-4 sm:mt-6' : 'opacity-60'}
-                  >
-                    <span className="opacity-40 mr-2 select-none">{'>'}&nbsp;</span>
-                    {line}
-                  </motion.div>
-                );
-              })}
+              <defs>
+                <linearGradient id="boltInk" x1="0.15" y1="1" x2="0.85" y2="0">
+                  <stop offset="0%" stopColor="#00e5ff" />
+                  <stop offset="50%" stopColor="#f4fbff" />
+                  <stop offset="100%" stopColor="#ff2a6d" />
+                </linearGradient>
+                <filter id="boltBloom" x="-30%" y="-12%" width="160%" height="124%">
+                  <feGaussianBlur stdDeviation="5" result="b" />
+                  <feMerge>
+                    <feMergeNode in="b" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
 
-              {/* Engine warm-up overflow: shown only when pipeline compilation
-                  outlives the typewriter — the wait is real work, say so */}
-              {linesDone && !engineReady && !graceExpired && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="opacity-60"
-                >
-                  <span className="opacity-40 mr-2 select-none">{'>'}&nbsp;</span>
-                  {t.boot.warming}
-                  <span
-                    className="inline-block w-2 h-3 ml-2"
-                    style={{
-                      backgroundColor: accentColor,
-                      animation: 'terminal-cursor 1s step-end infinite',
-                    }}
-                  />
-                </motion.div>
-              )}
-
-              {/* Blinking cursor while loading */}
-              {lines.length < t.boot.lines.length && (
-                <span
-                  className="inline-block w-2 h-4 ml-5"
-                  style={{
-                    backgroundColor: accentColor,
-                    animation: 'terminal-cursor 1s step-end infinite',
-                  }}
-                />
-              )}
-            </div>
-
-            {/* Progress bar */}
-            <div
-              className="mt-6 sm:mt-8 h-[2px] rounded-full overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.04)' }}
-            >
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: accentColor }}
-                initial={{ width: '0%' }}
-                animate={{ width: `${progress * 100}%` }}
-                transition={{ duration: 0.25, ease: 'easeOut' }}
+              <path className="lock__bloom" d={S_D} fill="none" />
+              <path ref={guideRef} className="lock__guide" d={S_D} fill="none" pathLength={1} />
+              <path className="lock__shimmer" d={S_D} fill="none" pathLength={1} />
+              <path
+                ref={inkRef}
+                className="lock__ink"
+                d={S_D}
+                fill="none"
+                pathLength={1}
+                filter="url(#boltBloom)"
               />
-            </div>
-
-            {/* Session ID */}
-            <div className="visitor-counter mt-4 sm:mt-5 text-right" style={{ color: accentColor }}>
-              Session #{sessionId.current}
-            </div>
+              <path ref={coreRef} className="lock__core" d={S_D} fill="none" pathLength={1} />
+              <circle ref={beadRef} className="lock__bead" cx="52" cy="372" r="11" />
+            </svg>
           </div>
+
+          <p className="lock__hint">{unlocked ? '' : hint}</p>
         </motion.div>
       )}
     </AnimatePresence>

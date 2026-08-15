@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, useEffect, useState } from 'react';
+import { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import * as THREE from 'three/webgpu';
 import {
   Fn,
@@ -632,9 +632,11 @@ function NeuralMeshGPUScene() {
 
 export default function NeuralMeshGPU() {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const wasVisibleRef = useRef(true);
   const theme = useAppStore((s) => s.theme);
 
+  // Keep the GPU context mounted across theme toggles. Light only zeros
+  // opacity + pauses the frameloop — unmounting left canvasVisible=false
+  // and a remounted wasVisibleRef that never wrote the store back to true.
   const applyFade = useCallback((progress: number) => {
     const el = wrapperRef.current;
     if (!el) return;
@@ -644,17 +646,25 @@ export default function NeuralMeshGPU() {
     const opacity = baseOpacity * (1 - t);
     el.style.opacity = String(Math.max(opacity, 0));
     el.style.transform = `translateY(${t * -120}px)`;
-    const isVisible = opacity > 0.01;
-    if (isVisible !== wasVisibleRef.current) {
-      wasVisibleRef.current = isVisible;
+    const isVisible = !isLightTheme && opacity > 0.01 && !document.hidden;
+    if (useAppStore.getState().canvasVisible !== isVisible) {
       useAppStore.getState().setCanvasVisible(isVisible);
     }
   }, []);
 
   useScrollProgress((progress) => applyFade(progress));
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyFade(getScrollProgress());
   }, [theme, applyFade]);
+
+  useEffect(() => {
+    const sync = () => {
+      document.documentElement.classList.toggle('tab-hidden', document.hidden);
+      applyFade(getScrollProgress());
+    };
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, [applyFade]);
 
   const canvasVisible = useAppStore((s) => s.canvasVisible);
   const reducedMotion = useAppStore((s) => s.reducedMotion);
@@ -664,7 +674,7 @@ export default function NeuralMeshGPU() {
   if (reducedMotion) return null;
 
   return (
-    <div ref={wrapperRef} className="fixed inset-0 z-0 pointer-events-none will-change-transform">
+    <div ref={wrapperRef} className="fixed inset-0 z-0 pointer-events-none">
       <Canvas
         camera={{ position: [0, 0, 10], fov: 55, near: 0.1, far: 50 }}
         dpr={dpr}

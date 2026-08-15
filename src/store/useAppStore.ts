@@ -44,8 +44,8 @@ interface AppState {
   hudOpen: boolean;
   toggleHud: () => void;
 
-  // Engine warm-up: true once the neural engine has produced real frames.
-  // BootScreen holds the reveal until this flips (with a grace timeout).
+  // True once the neural engine has produced frames (telemetry / HUD).
+  // Unlock no longer waits on this — the lock-screen S is the gate.
   engineReady: boolean;
   setEngineReady: (v: boolean) => void;
 

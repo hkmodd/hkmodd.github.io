@@ -3,24 +3,15 @@ import { useReveal } from '@/hooks/useReveal';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
 import { TerminalEngine, type TerminalLine } from '@/lib/terminal';
-import ScrambledTitle from '@/components/ScrambledTitle';
+import ZineTitle from '@/components/ZineTitle';
 import Chip3D from '@/components/Chip3D';
 
-function TermHeader({ accent, title, subtitle }: { accent: string; title: string; subtitle: string }) {
+function TermHeader({ title, subtitle, kicker }: { title: string; subtitle: string; kicker: string }) {
   const ref = useReveal<HTMLDivElement>({ duration: 0.6, y: 20 });
   return (
     <div ref={ref} className="mb-12 relative z-10 text-center flex flex-col items-center">
-      <Chip3D>
-        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: accent }} />
-        <span className="text-xs font-mono tracking-widest text-text-dim uppercase">System Access</span>
-      </Chip3D>
-      <h2
-        className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
-        style={{ color: 'var(--color-text)' }}
-      >
-        <ScrambledTitle text={title} />
-      </h2>
-      <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
+      <Chip3D>{kicker}</Chip3D>
+      <ZineTitle text={title} />
       <p className="text-text-muted text-sm mt-6 max-w-lg">
         {subtitle}
       </p>
@@ -125,7 +116,7 @@ export default function Terminal() {
         style={{ bottom: '-10%', left: '50%', transform: 'translateX(-50%)' }}
       />
 
-      <TermHeader accent={accent} title={t.terminal.title.toUpperCase()} subtitle={t.terminal.subtitle} />
+      <TermHeader title={t.terminal.title.toUpperCase()} subtitle={t.terminal.subtitle} kicker={t.kicker.terminal} />
 
       <TermFrame onFocusInput={() => inputRef.current?.focus()}>
         <div

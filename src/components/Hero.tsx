@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react';
 import { motion } from 'motion/react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Send } from 'lucide-react';
 import { GithubIcon, LinkedinIcon } from '@/components/BrandIcons';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
-import { useScrambleText } from '@/hooks/useScrambleText';
 import { useScrollProgress } from '@/hooks/useScrollProgress';
 import { haptic } from '@/lib/haptic';
 
@@ -18,87 +17,18 @@ export default function Hero() {
   const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
   const accentGlow = theme === 'redteam' ? 'rgba(255,0,51,0.15)' : theme === 'light' ? 'rgba(0,102,204,0.12)' : 'rgba(0,212,255,0.15)';
 
-  const scrambledTitle = useScrambleText(t.hero.title, { speed: 40, delay: 1800 });
+  const [armed, setArmed] = useState<number | null>(null);
 
   // --- Scroll-driven fadeout (synced with NeuralMesh bg via the shared listener) ---
   const spacerRef = useRef<HTMLDivElement>(null);
   const heroScrollRef = useRef<HTMLDivElement>(null);
 
-  // --- Gradient text animation ---
-  // The full per-frame background rewrite is KEPT on purpose: it's the
-  // documented iOS Safari repaint workaround for background-clip:text (CSS
-  // animations & WAAPI both stall there). What changed vs. the old loop: it
-  // now SLEEPS once the Hero scrolls off-screen instead of ticking forever,
-  // and it rides the single shared scroll listener instead of its own.
-  const gradientRef = useRef<HTMLSpanElement>(null);
-  const gradientCtlRef = useRef<{ start: () => void; stop: () => void }>({
-    start: () => {},
-    stop: () => {},
-  });
-
-  useEffect(() => {
-    let rafId = 0;
-    let running = false;
-    const duration = 6000; // 6s full cycle
-
-    const tick = (now: number) => {
-      const el = gradientRef.current;
-      if (el) {
-        // Read theme from store each frame — avoids stale closure on theme switch
-        const currentTheme = useAppStore.getState().theme;
-        const gradient = currentTheme === 'redteam'
-          ? 'linear-gradient(90deg, #ff0033 0%, #ff6b35 30%, #ff0033 60%, #ff6b35 80%, #ff0033 100%)'
-          : currentTheme === 'light'
-          ? 'linear-gradient(90deg, #0066cc 0%, #0ea5e9 30%, #0066cc 60%, #06b6d4 80%, #0066cc 100%)'
-          : 'linear-gradient(90deg, #00d4ff 0%, #ff0033 30%, #00d4ff 60%, #00ff88 80%, #00d4ff 100%)';
-
-        // Sine wave: smoothly oscillate 0% → 100% → 0% over `duration` ms
-        const progress = (Math.sin((now / duration) * Math.PI * 2 - Math.PI / 2) + 1) / 2;
-
-        // Apply ALL gradient styles every frame — prevents React re-render
-        // from resetting backgroundPosition or backgroundClip mid-animation,
-        // and forces the iOS Safari repaint that background-clip:text needs.
-        el.style.background = gradient;
-        el.style.backgroundSize = '300% 100%';
-        el.style.backgroundPosition = `${progress * 100}% 50%`;
-        el.style.webkitBackgroundClip = 'text';
-        (el.style as unknown as Record<string, string>).backgroundClip = 'text';
-        el.style.webkitTextFillColor = 'transparent';
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-
-    const start = () => {
-      if (!running) {
-        running = true;
-        rafId = requestAnimationFrame(tick);
-      }
-    };
-    const stop = () => {
-      running = false;
-      cancelAnimationFrame(rafId);
-    };
-
-    gradientCtlRef.current = { start, stop };
-    start(); // Hero is the first viewport — visible on mount
-    return () => stop();
-  }, []);
-
-  // Single shared scroll subscription drives BOTH the Hero content fade AND
-  // the gradient animation lifecycle (run only while the Hero is on screen).
-  // No private scroll listener — this rides the global singleton.
-  useScrollProgress((progress, scrollY) => {
+  useScrollProgress((progress) => {
     const el = heroScrollRef.current;
-    if (el) {
-      const t = Math.min(progress / 0.7, 1);
-      const opacity = 1 - t;
-      const yShift = t * -120;
-      el.style.opacity = String(Math.max(opacity, 0));
-      el.style.transform = `translateY(${yShift}px)`;
-    }
-
-    if (scrollY > window.innerHeight * 1.2) gradientCtlRef.current.stop();
-    else gradientCtlRef.current.start();
+    if (!el) return;
+    const t = Math.min(progress / 0.7, 1);
+    el.style.opacity = String(Math.max(1 - t, 0));
+    el.style.transform = `translateY(${t * -120}px)`;
   });
 
   // --- Avatar glitch state ---
@@ -202,7 +132,7 @@ export default function Hero() {
 
         <div
           ref={heroScrollRef}
-          className="max-w-3xl w-full text-center relative z-10 will-change-transform"
+          className="max-w-4xl w-full text-center relative z-10 will-change-transform"
         >
           <motion.div
             variants={container}
@@ -212,7 +142,7 @@ export default function Hero() {
           >
             {/* Profile image - spinning conic gradient ring + float + glitch + dopamine tap */}
             {/* Ring uses REAL DOM elements (not CSS pseudo-elements) for iOS Safari compatibility */}
-            <motion.div variants={item} className="flex justify-center mb-14 sm:mb-12">
+            <motion.div variants={item} className="flex justify-center mb-5 sm:mb-8">
               <motion.div
                 className="relative"
                 onClick={handleAvatarTap}
@@ -254,11 +184,11 @@ export default function Hero() {
                 <img
                   src={avatarSrc}
                   alt={t.hero.name}
-                  width={160}
-                  height={160}
+                  width={176}
+                  height={176}
                   fetchPriority="high"
                   decoding="async"
-                  className={`relative z-10 w-32 h-32 sm:w-40 sm:h-40 rounded-full object-cover grayscale-[20%] transition-all duration-300 ${
+                  className={`hero-avatar relative z-10 rounded-full object-cover grayscale-[20%] transition-all duration-300 ${
                     avatarGlitch ? 'hero-avatar-glitch' : ''
                   }`}
                   style={{
@@ -272,88 +202,64 @@ export default function Hero() {
               </motion.div>
             </motion.div>
 
-            {/* Status badge */}
-            <motion.div variants={item} className="flex justify-center mb-10 sm:mb-8">
-              <div
-                className="inline-flex items-center gap-2 px-3 py-1 rounded-full font-mono text-[9px] sm:text-[10px] tracking-widest uppercase"
-                style={{
-                  border: `1px solid rgba(0,255,136,0.15)`,
-                  color: '#00ff88',
-                  background: 'rgba(0,255,136,0.04)',
-                }}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full status-dot"
-                  style={{ background: '#00ff88' }}
-                />
-                {t.hero.status}
-              </div>
+            <motion.div variants={item} className="hero-status-wrap flex justify-center mb-4 sm:mb-6">
+              <p className="chip-3d hero-status">{t.hero.status}</p>
             </motion.div>
 
-            {/* Name - gradient animated via raw rAF loop (CSS animations & WAAPI both fail on iOS Safari with background-clip:text) */}
-            {/* All gradient styles are managed inside the rAF tick — the style prop only sets initial clip */}
             <motion.h1
               variants={item}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08]"
+              className="hero-name"
+              data-text={firstName}
+              initial={transitioning ? { opacity: 0, y: -8, filter: 'blur(6px)' } : false}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             >
-              <motion.span
-                ref={(el: HTMLSpanElement | null) => { gradientRef.current = el; }}
-                className="inline-block"
-                style={{
-                  backgroundSize: '300% 100%',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                }}
-                initial={transitioning ? { opacity: 0, y: -10, filter: 'blur(6px)' } : false}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                transition={{
-                  opacity: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
-                  y: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
-                  filter: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
-                }}
-              >
-                {firstName}
-              </motion.span>
+              <span className="hero-name__first">{firstName}</span>
               {lastName && (
                 <>
                   <br />
-                  <motion.span
-                    className="text-text inline-block"
-                    initial={transitioning ? { opacity: 0, y: 10, filter: 'blur(6px)' } : false}
-                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                    transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    {lastName}
-                  </motion.span>
+                  <span className="hero-name__last">{lastName}</span>
                 </>
               )}
             </motion.h1>
 
-            {/* Title (scrambled) */}
-            <motion.p
-              variants={item}
-              className="font-mono text-xs sm:text-sm md:text-base mt-8 sm:mt-7 tracking-[0.2em] sm:tracking-[0.25em] uppercase"
-              style={{ color: `${accent}cc` }}
-            >
-              {scrambledTitle}
-            </motion.p>
+            <motion.div variants={item} className="hero-punch" aria-label={t.hero.punch.join(' ')}>
+              {t.hero.punch.map((word, i) => (
+                <button
+                  key={word}
+                  type="button"
+                  className={`hero-punch__word${armed === i ? ' is-live' : ''}`}
+                  style={{ '--ink': ['#00e5ff', '#ffe600', '#ff2a6d'][i % 3] } as CSSProperties}
+                  onPointerEnter={() => setArmed(i)}
+                  onPointerLeave={() => setArmed(null)}
+                  onClick={() => {
+                    setArmed(i);
+                    haptic('medium');
+                  }}
+                >
+                  {word}
+                </button>
+              ))}
+            </motion.div>
 
-            {/* Bio */}
-            {t.hero.bio && (
-              <motion.p
-                variants={item}
-                className="text-text-muted text-sm sm:text-base md:text-lg mt-8 sm:mt-6 max-w-xl mx-auto leading-relaxed px-2"
-              >
-                {t.hero.bio}
+            {t.hero.proofLine && (
+              <motion.p variants={item} className="proof-line">
+                {t.hero.proofLine}
               </motion.p>
             )}
 
-            {/* CTA row */}
             <motion.div
               variants={item}
-              className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-4 sm:gap-4 mt-14 sm:mt-12 w-full max-w-sm sm:max-w-none mx-auto"
+              className="hero-cta grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-3 mt-6 sm:mt-9 w-full max-w-sm sm:max-w-none mx-auto"
             >
+              <a
+                href="#contact"
+                className="btn-cyber btn-cyber--primary col-span-2 sm:col-span-1"
+                onClick={() => haptic('medium')}
+              >
+                <Send size={15} />
+                <span>{t.hero.contact}</span>
+              </a>
               <a
                 href="https://github.com/hkmodd"
                 target="_blank"
@@ -379,9 +285,9 @@ export default function Hero() {
             {/* Scroll indicator */}
             <motion.div
               variants={item}
-              className="mt-20 sm:mt-20 flex flex-col items-center gap-2"
+              className="hero-scroll-hint mt-10 sm:mt-14 flex flex-col items-center gap-2"
             >
-              <span className="font-mono text-[9px] sm:text-[10px] tracking-widest uppercase text-text-dim">
+              <span className="hero-scroll-label">
                 {t.hero.scroll}
               </span>
               <motion.div

@@ -21,4 +21,5 @@ Thumbs.db
 
 # Rust / WASM
 wasm/target/
-src/wasm/pkg/
+wasm/pkg/          # leftover wasm-pack default out-dir — unused
+src/wasm/pkg/      # live artifact, rebuilt by npm run build:wasm / CI

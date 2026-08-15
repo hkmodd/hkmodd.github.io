@@ -1,5 +1,5 @@
 import { useRef, type AnchorHTMLAttributes, type ReactNode, type PointerEvent, type MouseEvent } from 'react';
-import { playHoverTick } from '@/lib/audio';
+
 
 interface MagneticButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   children: ReactNode;
@@ -77,24 +77,21 @@ export default function MagneticButton({
       onPointerLeave={rest}
       onPointerCancel={rest}
       onPointerEnter={(e) => {
-        playHoverTick();
         onMouseEnter?.(e as unknown as MouseEvent<HTMLAnchorElement>);
       }}
       onClick={(e) => {
         e.stopPropagation();
         onClick?.(e);
       }}
-      className={`mag-btn relative overflow-hidden font-mono text-[10px] sm:text-xs tracking-widest uppercase flex items-center justify-center gap-1.5 px-5 py-2 rounded-full ${className}`}
+      className={`mag-btn relative font-mono text-[10px] sm:text-xs font-extrabold tracking-wider uppercase flex items-center justify-center gap-1.5 px-5 py-2 ${className}`}
       style={{
-        color: isPrimary ? '#fff' : accent,
-        border: `1px solid ${isPrimary ? accent : `${accent}40`}`,
-        background: isPrimary ? `${accent}40` : 'transparent',
-        boxShadow: isPrimary
-          ? `0 1px 0 rgba(255,255,255,0.25) inset, 0 6px 16px ${accent}30`
-          : `0 1px 0 rgba(255,255,255,0.08) inset, 0 4px 10px rgba(0,0,0,0.15)`,
-        textShadow: isPrimary ? '0 1px 4px rgba(0,0,0,0.8)' : 'none',
+        color: isPrimary ? '#0a0a0f' : accent,
+        border: `2px solid ${accent}`,
+        borderRadius: '2px 10px 3px 8px',
+        background: isPrimary ? accent : 'transparent',
+        boxShadow: `4px 4px 0 ${accent}`,
         transform: 'translateZ(0)',
-        transition: 'box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
+        transition: 'box-shadow 0.25s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
         ...style,
       }}
       {...props}

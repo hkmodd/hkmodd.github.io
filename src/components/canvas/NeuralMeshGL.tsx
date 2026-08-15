@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, useEffect, useState } from 'react';
+import { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import DprGovernor from '@/components/canvas/DprGovernor';
 import { useAppStore } from '@/store/useAppStore';
@@ -507,11 +507,13 @@ function NeuralMeshScene() {
 
 export default function NeuralMesh() {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const wasVisibleRef = useRef(true); // local guard against spamming the store
 
   const theme = useAppStore((s) => s.theme);
 
   // ── Scroll-synced fade ──
+  // Keep the GL context mounted across theme toggles. Light only zeros
+  // opacity + pauses the frameloop — unmounting left canvasVisible=false
+  // and a remounted wasVisibleRef that never wrote the store back to true.
   const applyFade = useCallback((progress: number) => {
     const el = wrapperRef.current;
     if (!el) return;
@@ -526,20 +528,26 @@ export default function NeuralMesh() {
     el.style.opacity = String(Math.max(opacity, 0));
     el.style.transform = `translateY(${yShift}px)`;
 
-    // Update global visibility state only when crossing the threshold
-    const isVisible = opacity > 0.01;
-    if (isVisible !== wasVisibleRef.current) {
-      wasVisibleRef.current = isVisible;
+    const isVisible = !isLightTheme && opacity > 0.01 && !document.hidden;
+    if (useAppStore.getState().canvasVisible !== isVisible) {
       useAppStore.getState().setCanvasVisible(isVisible);
     }
   }, []);
 
   useScrollProgress((progress) => applyFade(progress));
 
-  // Re-apply on theme flip (light theme forces baseOpacity 0).
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyFade(getScrollProgress());
   }, [theme, applyFade]);
+
+  useEffect(() => {
+    const sync = () => {
+      document.documentElement.classList.toggle('tab-hidden', document.hidden);
+      applyFade(getScrollProgress());
+    };
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, [applyFade]);
 
   const canvasVisible = useAppStore((s) => s.canvasVisible);
   const reducedMotion = useAppStore((s) => s.reducedMotion);
@@ -551,13 +559,12 @@ export default function NeuralMesh() {
   // Ghost mode: pure white canvas for light theme
   const canvasBg = theme === 'light' ? '#ffffff' : 'transparent';
 
-  // Completely disable 3D background if reduced motion is requested
   if (reducedMotion) return null;
 
   return (
     <div
       ref={wrapperRef}
-      className="fixed inset-0 z-0 pointer-events-none will-change-transform"
+      className="fixed inset-0 z-0 pointer-events-none"
     >
       <Canvas
         camera={{

@@ -13,7 +13,7 @@ export default function ScrambledTitle({ text, className, style }: ScrambledTitl
   const [isInView, setIsInView] = useState(false);
 
   useEffect(() => {
-    return observeIntersect(ref.current, setIsInView, { once: false, margin: '-50px' });
+    return observeIntersect(ref.current, setIsInView, { once: true, margin: '-50px' });
   }, []);
 
   const scrambled = useScrambleText(text, {

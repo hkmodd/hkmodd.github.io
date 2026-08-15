@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { playHoverTick } from '@/lib/audio';
+
 
 /* ═══════════════════════════════════════════════════════════════════
    CYBER CURSOR - ultra-sharp animated arrow cursor (desktop only)
@@ -109,24 +109,20 @@ export default function CyberCursor() {
     const onMouseDown = () => { clickingRef.current = true; startLoop(); };
     const onMouseUp = () => { clickingRef.current = false; startLoop(); };
 
+    const interactive = (el: EventTarget | null) => {
+      if (!(el instanceof Element)) return false;
+      return !!el.closest(
+        'a, button, [role="button"], [data-sfx], .holo-card, .dossier-card, .arsenal-card, .btn-cyber, .mag-btn, .cert-tile',
+      );
+    };
+
     const onMouseOver = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === 'A' ||
-        target.tagName === 'BUTTON' ||
-        target.closest('a') ||
-        target.closest('button') ||
-        target.closest('[role="button"]') ||
-        target.classList.contains('cursor-pointer')
-      ) {
-        if (!hoveringRef.current) playHoverTick();
-        hoveringRef.current = true;
-      }
+      hoveringRef.current = interactive(e.target);
       startLoop();
     };
 
-    const onMouseOut = () => {
-      hoveringRef.current = false;
+    const onMouseOut = (e: MouseEvent) => {
+      if (!interactive(e.relatedTarget)) hoveringRef.current = false;
       startLoop();
     };
 

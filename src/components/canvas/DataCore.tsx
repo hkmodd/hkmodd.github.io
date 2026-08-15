@@ -232,7 +232,7 @@ export default function DataCore() {
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
-      if (!visible) return;
+      if (!visible || document.hidden) return;
 
       const dt = Math.min(0.05, (now - t0) / 1000);
       t0 = now;

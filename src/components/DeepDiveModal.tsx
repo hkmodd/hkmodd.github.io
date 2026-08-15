@@ -1,7 +1,7 @@
 import { useEffect, cloneElement } from 'react';
 import { motion } from 'motion/react';
 import { X, ChevronRight, Activity } from 'lucide-react';
-import { playTypeTick } from '@/lib/audio';
+
 import { ARSENAL_DEEP_DIVE } from '@/data/arsenalDeepDive';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';

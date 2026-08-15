@@ -1,13 +1,14 @@
 import { memo } from 'react';
 import { motion } from 'motion/react';
-import { Star, GitFork, Loader2, Globe } from 'lucide-react';
+import { Star, GitFork, Loader2, Globe, ArrowUpRight } from 'lucide-react';
 import { useTranslation } from '@/i18n';
 import { useAppStore } from '@/store/useAppStore';
-import { playHoverTick } from '@/lib/audio';
-import ScrambledTitle from '@/components/ScrambledTitle';
+
+import { parseInlineMarkup } from '@/lib/parseInlineMarkup';
+import ZineTitle from '@/components/ZineTitle';
 import MagneticButton from '@/components/MagneticButton';
 import { useHolographicTilt } from '@/hooks/useHolographicTilt';
-import { useGitHubRepos, type GitHubRepo } from '@/hooks/useGitHubRepos';
+import { useGitHubRepos, FLAGSHIP_REPO, type GitHubRepo } from '@/hooks/useGitHubRepos';
 import { useReveal } from '@/hooks/useReveal';
 import Chip3D from '@/components/Chip3D';
 
@@ -57,7 +58,6 @@ const RepoCard = memo(function RepoCard({
       ref={tiltRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      onMouseEnter={playHoverTick}
       className="holo-card group flex flex-col relative"
       style={{ padding: '28px 26px 22px' }}
     >
@@ -74,6 +74,9 @@ const RepoCard = memo(function RepoCard({
           >
             {repo.name}
           </h3>
+          {repo.fork && (
+            <span className="repo-fork-mark">fork</span>
+          )}
         </div>
 
         {repo.stargazers_count > 0 && (
@@ -187,45 +190,125 @@ function RepoSkeleton({ idx }: { idx: number }) {
 function OpsHeader({
   loading,
   count,
-  accent,
   title,
+  syncing,
+  ready,
 }: {
   loading: boolean;
   count: number;
-  accent: string;
   title: string;
+  syncing: string;
+  ready: string;
 }) {
   const ref = useReveal<HTMLDivElement>({ duration: 0.6, y: 20 });
   return (
-    <div ref={ref} className="mb-24 relative z-10 text-center flex flex-col items-center">
+    <div ref={ref} className="mb-16 relative z-10 text-center flex flex-col items-center">
       <Chip3D>
         {loading ? (
           <>
-            <Loader2 size={12} className="animate-spin" style={{ color: accent }} />
-            <span className="text-xs font-mono tracking-widest text-text-dim uppercase">SYNCING GITHUB…</span>
+            <Loader2 size={12} className="animate-spin" />
+            <span>{syncing}</span>
           </>
         ) : (
-          <>
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{
-                background: '#00ff88',
-                boxShadow: '0 0 8px rgba(0, 255, 136, 0.4)',
-                animation: 'status-pulse 2s ease-in-out infinite',
-              }}
-            />
-            <span className="text-xs font-mono tracking-widest text-text-dim uppercase">{count} REPOS LIVE</span>
-          </>
+          <span>{count} {ready}</span>
         )}
       </Chip3D>
-      <h2
-        className="text-4xl md:text-6xl font-black font-mono tracking-tighter"
-        style={{ color: 'var(--color-text)' }}
-      >
-        <ScrambledTitle text={title} />
-      </h2>
-      <div className="h-[2px] mt-8 w-24 mx-auto" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
+      <ZineTitle text={title} />
     </div>
+  );
+}
+
+function FlagshipCard({
+  accent,
+  kicker,
+  title,
+  tags,
+  problem,
+  outcome,
+  cta,
+  url,
+  stars,
+}: {
+  accent: string;
+  kicker: string;
+  title: string;
+  tags: string;
+  problem: string;
+  outcome: string;
+  cta: string;
+  url: string;
+  stars?: number;
+}) {
+  const { ref: tiltRef, onMouseMove, onMouseLeave } = useHolographicTilt<HTMLDivElement>(8);
+  useReveal({ duration: 0.55, y: 28 }, tiltRef);
+
+  return (
+    <motion.div
+      ref={tiltRef}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      className="flagship holo-card relative z-10 mb-10"
+    >
+      <div className="card-shimmer z-0" />
+      <div className="flagship__grid relative z-10">
+        <div className="flagship__copy">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="flagship__kicker" style={{ color: accent }}>{kicker}</span>
+            {typeof stars === 'number' && stars > 0 && (
+              <span className="flex items-center gap-1 font-mono text-[11px]" style={{ color: '#ffd700' }}>
+                <Star size={12} fill="#ffd700" />
+                {stars}
+              </span>
+            )}
+          </div>
+          <h3 className="flagship__title">{title}</h3>
+          <span className="flagship__tags" style={{ color: `${accent}99` }}>{tags}</span>
+          <p className="flagship__problem">{parseInlineMarkup(problem, { color: accent })}</p>
+          <p className="flagship__outcome">{parseInlineMarkup(outcome, { color: accent })}</p>
+          <div className="mt-6">
+            <MagneticButton href={url} target="_blank" rel="noopener noreferrer" accent={accent} variant="primary">
+              <ArrowUpRight size={13} />
+              {cta.toUpperCase()}
+            </MagneticButton>
+          </div>
+        </div>
+        <div className="flagship__proto" aria-hidden>
+          <div className="flagship__proto-bar">
+            <span />
+            <span />
+            <span />
+            <em>context.xml</em>
+          </div>
+          <pre className="flagship__proto-body">
+            <span className="tok-c">{'// CONTEXT SERIALIZER'}</span>
+            {'\n'}
+            <span className="tok-k">repo</span>
+            <span className="tok-p">: </span>
+            <span className="tok-s">Projects-TO-LLMs</span>
+            {'\n'}
+            <span className="tok-k">engine</span>
+            <span className="tok-p">: </span>
+            <span className="tok-s">rust + tauri</span>
+            {'\n'}
+            <span className="tok-k">output</span>
+            <span className="tok-p">: </span>
+            <span className="tok-s">structured XML</span>
+            {'\n'}
+            <span className="tok-k">egress</span>
+            <span className="tok-p">: </span>
+            <span className="tok-s">none</span>
+            {'\n'}
+            <span className="tok-c">{'<repo>'}</span>
+            {'\n  '}
+            <span className="tok-c">{'<file path="src/lib.rs"/>'}</span>
+            {'\n  '}
+            <span className="tok-c">{'<file path="src/main.rs"/>'}</span>
+            {'\n'}
+            <span className="tok-c">{'</repo>'}</span>
+          </pre>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -236,8 +319,10 @@ export default function Operations() {
   const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
   const { repos, loading, error } = useGitHubRepos();
 
-  const webApps = repos.filter((r) => !!r.homepage);
-  const projects = repos.filter((r) => !r.homepage);
+  const flagshipRepo = repos.find((r) => r.name === FLAGSHIP_REPO);
+  const rest = repos.filter((r) => r.name !== FLAGSHIP_REPO);
+  const webApps = rest.filter((r) => !!r.homepage);
+  const projects = rest.filter((r) => !r.homepage);
 
   return (
     <section id="operations" className="py-24 px-6 max-w-6xl mx-auto relative">
@@ -247,7 +332,25 @@ export default function Operations() {
         style={{ top: '20%', left: '-10%' }}
       />
 
-      <OpsHeader loading={loading} count={repos.length} accent={accent} title={t.ops.title.toUpperCase()} />
+      <OpsHeader
+        loading={loading}
+        count={repos.length}
+        title={t.ops.title.toUpperCase()}
+        syncing={t.kicker.operationsLoading}
+        ready={t.kicker.operationsReady}
+      />
+
+      <FlagshipCard
+        accent={accent}
+        kicker={t.ops.flagship.kicker}
+        title={t.ops.flagship.title}
+        tags={t.ops.flagship.tags}
+        problem={t.ops.flagship.problem}
+        outcome={t.ops.flagship.outcome}
+        cta={t.ops.flagship.cta}
+        url={t.ops.flagship.url}
+        stars={flagshipRepo?.stargazers_count}
+      />
 
       {/* Error state */}
       {error && (
@@ -262,8 +365,8 @@ export default function Operations() {
       {/* Grid: Web Apps */}
       {webApps.length > 0 && (
         <div className="mb-16">
-          <h3 className="font-mono text-sm tracking-widest mb-6 opacity-60 flex items-center gap-2">
-            <Globe size={14} /> // LIVE WEB APPS
+          <h3 className="ops-subhead">
+            <Globe size={14} /> {t.ops.liveWebApps}
           </h3>
           <div
             className="card-grid grid relative z-10"
@@ -284,8 +387,8 @@ export default function Operations() {
       {/* Grid: Projects */}
       {projects.length > 0 && (
         <div>
-          <h3 className="font-mono text-sm tracking-widest mb-6 opacity-60 flex items-center gap-2">
-            <GitFork size={14} /> // OPEN SOURCE PROJECTS
+          <h3 className="ops-subhead">
+            <GitFork size={14} /> {t.ops.openSource}
           </h3>
           <div
             className="card-grid grid relative z-10"

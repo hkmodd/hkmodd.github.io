@@ -19,12 +19,26 @@ interface UseGitHubReposResult {
   error: string | null;
 }
 
-const CACHE_KEY = 'hkmodd_github_repos';
+const CACHE_KEY = 'hkmodd_github_repos_v4';
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+/** Site chrome + bootcamp/IG + calcologas. Forks stay: turboquant, MCP, recomp. */
+const HIDDEN = [
+  'hkmodd.github.io',
+  'hkmodd',
+  'calcologas',
+  'cs0724it',
+  'instafollows-ultimate',
+  'instastream-ultimate',
+  'inastream-ultimate',
+];
+
+export const FLAGSHIP_REPO = 'Projects-TO-LLMs';
 
 /**
  * Fetches public repos from GitHub API for user "hkmodd".
- * - Filters out forks, archived, and the portfolio repo itself
+ * - Drops only archived + the denylist above
+ * - Forks are kept (heavy downstream work is still the user's)
  * - Sorts by most recently updated
  * - Caches in sessionStorage to avoid rate limits
  */
@@ -68,16 +82,15 @@ export function useGitHubRepos(): UseGitHubReposResult {
 
         const raw: GitHubRepo[] = await res.json();
 
-        // Filter: no forks, no archived, no portfolio repo
         const filtered = raw
-          .filter((r) => !r.fork && !r.archived)
+          .filter((r) => !r.archived)
           .filter((r) => {
             const name = r.name.toLowerCase();
-            return (
-              name !== 'hkmodd.github.io' &&
-              name !== 'hkmodd' &&
-              name !== 'calcologas'
-            );
+            if (HIDDEN.includes(name)) return false;
+            if (name.startsWith('instafollows') || name.startsWith('instastream') || name.startsWith('inastream')) {
+              return false;
+            }
+            return true;
           })
           .sort(
             (a, b) =>

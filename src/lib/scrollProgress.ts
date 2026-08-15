@@ -64,5 +64,12 @@ export function subscribeScroll(listener: ScrollListener): () => void {
   listener(progress, scrollY);
   return () => {
     listeners.delete(listener);
+    if (listeners.size === 0 && attached && typeof window !== 'undefined') {
+      attached = false;
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      cancelAnimationFrame(rafId);
+      scheduled = false;
+    }
   };
 }

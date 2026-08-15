@@ -5,6 +5,7 @@ import { GithubIcon, LinkedinIcon } from '@/components/BrandIcons';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
 import { useReveal } from '@/hooks/useReveal';
+import { mailtoHref } from '@/lib/contact';
 
 const socials = [
   { icon: GithubIcon, href: 'https://github.com/hkmodd', label: 'GitHub' },
@@ -14,37 +15,31 @@ const socials = [
 
 function FooterCta({
   language,
-  accent,
   emailHref,
   onReveal,
 }: {
   language: string;
-  accent: string;
   emailHref: string;
-  onReveal: () => void;
+  onReveal: () => string;
 }) {
   const ref = useReveal<HTMLDivElement>({ duration: 0.5, y: 20 });
   return (
     <div ref={ref} className="text-center mb-10">
-      <p className="font-mono text-xs tracking-widest mb-3" style={{ color: 'var(--color-text-muted)' }}>
-        {language === 'it' ? 'INTERESSATO? PARLIAMONE.' : 'INTERESTED? LET\'S TALK.'}
+      <p className="chip-3d" style={{ marginBottom: '1rem' }}>
+        {language === 'it' ? 'Interessato? Parliamone.' : 'Interested? Let\'s talk.'}
       </p>
       <motion.a
         href={emailHref}
         onMouseEnter={onReveal}
         onFocus={onReveal}
-        className="inline-flex items-center gap-2 px-6 py-3 font-mono text-sm font-bold tracking-wider rounded-lg transition-all duration-300 cursor-pointer"
-        style={{
-          border: `1px solid ${accent}60`,
-          color: accent,
-          background: `${accent}08`,
+        onClick={(e) => {
+          if (emailHref === '#') {
+            e.preventDefault();
+            window.location.href = onReveal();
+          }
         }}
-        whileHover={{
-          scale: 1.05,
-          borderColor: accent,
-          background: `${accent}15`,
-          boxShadow: `0 0 30px ${accent}20`,
-        }}
+        className="btn-cyber btn-cyber--primary"
+        whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
       >
         <Send size={14} />
@@ -67,7 +62,7 @@ function SocialLink({
   idx: number;
   accent: string;
   Icon: ComponentType<{ size?: number }>;
-  onReveal?: () => void;
+  onReveal?: () => string;
 }) {
   const ref = useReveal<HTMLAnchorElement>({ delay: idx * 0.1, duration: 0.5, y: 8 });
   const isEmail = label === 'Email';
@@ -77,6 +72,13 @@ function SocialLink({
       href={href}
       onMouseEnter={onReveal}
       onFocus={onReveal}
+      onClick={(e) => {
+        if (isEmail && href === '#') {
+          e.preventDefault();
+          const next = onReveal?.();
+          if (next) window.location.href = next;
+        }
+      }}
       target={isEmail ? undefined : '_blank'}
       rel={isEmail ? undefined : 'noopener noreferrer'}
       className="p-2.5 rounded-lg transition-all duration-300 cursor-pointer"
@@ -105,9 +107,9 @@ export default function Footer() {
 
   const [emailHref, setEmailHref] = useState('#');
   const handleEmailReveal = () => {
-    if (emailHref === '#') {
-      setEmailHref('mailto:' + atob('c2ViYXN0aWFuby5nZWxtZXR0aUBnbWFpbC5jb20='));
-    }
+    const href = mailtoHref();
+    setEmailHref(href);
+    return href;
   };
 
   return (
@@ -115,7 +117,7 @@ export default function Footer() {
       <div className="footer-border-top" />
 
       <div className="max-w-6xl mx-auto px-6 py-12">
-        <FooterCta language={language} accent={accent} emailHref={emailHref} onReveal={handleEmailReveal} />
+        <FooterCta language={language} emailHref={emailHref} onReveal={handleEmailReveal} />
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="text-center md:text-left">

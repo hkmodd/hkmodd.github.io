@@ -27,8 +27,24 @@ export interface ProjectItem {
   status?: 'LIVE' | 'BETA' | 'ARCHIVED';
 }
 
+export interface FlagshipCopy {
+  kicker: string;
+  title: string;
+  tags: string;
+  problem: string;
+  outcome: string;
+  cta: string;
+  url: string;
+}
+
+export interface CertModuleCopy {
+  code: string;
+  title: string;
+  date: string;
+}
+
 export interface Translations {
-  boot: { lines: string[]; warming: string };
+  boot: { hint: string; hintTap: string };
   hero: {
     name: string;
     realName: string;
@@ -39,18 +55,57 @@ export interface Translations {
     github: string;
     linkedin: string;
     cv: string;
+    contact: string;
+    proofLine: string;
+    punch: string[];
+  };
+  kicker: {
+    arsenal: string;
+    operations: string;
+    operationsLoading: string;
+    operationsReady: string;
+    identity: string;
+    certs: string;
+    aiIntel: string;
+    terminal: string;
+    contact: string;
   };
   arsenal: {
     title: string;
+    groupLabels: {
+      recon: string;
+      defense: string;
+      engineering: string;
+      tooling: string;
+    };
     skills: SkillItem[];
   };
   ops: {
     title: string;
+    liveWebApps: string;
+    openSource: string;
+    flagship: FlagshipCopy;
     projects: ProjectItem[];
   };
   identity: {
     title: string;
     cards: DossierCard[];
+    certs: {
+      kicker: string;
+      title: string;
+      diplomaTitle: string;
+      diplomaMeta: string;
+      diplomaCta: string;
+      close: string;
+      modules: CertModuleCopy[];
+    };
+  };
+  contact: {
+    kicker: string;
+    title: string;
+    body: string;
+    cta: string;
+    location: string;
   };
   aiIntel: {
     title: string;
@@ -69,6 +124,7 @@ export interface Translations {
     operations: string;
     identity: string;
     terminal: string;
+    contact: string;
   };
   footer: {
     madeWith: string;
@@ -87,31 +143,45 @@ export interface Translations {
 
 const en: Translations = {
   boot: {
-    lines: [
-      'DARKCORE://INIT',
-      'Initializing encrypted session...',
-      'Loading defensive modules...',
-      'Establishing secure channel...',
-      'All systems operational.',
-      'ACCESS GRANTED',
-    ],
-    warming: 'Warming neural engine...',
+    hint: 'From the ground',
+    hintTap: 'Tap the bolt',
   },
 
   hero: {
     name: 'Sebastiano Gelmetti',
     realName: 'Sebastiano Gelmetti',
-    title: 'Security Researcher & Systems Engineer',
-    bio: '',
-    scroll: 'Scroll to explore',
-    status: 'OPEN TO OPPORTUNITIES',
+    title: 'LLM systems, orchestration, defense',
+    bio: 'I research how language models get built into real systems: context, tools, multi-agent harnesses, local and cloud runtimes. Twelve years on the metal, six hundred hours certified, Rust and Tauri in production.',
+    scroll: 'Keep going',
+    status: 'Open to new work',
     github: '⟨/⟩ GitHub',
     linkedin: 'in LinkedIn',
     cv: '↓ CV',
+    contact: 'Let\'s talk',
+    proofLine: '12 years  ·  600 hours Epicode  ·  10 modules  ·  diploma 2025',
+    punch: ['I build systems', 'not chats', 'not toys'],
+  },
+
+  kicker: {
+    arsenal: 'Craft',
+    operations: 'Selected work',
+    operationsLoading: 'Updating projects',
+    operationsReady: 'projects',
+    identity: 'About',
+    certs: 'On paper',
+    aiIntel: 'Research',
+    terminal: 'Playground',
+    contact: 'A coffee',
   },
 
   arsenal: {
     title: 'Arsenal',
+    groupLabels: {
+      recon: 'Analysis',
+      defense: 'Defense',
+      engineering: 'Engineering',
+      tooling: 'Tools',
+    },
     skills: [
       { name: 'Ghidra', level: 90, icon: 'ghidra', desc: 'Binary reverse engineering & malware analysis' },
       { name: 'Wireshark', level: 80, icon: 'wireshark', desc: 'Network protocol analysis & deep packet inspection' },
@@ -130,6 +200,17 @@ const en: Translations = {
 
   ops: {
     title: 'Operations',
+    liveWebApps: 'On the web',
+    openSource: 'Open source',
+    flagship: {
+      kicker: 'Flagship',
+      title: 'Projects-TO-LLMs',
+      tags: 'RUST / TAURI / AI',
+      problem: 'A blind LLM on a codebase is noise. You need <strong>structured context</strong>, not a file dump.',
+      outcome: 'Local Rust + Tauri pipeline that serializes entire repositories into contextual XML for LLMs. Memory-safe. <strong>Zero data leaves the machine.</strong>',
+      cta: 'Open repo',
+      url: 'https://github.com/hkmodd/Projects-TO-LLMs',
+    },
     projects: [
       {
         title: 'Projects-TO-LLMs',
@@ -178,46 +259,74 @@ const en: Translations = {
     title: 'Professional Profile',
     cards: [
       {
-        header: 'BACKGROUND // ORIGIN',
-        title: 'Security-First Since Day One',
-        body: "Exploring security since age 12: analyzing firmware, studying hardware protection mechanisms, understanding <em>how and why</em> systems fail. 12+ years of hands-on experience built a professional approach rooted in <strong>defense</strong>. I study vulnerabilities to prevent them — not to exploit them.",
+        header: 'Origins',
+        title: 'Security as a vocation',
+        body: "I've studied security since I was twelve: firmware, hardware protections, the exact moment a system gives way. Twelve years of practice built an approach rooted in <strong>defense</strong>. I learn how things break so they can hold.",
       },
       {
-        header: 'TRAINING // CERTIFICATIONS',
+        header: 'Training',
         title: 'Cybersecurity Specialist',
-        body: 'Formalized in <strong>2024</strong> with <strong>Epicode (+600h)</strong> Cybersecurity Specialist certification. Core competencies in Penetration Testing, Linux/Windows hardening, OWASP Top 10 mitigation, and Python automation. Integrating AI-augmented workflows to accelerate analysis and development, building tools that <strong>multiply defensive capabilities</strong>.',
+        body: 'Made formal in <strong>2024</strong> with the <strong>Epicode (+600h)</strong> Cybersecurity Specialist path. Penetration testing, Linux/Windows hardening, OWASP Top 10, Python automation. I fold AI into the workflow to move faster, and I build tools that <strong>multiply defensive reach</strong>.',
       },
       {
-        header: 'LEADERSHIP // EXPERIENCE',
-        title: 'Operational Reliability',
-        body: '3+ years of team management in high-pressure environments (Hospitality Management). Proven track record in resource coordination, rapid decision-making under stress, and maintaining operational integrity. Professional profile: <strong>reliable, methodical, results-driven.</strong>',
+        header: 'Experience',
+        title: 'Calm under pressure',
+        body: 'Three years leading teams in high-pressure hospitality. Coordination, fast calls, operational integrity kept intact. The working profile is simple: <strong>reliable, methodical, aimed at the result.</strong>',
       },
     ],
+    certs: {
+      kicker: 'Third-party proof',
+      title: 'Certifications',
+      diplomaTitle: 'Cybersecurity Specialist',
+      diplomaMeta: 'Epicode · CS0724IT · 19 February 2025 · +600h',
+      diplomaCta: 'Download PDF',
+      close: 'Close',
+      modules: [
+        { code: 'M0', title: 'Cybersecurity Basics', date: '03.11.2024' },
+        { code: 'M1', title: 'Ethical Hacking & Networking', date: '08.11.2024' },
+        { code: 'M2', title: 'Python & C', date: '15.11.2024' },
+        { code: 'M3', title: 'Ethical Hacking with Python', date: '22.11.2024' },
+        { code: 'M4', title: 'Assessment & Pentest', date: '06.12.2024' },
+        { code: 'M5', title: 'Web Apps & Exploit', date: '13.12.2024' },
+        { code: 'M6', title: 'Keylogger, Backdoor, Metasploit', date: '20.12.2024' },
+        { code: 'M7', title: 'SIEM, Log, SOC, Malware', date: '17.01.2025' },
+        { code: 'M8', title: 'Splunk, IAM, Windows', date: '24.01.2025' },
+        { code: 'M9', title: 'Remediation & Mitigation', date: '31.01.2025' },
+      ],
+    },
+  },
+
+  contact: {
+    kicker: 'Direct channel',
+    title: 'Contact',
+    body: 'Based in Garda. Open for research and roles in LLM systems, orchestration, and security.',
+    cta: 'Write me',
+    location: 'Garda, Italy',
   },
 
   aiIntel: {
-    title: 'AI Intelligence',
-    subtitle: 'Deep, hands-on experience integrating AI tooling into development workflows. Professional familiarity with models, toolchains, and enterprise-grade AI pipelines.',
+    title: 'LLM Systems',
+    subtitle: 'I research and build the layer around the model: context, tools, agents, runtimes. The names on the API change. The systems problems do not.',
     cards: [
       {
-        header: 'TOOLCHAIN // MASTERY',
-        title: 'AI-Augmented Development',
-        body: 'Advanced daily use of <strong>Antigravity (Gemini)</strong>, <strong>Cursor (Claude/GPT)</strong>, and <strong>GitHub Copilot</strong>. I integrate AI agents as pair-programming tools, not chatbots. I engineer custom prompts, system instructions, and multi-agent pipelines for complex codebases.',
+        header: 'Orchestration',
+        title: 'Agents as a system, not a chat',
+        body: 'I design <strong>multi-agent harnesses</strong>: tool-use, routing, memory, handoff, failure modes. The model is a component. The system is the work. Daily practice across IDE agents, local runtimes, and cloud endpoints, without pinning a version that will be stale next quarter.',
       },
       {
-        header: 'MODELS // KNOWLEDGE',
-        title: 'Closed & Open Source Models',
-        body: 'Deep knowledge of <strong>GPT-4o, Claude 3.5/4, Gemini 2.5 Pro</strong> (closed) and <strong>LLaMA 3, Mistral, DeepSeek, Qwen</strong> (open). I understand context windows, tokenization, fine-tuning, RAG architectures, and how to select the right model for each use case.',
+        header: 'Context',
+        title: 'What the model is allowed to see',
+        body: 'Context engineering is the job. I pack repositories, logs, and tools into <strong>structured, budgeted context</strong> (Projects-TO-LLMs). Retrieval, packing, eval, and the decision of what never enters the window. That is where quality actually lives.',
       },
       {
-        header: 'WORKFLOW // INTEGRATION',
-        title: 'Builder, Not Just User',
-        body: 'I build <strong>Rust + Tauri tools</strong> that convert entire codebases into LLM context (Projects-TO-LLMs). I design AI-augmented development workflows: automated code review, intelligent refactoring, security scanning with AI-driven triage. The difference between <em>using</em> AI and <em>engineering</em> with it.',
+        header: 'Runtime',
+        title: 'Frontier, open weights, on-device',
+        body: 'I move across <strong>closed APIs, open weights, and local inference</strong> as the problem requires. Quantization, VRAM, latency, and where the bytes are allowed to go. The point is choosing a runtime, not collecting a model zoo.',
       },
       {
-        header: 'SECURITY // AI',
-        title: 'AI in Cybersecurity',
-        body: 'Applying AI to <strong>threat detection</strong>, log analysis, and anomaly detection. Using LLMs to accelerate incident response, automate OSINT workflows, and generate detection rules. Understanding both the <strong>offensive potential</strong> and defensive applications of AI in security operations.',
+        header: 'Defense',
+        title: 'The same stack, pointed at security',
+        body: 'I apply that stack to <strong>detection, log triage, incident acceleration, OSINT</strong>. Same discipline: context, tools, eval. I understand how these systems fail, so they can be used to defend, not to decorate a resume.',
       },
     ],
   },
@@ -235,6 +344,7 @@ const en: Translations = {
     operations: 'Operations',
     identity: 'Profile',
     terminal: 'Terminal',
+    contact: 'Contact',
   },
 
   footer: {

@@ -24,15 +24,19 @@ const loadNeuralMesh = () => import('@/components/canvas/NeuralMesh');
 const loadArsenal = () => import('@/components/Arsenal');
 const loadOperations = () => import('@/components/Operations');
 const loadIdentity = () => import('@/components/Identity');
+const loadCertVault = () => import('@/components/CertVault');
 const loadAIIntel = () => import('@/components/AIIntel');
 const loadTerminal = () => import('@/components/Terminal');
+const loadContact = () => import('@/components/Contact');
 
 const NeuralMesh = lazy(loadNeuralMesh);
 const Arsenal = lazy(loadArsenal);
 const Operations = lazy(loadOperations);
 const Identity = lazy(loadIdentity);
+const CertVault = lazy(loadCertVault);
 const AIIntel = lazy(loadAIIntel);
 const Terminal = lazy(loadTerminal);
+const Contact = lazy(loadContact);
 
 export default function App() {
   const booted = useAppStore((s) => s.booted);
@@ -55,8 +59,9 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    if (reducedMotion || reducedData) useAppStore.getState().setEngineReady(true);
-  }, [reducedMotion, reducedData]);
+    // Lock screen is the gate. Engine compiles behind it; never block reveal.
+    useAppStore.getState().setEngineReady(true);
+  }, []);
 
   // Prefetch every section chunk during the boot window (idle time), so
   // the post-boot reveal mounts from cache with zero network/parse hitches.
@@ -65,8 +70,10 @@ export default function App() {
       loadArsenal();
       loadOperations();
       loadIdentity();
+      loadCertVault();
       loadAIIntel();
       loadTerminal();
+      loadContact();
     };
     const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
     if (ric) ric(prefetch);
@@ -154,12 +161,22 @@ export default function App() {
 
         <div className="section-divider" />
         <div data-snap>
+          <CertVault />
+        </div>
+
+        <div className="section-divider" />
+        <div data-snap>
           <AIIntel />
         </div>
 
         <div className="section-divider" />
         <div data-snap>
           <Terminal />
+        </div>
+
+        <div className="section-divider" />
+        <div data-snap>
+          <Contact />
         </div>
       </main>
 

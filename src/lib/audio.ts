@@ -1,148 +1,244 @@
 import { useAppStore } from '@/store/useAppStore';
 
-// Singleton AudioContext
-let audioCtx: AudioContext | null = null;
+/**
+ * One bus. One voice at a time per family.
+ * Hover used to fire 2–4 times: CyberCursor mouseover + card mouseenter
+ * + mouseout-on-child resetting the hover flag. That is gone.
+ */
 
-// Initialize on first user interaction to bypass browser autoplay policies
-const initAudio = () => {
-  if (!audioCtx) {
-    try {
-      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    } catch {
-      return null;
-    }
+let audioCtx: AudioContext | null = null;
+let master: GainNode | null = null;
+let busBound = false;
+
+const HOVER_GAP_MS = 70;
+const TYPE_GAP_MS = 36;
+
+let lastHoverAt = 0;
+let lastTypeAt = 0;
+
+const INTERACTIVE =
+  'a, button, [role="button"], [data-sfx], .holo-card, .dossier-card, .arsenal-card, .btn-cyber, .mag-btn, .cert-tile, .cert-diploma__frame, .chip-3d';
+
+function initAudio(): AudioContext | null {
+  if (audioCtx) return audioCtx;
+  try {
+    audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    master = audioCtx.createGain();
+    master.gain.value = 0.85;
+    master.connect(audioCtx.destination);
+  } catch {
+    return null;
   }
   return audioCtx;
-};
-
-// Eagerly unlock audio on first interaction (Crucial for iOS Safari / Mobile)
-const unlockAudio = () => {
-  try {
-    const ctx = initAudio();
-    if (!ctx) return;
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
-    // Play a silent buffer to truly unlock Safari's audio engine
-    const buffer = ctx.createBuffer(1, 1, 22050);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    source.start(0);
-
-    // Clean up listeners once unlocked
-    document.removeEventListener('touchstart', unlockAudio, true);
-    document.removeEventListener('pointerdown', unlockAudio, true);
-    document.removeEventListener('click', unlockAudio, true);
-  } catch (e) {
-    // Ignore errors
-  }
-};
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('touchstart', unlockAudio, { capture: true, passive: true });
-  document.addEventListener('pointerdown', unlockAudio, { capture: true, passive: true });
-  document.addEventListener('click', unlockAudio, { capture: true, passive: true });
 }
 
-// Safe play wrapper checking reducedMotion
-const playSynth = (callback: (ctx: AudioContext, masterGain: GainNode) => void) => {
+function dest(): AudioNode | null {
+  const ctx = initAudio();
+  return ctx && master ? master : null;
+}
+
+function muted(): boolean {
   const { reducedMotion, reducedData } = useAppStore.getState();
-  if (reducedMotion || reducedData) return;
-  
+  return reducedMotion || reducedData;
+}
+
+function envelope(gain: GainNode, t: number, peak: number, attack: number, hold: number, release: number) {
+  gain.gain.cancelScheduledValues(t);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + attack);
+  gain.gain.setValueAtTime(peak, t + attack + hold);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + hold + release);
+}
+
+function tone(
+  freq: number,
+  type: OscillatorType,
+  peak: number,
+  attack: number,
+  hold: number,
+  release: number,
+  opts?: { start?: number; slideTo?: number; filter?: number },
+) {
+  const ctx = initAudio();
+  const out = dest();
+  if (!ctx || !out) return;
+  const t = opts?.start ?? ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  if (opts?.slideTo) osc.frequency.exponentialRampToValueAtTime(opts.slideTo, t + attack + hold + release);
+
+  let node: AudioNode = osc;
+  if (opts?.filter) {
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(opts.filter, t);
+    osc.connect(lp);
+    node = lp;
+  }
+
+  node.connect(gain);
+  gain.connect(out);
+  envelope(gain, t, peak, attack, hold, release);
+  osc.start(t);
+  osc.stop(t + attack + hold + release + 0.02);
+}
+
+function noiseBurst(peak: number, dur: number, hp: number) {
+  const ctx = initAudio();
+  const out = dest();
+  if (!ctx || !out) return;
+  const t = ctx.currentTime;
+  const frames = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = hp;
+  const gain = ctx.createGain();
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(out);
+  envelope(gain, t, peak, 0.002, 0.004, dur);
+  src.start(t);
+  src.stop(t + dur + 0.02);
+}
+
+const unlockAudio = () => {
   const ctx = initAudio();
   if (!ctx) return;
-  
-  // If we are still suspended (e.g. BootScreen played without interaction), try to resume
-  // It might fail on mobile, but that's expected and avoids throwing errors.
-  if (ctx.state === 'suspended') {
-    ctx.resume().catch(() => {});
-  }
-  const masterGain = ctx.createGain();
-  masterGain.connect(ctx.destination);
-  callback(ctx, masterGain);
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  document.removeEventListener('pointerdown', unlockAudio, true);
 };
 
-// 1. Hover Tick - A very short, high frequency ping
-export const playHoverTick = () => {
-  playSynth((ctx, masterGain) => {
-    masterGain.gain.value = 0.015; // Very low volume
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1200, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1800, ctx.currentTime + 0.03);
-    
-    osc.connect(masterGain);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.03);
-  });
-};
+function interactiveRoot(el: EventTarget | null): HTMLElement | null {
+  if (!(el instanceof Element)) return null;
+  return el.closest(INTERACTIVE);
+}
 
-// 2. Boot Sequence - A rising techy chord
-export const playBootSequence = () => {
-  playSynth((ctx, masterGain) => {
-    masterGain.gain.value = 0.04;
-    
-    // Play 3 rapid chords
-    [220, 330, 440].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
-      
-      const oscGain = ctx.createGain();
-      oscGain.gain.setValueAtTime(0, ctx.currentTime + i * 0.15);
-      oscGain.gain.linearRampToValueAtTime(1, ctx.currentTime + i * 0.15 + 0.05);
-      oscGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.3);
-      
-      osc.connect(oscGain);
-      oscGain.connect(masterGain);
-      
-      osc.start(ctx.currentTime + i * 0.15);
-      osc.stop(ctx.currentTime + i * 0.15 + 0.3);
+/** Entering an interactive from outside that same root — never from a child. */
+function bindUiBus() {
+  if (busBound || typeof document === 'undefined') return;
+  busBound = true;
+
+  document.addEventListener('pointerdown', unlockAudio, { capture: true, passive: true });
+
+  document.addEventListener(
+    'pointerover',
+    (e) => {
+      const next = interactiveRoot(e.target);
+      if (!next) return;
+      const prev = interactiveRoot(e.relatedTarget);
+      if (prev === next) return;
+      sfx.hover();
+    },
+    { passive: true },
+  );
+
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (e.button !== 0) return;
+      if (!interactiveRoot(e.target)) return;
+      sfx.confirm();
+    },
+    { passive: true },
+  );
+}
+
+export const sfx = {
+  hover() {
+    if (muted()) return;
+    const t = performance.now();
+    if (t - lastHoverAt < HOVER_GAP_MS) return;
+    lastHoverAt = t;
+    // PS2 XMB highlight: dry click + a short rising triangle.
+    noiseBurst(0.028, 0.012, 1800);
+    tone(880, 'triangle', 0.045, 0.004, 0.012, 0.055, { slideTo: 1320, filter: 3200 });
+  },
+
+  confirm() {
+    if (muted()) return;
+    const ctx = initAudio();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    // Two-note select, same family as the hover, just fuller.
+    noiseBurst(0.02, 0.01, 1200);
+    tone(392, 'triangle', 0.055, 0.006, 0.03, 0.08, { start: t, filter: 2400 });
+    tone(523.25, 'triangle', 0.05, 0.006, 0.04, 0.1, { start: t + 0.045, filter: 2800 });
+  },
+
+  open() {
+    if (muted()) return;
+    const ctx = initAudio();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    tone(220, 'triangle', 0.04, 0.01, 0.04, 0.14, { start: t, slideTo: 440, filter: 2000 });
+    tone(330, 'sine', 0.03, 0.02, 0.05, 0.16, { start: t + 0.04, filter: 1800 });
+  },
+
+  close() {
+    if (muted()) return;
+    const ctx = initAudio();
+    if (!ctx) return;
+    tone(520, 'triangle', 0.035, 0.006, 0.02, 0.1, { slideTo: 196, filter: 1600 });
+  },
+
+  type() {
+    if (muted()) return;
+    const t = performance.now();
+    if (t - lastTypeAt < TYPE_GAP_MS) return;
+    lastTypeAt = t;
+    noiseBurst(0.012, 0.008, 2400);
+  },
+
+  boot() {
+    if (muted()) return;
+    const ctx = initAudio();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [196, 247, 330, 392].forEach((freq, i) => {
+      tone(freq, 'triangle', 0.035, 0.02, 0.06, 0.22, {
+        start: t + i * 0.11,
+        filter: 1800,
+      });
     });
-  });
-};
+  },
 
-// 3. Glitch / Red Team Transition - Aggressive, distorted drop
-export const playGlitchDistortion = () => {
-  playSynth((ctx, masterGain) => {
-    masterGain.gain.value = 0.06;
-    
+  glitch() {
+    if (muted()) return;
+    const ctx = initAudio();
+    const out = dest();
+    if (!ctx || !out) return;
+    const t = ctx.currentTime;
     const osc = ctx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(100, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(10, ctx.currentTime + 0.5);
-    
-    // Simple distortion curve
-    const waveShaper = ctx.createWaveShaper();
-    const curve = new Float32Array(4096);
-    for (let i = 0; i < 4096; i++) {
-      const x = (i * 2) / 4096 - 1;
-      curve[i] = (3 + 20) * x * 20 * (Math.PI / 180) / (Math.PI + 20 * Math.abs(x));
+    const gain = ctx.createGain();
+    const shaper = ctx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i / 128) - 1;
+      curve[i] = Math.tanh(x * 6);
     }
-    waveShaper.curve = curve;
-    waveShaper.oversample = '4x';
-    
-    osc.connect(waveShaper);
-    waveShaper.connect(masterGain);
-    
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
-  });
+    shaper.curve = curve;
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(28, t + 0.42);
+    osc.connect(shaper);
+    shaper.connect(gain);
+    gain.connect(out);
+    envelope(gain, t, 0.07, 0.008, 0.08, 0.34);
+    osc.start(t);
+    osc.stop(t + 0.45);
+  },
 };
 
-// 4. Typing Tick for ScrambleText
-export const playTypeTick = () => {
-  playSynth((ctx, masterGain) => {
-    masterGain.gain.value = 0.005; // Even quieter
-    const osc = ctx.createOscillator();
-    osc.type = 'square';
-    // Randomize frequency slightly for mechanical feel
-    const freq = 600 + Math.random() * 200;
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    
-    osc.connect(masterGain);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.015);
-  });
-};
+export const playHoverTick = () => sfx.hover();
+export const playTypeTick = () => sfx.type();
+export const playBootSequence = () => sfx.boot();
+export const playGlitchDistortion = () => sfx.glitch();
+
+if (typeof document !== 'undefined') bindUiBus();

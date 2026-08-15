@@ -16,6 +16,8 @@ const UP_COOLDOWN   = 300;    // shorter cooldown for scrolling up
 const MIN_DELTA     = 25;     // ignore tiny trackpad noise
 const RAPID_WINDOW  = 1200;   // ms window for detecting rapid scroll intent
 const RAPID_COUNT   = 3;      // wheel-up ticks within window → jump to top
+const EDGE_PX       = 72;     // leftover inside a tall section before we snap away
+const PAGE_RATIO    = 0.86;   // intra-section page size, as a fraction of the viewport
 
 export function useSnapScroll() {
   const currentIdx    = useRef(0);
@@ -32,24 +34,50 @@ export function useSnapScroll() {
   }, [getTargets]);
 
   /**
-   * Sync currentIdx from actual scroll position.
-   * Called on mount and after natural scrolling (no snap lock).
+   * Which snap range contains the viewport probe — not "nearest top".
+   * Tall sections (Operations, Certs) would otherwise lose the index
+   * as soon as the next heading entered the upper third of the screen.
    */
   const syncIndex = useCallback((targets: HTMLElement[]) => {
-    const scrollY = window.scrollY;
-    const vh = window.innerHeight;
+    if (targets.length === 0) return;
+    const probe = window.scrollY + window.innerHeight * 0.35;
     let best = 0;
-    let bestDist = Infinity;
-
     for (let i = 0; i < targets.length; i++) {
-      const top = targets[i].getBoundingClientRect().top + scrollY;
-      const dist = Math.abs(top - scrollY - vh * 0.3);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = i;
+      const top = targets[i].getBoundingClientRect().top + window.scrollY;
+      const next = i + 1 < targets.length
+        ? targets[i + 1].getBoundingClientRect().top + window.scrollY
+        : Number.POSITIVE_INFINITY;
+      if (probe >= top && probe < next) {
+        currentIdx.current = i;
+        return;
       }
+      if (probe >= top) best = i;
     }
     currentIdx.current = best;
+  }, []);
+
+  /** Page inside a tall snap target instead of jumping to the next one. */
+  const pageInside = useCallback((el: HTMLElement, direction: 1 | -1, cooldown: number): boolean => {
+    const rect = el.getBoundingClientRect();
+    if (direction === 1) {
+      const leftover = rect.bottom - window.innerHeight;
+      if (leftover <= EDGE_PX) return false;
+      snapLock.current = true;
+      window.scrollBy({
+        top: Math.min(window.innerHeight * PAGE_RATIO, leftover),
+        behavior: 'smooth',
+      });
+      setTimeout(() => { snapLock.current = false; }, cooldown);
+      return true;
+    }
+    if (rect.top >= -EDGE_PX) return false;
+    snapLock.current = true;
+    window.scrollBy({
+      top: -Math.min(window.innerHeight * PAGE_RATIO, -rect.top),
+      behavior: 'smooth',
+    });
+    setTimeout(() => { snapLock.current = false; }, cooldown);
+    return true;
   }, []);
 
   const snapTo = useCallback((targets: HTMLElement[], idx: number, cooldown = COOLDOWN_MS) => {
@@ -78,9 +106,15 @@ export function useSnapScroll() {
     updateTargets();
     if (cachedTargets.current.length === 0) return;
 
-    // Use MutationObserver to update targets if DOM changes (e.g. BootScreen unmounts, main content mounts)
-    const observer = new MutationObserver(() => updateTargets());
+    // Watch only until the post-lock section list is populated.
+    // Observing document.body subtree forever re-walked the DOM on every
+    // motion/class tick — after boot the snap set is stable.
+    const observer = new MutationObserver(() => {
+      updateTargets();
+      if (cachedTargets.current.length >= 6) observer.disconnect();
+    });
     observer.observe(document.body, { childList: true, subtree: true });
+    if (cachedTargets.current.length >= 6) observer.disconnect();
 
     // Initialize index from current scroll position
     syncIndex(cachedTargets.current);
@@ -117,13 +151,15 @@ export function useSnapScroll() {
           return;
         }
 
-        // Normal single up-scroll with shorter cooldown
+        const current = freshTargets[currentIdx.current];
+        if (current && pageInside(current, -1, UP_COOLDOWN)) return;
         const nextIdx = currentIdx.current - 1;
         if (nextIdx < 0) return;
         snapTo(freshTargets, nextIdx, UP_COOLDOWN);
       } else {
-        // ── SCROLLING DOWN: normal one-section snap ──
-        upTicks.current = []; // reset up-counter
+        upTicks.current = [];
+        const current = freshTargets[currentIdx.current];
+        if (current && pageInside(current, 1, COOLDOWN_MS)) return;
         const nextIdx = currentIdx.current + 1;
         if (nextIdx >= freshTargets.length) return;
         snapTo(freshTargets, nextIdx);
@@ -159,10 +195,12 @@ export function useSnapScroll() {
 
       if (snapLock.current) return;
 
+      const cd = direction === -1 ? UP_COOLDOWN : COOLDOWN_MS;
+      const current = freshTargets[currentIdx.current];
+      if (current && pageInside(current, direction as 1 | -1, cd)) return;
+
       const nextIdx = currentIdx.current + direction;
       if (nextIdx < 0 || nextIdx >= freshTargets.length) return;
-
-      const cd = direction === -1 ? UP_COOLDOWN : COOLDOWN_MS;
       snapTo(freshTargets, nextIdx, cd);
     };
 
@@ -190,5 +228,5 @@ export function useSnapScroll() {
       window.removeEventListener('scroll', handleScroll);
       observer.disconnect();
     };
-  }, [getTargets, syncIndex, snapTo]);
+  }, [getTargets, syncIndex, snapTo, pageInside]);
 }

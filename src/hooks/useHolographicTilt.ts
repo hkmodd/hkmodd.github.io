@@ -8,7 +8,7 @@ import { useRef, useCallback, useEffect, type RefObject } from 'react';
  *            with rAF throttling for smooth 60fps tilt.
  */
 export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
-  intensity: number = 15
+  intensity: number = 7
 ): {
   ref: RefObject<T | null>;
   onMouseMove: (e: React.MouseEvent) => void;
@@ -32,7 +32,7 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
       const rotateX = (y - 0.5) * -intensity;
       const rotateY = (x - 0.5) * intensity;
 
-      el.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03)`;
+      el.style.transform = `perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.012, 1.012, 1.012)`;
       el.style.setProperty('--mouse-x', `${x * 100}%`);
       el.style.setProperty('--mouse-y', `${y * 100}%`);
       el.dataset.tilting = '';
@@ -46,7 +46,7 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
     if (!el || !activeRef.current) return;
     cancelAnimationFrame(rafId.current);
     el.style.transform =
-      'perspective(900px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+      'perspective(1200px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
     delete el.dataset.tilting;
     activeRef.current = false;
     rectCache.current = null;
@@ -54,27 +54,38 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
 
   /* ── Desktop handlers ─────────────────────────────────────── */
   const onMouseMove = useCallback(
-    (e: React.MouseEvent) => applyTilt(e.clientX, e.clientY),
+    (e: React.MouseEvent) => {
+      const el = ref.current;
+      if (!el) return;
+      if (!rectCache.current) {
+        rectCache.current = el.getBoundingClientRect();
+        el.style.willChange = 'transform';
+      }
+      const x = e.clientX;
+      const y = e.clientY;
+      cancelAnimationFrame(rafId.current);
+      rafId.current = requestAnimationFrame(() => applyTilt(x, y, rectCache.current ?? undefined));
+    },
     [applyTilt]
   );
 
-  const onMouseLeave = useCallback(() => resetTilt(), [resetTilt]);
+  const onMouseLeave = useCallback(() => {
+    resetTilt();
+    if (ref.current) ref.current.style.willChange = '';
+  }, [resetTilt]);
 
   /* ── Mobile: element-scoped touch listeners ────────────────
-     Uses touchstart to cache getBoundingClientRect() once, then
-     touchmove uses the cached rect via rAF — zero layout thrash,
-     max one paint per frame. Reduced intensity (0.6x) for touch. */
+     Desktop skips this entirely — permanent will-change on every
+     card was promoting 20+ layers for a hover that never fires. */
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (!window.matchMedia('(pointer: coarse)').matches) return;
 
-    const touchIntensity = 0.6; // softer tilt on mobile
-
-    // GPU hint for smooth compositing
-    el.style.willChange = 'transform';
+    const touchIntensity = 0.6;
 
     const onTouchStart = (e: TouchEvent) => {
-      // Cache rect once at touch start — avoids reflow on every move
+      el.style.willChange = 'transform';
       rectCache.current = el.getBoundingClientRect();
       const touch = e.touches[0];
       if (touch && rectCache.current) {
@@ -109,7 +120,7 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
           const rotX = (ry - 0.5) * -intensity * touchIntensity;
           const rotY = (rx - 0.5) * intensity * touchIntensity;
 
-          el.style.transform = `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale3d(1.03, 1.03, 1.03)`;
+          el.style.transform = `perspective(1200px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale3d(1.012, 1.012, 1.012)`;
           el.style.setProperty('--mouse-x', `${rx * 100}%`);
           el.style.setProperty('--mouse-y', `${ry * 100}%`);
           el.dataset.tilting = '';

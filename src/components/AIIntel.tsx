@@ -1,23 +1,21 @@
+import { type CSSProperties } from 'react';
 import { Brain, Cpu, Bot, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
 import { parseInlineMarkup } from '@/lib/parseInlineMarkup';
-import { playHoverTick } from '@/lib/audio';
-import ScrambledTitle from '@/components/ScrambledTitle';
+
+import ZineTitle from '@/components/ZineTitle';
 import DataCore from '@/components/canvas/DataCore';
 import { useReveal } from '@/hooks/useReveal';
+import Chip3D from '@/components/Chip3D';
 
-function AIHeader({ accent, title, subtitle }: { accent: string; title: string; subtitle: string }) {
+function AIHeader({ title, subtitle, kicker }: { title: string; subtitle: string; kicker: string }) {
   const ref = useReveal<HTMLDivElement>({ duration: 0.6, y: 20, margin: '-80px' });
   return (
-    <div ref={ref} className="text-center mb-8 sm:mb-14">
-      <h2
-        className="section-heading text-3xl sm:text-4xl font-black tracking-tight"
-        style={{ color: accent }}
-      >
-        <ScrambledTitle text={title} />
-      </h2>
-      <p className="mt-4 text-text-muted text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+    <div ref={ref} className="text-center mb-8 sm:mb-14 flex flex-col items-center">
+      <Chip3D>{kicker}</Chip3D>
+      <ZineTitle text={title.toUpperCase()} />
+      <p className="mt-6 text-text-muted text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
         {subtitle}
       </p>
     </div>
@@ -46,8 +44,8 @@ function IntelCard({
     <div
       ref={ref}
       className="dossier-card group"
-      onMouseEnter={playHoverTick}
-      style={{ borderColor: `${accent}15` }}
+
+      style={{ '--ink': ['#00e5ff', '#ff2a6d', '#ffe600', '#39ff14'][idx % 4] } as CSSProperties}
     >
       <div className="flex items-center gap-2.5 sm:gap-3 mb-2 sm:mb-3">
         <div
@@ -60,10 +58,7 @@ function IntelCard({
           <Icon size={14} className="sm:hidden" style={{ color: accent }} />
           <Icon size={16} className="hidden sm:block" style={{ color: accent }} />
         </div>
-        <span
-          className="font-mono text-[10px] tracking-[0.2em] uppercase"
-          style={{ color: `${accent}99` }}
-        >
+        <span className="dossier-card__kicker" style={{ marginBottom: 0 }}>
           {header}
         </span>
       </div>
@@ -97,7 +92,7 @@ export default function AIIntel() {
       />
 
       <div className="max-w-5xl mx-auto relative z-10">
-        <AIHeader accent={accent} title={t.aiIntel.title} subtitle={t.aiIntel.subtitle} />
+        <AIHeader title={t.aiIntel.title} subtitle={t.aiIntel.subtitle} kicker={t.kicker.aiIntel} />
 
         <div className="mb-6 sm:mb-10">
           <DataCore />
