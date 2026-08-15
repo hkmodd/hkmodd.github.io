@@ -17,7 +17,7 @@ const it: Translations = {
     linkedin: 'in LinkedIn',
     cv: '↓ CV',
     contact: 'Parliamone',
-    proofLine: '12 anni  ·  600 ore Epicode  ·  10 moduli  ·  diploma 2025',
+    proofLine: '12 anni di sicurezza · 600h Epicode · diploma 2025',
     punch: ['Costruisco sistemi', 'non chat', 'non giocattoli'],
   },
 

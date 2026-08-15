@@ -11,6 +11,8 @@ import * as THREE from 'three';
 
 // Device-tier simulation size, chosen once at load.
 const SIM = getSimQuality();
+const IS_COARSE =
+  typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
 /* ═══════════════════════════════════════════════════════════════════
    NEURAL MESH v4 — Rust/WASM simulation, now off the main thread.
@@ -450,11 +452,13 @@ function NeuralMeshScene() {
 
   return (
     <>
-      {/* Invisible hit-test plane for pointer tracking */}
-      <mesh visible={false} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
-        <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial />
-      </mesh>
+      {/* Desktop only — R3F hit plane + canvas events steal the mobile pan. */}
+      {!IS_COARSE && (
+        <mesh visible={false} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
+          <planeGeometry args={[100, 100]} />
+          <meshBasicMaterial />
+        </mesh>
+      )}
 
       {/* Deep background fog plane */}
       <DepthFog />
@@ -564,7 +568,7 @@ export default function NeuralMesh() {
   return (
     <div
       ref={wrapperRef}
-      className="fixed inset-0 z-0 pointer-events-none"
+      className="neural-canvas fixed inset-0 z-0 pointer-events-none"
     >
       <Canvas
         camera={{
@@ -583,7 +587,7 @@ export default function NeuralMesh() {
           stencil: false,
           depth: true,
         }}
-        style={{ background: canvasBg, pointerEvents: 'auto' }}
+        style={{ background: canvasBg, pointerEvents: IS_COARSE ? 'none' : 'auto', touchAction: 'pan-y' }}
         frameloop={canvasVisible ? 'always' : 'demand'}
       >
         {/* Self-tuning quality: keep FPS pinned to the display by trading

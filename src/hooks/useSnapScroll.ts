@@ -99,9 +99,9 @@ export function useSnapScroll() {
   }, []);
 
   useEffect(() => {
-    // Desktop-only: skip on actual touch devices
-    const isTouchPrimary = matchMedia('(pointer: coarse)').matches && window.innerWidth < 768;
-    if (isTouchPrimary) return;
+    // Desktop-only. Any coarse pointer (phone, tablet, landscape) keeps
+    // native pan — width checks used to re-enable snap on big phones.
+    if (matchMedia('(pointer: coarse)').matches) return;
 
     updateTargets();
     if (cachedTargets.current.length === 0) return;

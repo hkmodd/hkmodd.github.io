@@ -144,7 +144,7 @@ export default function Hero() {
             {/* Ring uses REAL DOM elements (not CSS pseudo-elements) for iOS Safari compatibility */}
             <motion.div variants={item} className="flex justify-center mb-5 sm:mb-8">
               <motion.div
-                className="relative"
+                className="relative hero-avatar-wrap"
                 onClick={handleAvatarTap}
                 style={{ cursor: isMobileRef.current ? 'pointer' : 'default', borderRadius: '50%' }}
                 initial={{ scale: 1 }}

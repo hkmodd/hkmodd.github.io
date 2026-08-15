@@ -87,6 +87,8 @@ const CELL_SIZE = (2 * GRID_HALF) / GRID_DIM;
 const TAN_HALF_FOV = Math.tan((55 * Math.PI) / 180 / 2);
 
 const tmpColor = new THREE.Color();
+const IS_COARSE =
+  typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
 function themeHex(theme: string): string {
   return theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
@@ -602,10 +604,12 @@ function NeuralMeshGPUScene() {
 
   return (
     <>
-      <mesh visible={false} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
-        <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial />
-      </mesh>
+      {!IS_COARSE && (
+        <mesh visible={false} position={[0, 0, 0]} onPointerMove={handlePointerMove}>
+          <planeGeometry args={[100, 100]} />
+          <meshBasicMaterial />
+        </mesh>
+      )}
 
       <DepthFog />
 
@@ -674,7 +678,7 @@ export default function NeuralMeshGPU() {
   if (reducedMotion) return null;
 
   return (
-    <div ref={wrapperRef} className="fixed inset-0 z-0 pointer-events-none">
+    <div ref={wrapperRef} className="neural-canvas fixed inset-0 z-0 pointer-events-none">
       <Canvas
         camera={{ position: [0, 0, 10], fov: 55, near: 0.1, far: 50 }}
         dpr={dpr}
@@ -699,7 +703,7 @@ export default function NeuralMeshGPU() {
           }
           return renderer;
         }}
-        style={{ background: canvasBg, pointerEvents: 'auto' }}
+        style={{ background: canvasBg, pointerEvents: IS_COARSE ? 'none' : 'auto', touchAction: 'pan-y' }}
         frameloop={canvasVisible ? 'always' : 'demand'}
         onCreated={({ gl: renderer, scene, camera }) => {
           // Warm every render pipeline while the boot screen still covers

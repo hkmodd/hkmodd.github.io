@@ -158,7 +158,7 @@ const en: Translations = {
     linkedin: 'in LinkedIn',
     cv: '↓ CV',
     contact: 'Let\'s talk',
-    proofLine: '12 years  ·  600 hours Epicode  ·  10 modules  ·  diploma 2025',
+    proofLine: '12 years in security · 600h Epicode · diploma 2025',
     punch: ['I build systems', 'not chats', 'not toys'],
   },
 
