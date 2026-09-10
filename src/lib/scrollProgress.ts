@@ -19,6 +19,40 @@ let rafId = 0;
 let scheduled = false;
 let attached = false;
 
+/* ── Viewport-height cache ──────────────────────────────────────────
+   The neural mesh pulls getScrollProgress() once per rendered frame, so
+   `window.innerHeight` was being read ~120x/second. That read flushes
+   pending layout whenever the frame dirtied style — a forced synchronous
+   layout on the hot path, for a number that only changes on resize.
+
+   Cache it and mark it dirty from resize/orientation instead. The flag
+   (rather than a re-read inside the listener) keeps this correct no matter
+   which resize listener the browser dispatches first.
+   ────────────────────────────────────────────────────────────────── */
+let vh = 0;
+let vhDirty = true;
+let vhAttached = false;
+
+function invalidateVh() {
+  vhDirty = true;
+}
+
+function readVh(): number {
+  if (!vhAttached) {
+    vhAttached = true;
+    window.addEventListener('resize', invalidateVh, { passive: true });
+    window.addEventListener('orientationchange', invalidateVh, { passive: true });
+    // Mobile URL-bar collapse resizes the visual viewport without a
+    // window `resize` in some engines.
+    window.visualViewport?.addEventListener('resize', invalidateVh, { passive: true });
+  }
+  if (vhDirty) {
+    vh = window.innerHeight || 1;
+    vhDirty = false;
+  }
+  return vh;
+}
+
 /** Current viewport progress (0 at top → 1 after one full viewport scrolled). */
 export function getScrollProgress(): number {
   return compute().progress;
@@ -27,8 +61,7 @@ export function getScrollProgress(): number {
 function compute(): { progress: number; scrollY: number } {
   if (typeof window === 'undefined') return { progress: 0, scrollY: 0 };
   const scrollY = window.scrollY;
-  const vh = window.innerHeight || 1;
-  return { scrollY, progress: Math.min(scrollY / vh, 1) };
+  return { scrollY, progress: Math.min(scrollY / readVh(), 1) };
 }
 
 function flush() {
@@ -50,6 +83,8 @@ function ensureAttached() {
   attached = true;
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll, { passive: true });
+  // Prime the cache (and its invalidation listeners) up front.
+  readVh();
 }
 
 /**

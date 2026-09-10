@@ -2275,6 +2275,92 @@ html.gecko * {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   SCROLL-DRIVEN CHOREOGRAPHY — compositor-owned, zero JS on scroll
+
+   These two used to be JS: Hero wrote opacity/transform from a shared
+   scroll listener, and BackToTop pushed a setState (plus an AnimatePresence
+   mount) through React every time it crossed 80vh. Both are pure functions
+   of scroll offset, so both belong on a scroll timeline where the compositor
+   runs them off the main thread.
+
+   `[data-scroll-driven]` is set by the component ONLY when
+   `supportsScrollTimeline` (lib/runtime.ts) is true — one capability check,
+   Gecko excluded, so an element never carries both drivers at once. Elements
+   without the attribute keep the JS fallback verbatim.
+
+   Ranges reproduce the previous math exactly:
+     hero  progress = scrollY / vh, t = min(progress / 0.7, 1)  →  0 … 70vh
+     btt   threshold scrollY > 0.8 * vh                         →  72vh … 88vh ramp
+   ══════════════════════════════════════════════════════════════════ */
+
+@keyframes hero-dissolve {
+  from { opacity: 1; translate: 0 0; }
+  to   { opacity: 0; translate: 0 -120px; }
+}
+
+/* Reduced motion keeps the fade (the hero is genuinely leaving the
+   viewport) but drops the parallax displacement. */
+@keyframes hero-dissolve-flat {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes back-to-top-rise {
+  from { opacity: 0; translate: 0 20px; scale: 0.8; visibility: hidden; }
+  to   { opacity: 1; translate: 0 0;    scale: 1;   visibility: visible; }
+}
+
+@keyframes back-to-top-rise-flat {
+  from { opacity: 0; visibility: hidden; }
+  to   { opacity: 1; visibility: visible; }
+}
+
+/* ⚠ LONGHANDS ARE LOAD-BEARING — do not collapse into `animation:`.
+   Lightning CSS (Tailwind v4's minifier) folds a literal `animation:`
+   shorthand together with `animation-timeline` into a single
+   `animation: linear both name scroll(root)`. `animation-timeline` is NOT
+   part of the shorthand's grammar, so browsers drop that declaration whole
+   and the animation silently never runs — no console error, no fallback.
+   Verified: Chrome parses `animation: linear both x scroll(root)` to an
+   empty cssText. Writing the longhands out blocks the fold.
+   (`.reveal` above survives the same minifier only because its `var()`
+   happens to make the shorthand unfoldable — an accident, not a design.) */
+@supports (animation-timeline: scroll()) {
+  .hero-dissolve[data-scroll-driven] {
+    animation-name: hero-dissolve;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+    animation-range: 0px 70vh;
+  }
+
+  /* `both` fill is what replaces the mount/unmount: before the range the
+     button holds the `from` frame, and `visibility: hidden` keeps it out of
+     hit-testing and out of the accessibility tree. */
+  .back-to-top[data-scroll-driven] {
+    animation-name: back-to-top-rise;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+    animation-range: 72vh 88vh;
+    /* The base rule's `transition: all` would chase every animated frame.
+       Restrict it to the hover surface. */
+    transition:
+      background 0.25s ease,
+      border-color 0.25s ease,
+      box-shadow 0.25s ease,
+      transform 0.25s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-dissolve[data-scroll-driven] { animation-name: hero-dissolve-flat; }
+    .back-to-top[data-scroll-driven]   { animation-name: back-to-top-rise-flat; }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
    VIEW TRANSITIONS — theme switch + DeepDive modal
    ══════════════════════════════════════════════════════════════════ */
 

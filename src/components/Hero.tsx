@@ -6,6 +6,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useTranslation } from '@/i18n';
 import { useScrollProgress } from '@/hooks/useScrollProgress';
 import { haptic } from '@/lib/haptic';
+import { supportsScrollTimeline } from '@/lib/runtime';
 
 export default function Hero() {
   const { t } = useTranslation();
@@ -23,6 +24,11 @@ export default function Hero() {
   const spacerRef = useRef<HTMLDivElement>(null);
   const heroScrollRef = useRef<HTMLDivElement>(null);
 
+  // Primary path: `.hero-dissolve` in index.css runs this exact curve on a
+  // native scroll timeline (0 → 70vh), entirely on the compositor. The JS
+  // below is the fallback for engines without scroll-driven animations —
+  // when the native path is live it never subscribes, which is what lets the
+  // global scroll listener detach completely.
   useScrollProgress((progress) => {
     const el = heroScrollRef.current;
     if (!el) return;
@@ -30,7 +36,7 @@ export default function Hero() {
     el.style.opacity = String(Math.max(1 - t, 0));
     el.style.transform = `translateY(${t * -120}px)`;
     el.style.willChange = t > 0 && t < 1 ? 'transform, opacity' : '';
-  });
+  }, !supportsScrollTimeline);
 
   // --- Avatar glitch state ---
   const [avatarGlitch, setAvatarGlitch] = useState(false);
@@ -133,7 +139,8 @@ export default function Hero() {
 
         <div
           ref={heroScrollRef}
-          className="max-w-4xl w-full text-center relative z-10"
+          className="hero-dissolve max-w-4xl w-full text-center relative z-10"
+          {...(supportsScrollTimeline ? { 'data-scroll-driven': '' } : null)}
         >
           <motion.div
             variants={container}
