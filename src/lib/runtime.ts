@@ -19,6 +19,17 @@ export const supportsScrollTimeline =
   typeof CSS.supports === 'function' &&
   CSS.supports('animation-timeline', 'scroll()');
 
+/**
+ * Native view-progress timelines (`animation-timeline: view()`), for effects
+ * keyed to an element's own crossing of the viewport rather than to absolute
+ * scroll offset. Same Gecko exclusion, same reason.
+ */
+export const supportsViewTimeline =
+  !isGecko &&
+  typeof CSS !== 'undefined' &&
+  typeof CSS.supports === 'function' &&
+  CSS.supports('animation-timeline', 'view()');
+
 export function preferWebGPU(): boolean {
   if (typeof window === 'undefined') return false;
   const forced = new URLSearchParams(window.location.search).get('neural');

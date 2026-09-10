@@ -7,6 +7,7 @@ import ScrambledTitle from '@/components/ScrambledTitle';
 import type { SkillItem } from '@/i18n/en';
 import DeepDiveModal from '@/components/DeepDiveModal';
 import { useReveal } from '@/hooks/useReveal';
+import { supportsViewTimeline } from '@/lib/runtime';
 import { useHolographicTilt } from '@/hooks/useHolographicTilt';
 import { withViewTransition } from '@/lib/viewTransition';
 
@@ -213,7 +214,11 @@ export default function Arsenal() {
 
   return (
     <>
-      <section id="arsenal" className="arsenal py-24 px-6 max-w-6xl mx-auto relative">
+      <section
+        id="arsenal"
+        className="arsenal py-24 px-6 max-w-6xl mx-auto relative"
+        {...(supportsViewTimeline ? { 'data-scroll-driven': '' } : null)}
+      >
         <div className="arsenal__wash" aria-hidden />
 
         <ArsenalHeader title={t.arsenal.title.toUpperCase()} kicker={t.kicker.arsenal} />

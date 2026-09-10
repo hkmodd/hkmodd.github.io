@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import { isGecko } from '@/lib/runtime';
+import { isGecko, supportsViewTimeline } from '@/lib/runtime';
 
 /**
  * Single shared IntersectionObserver for scroll-reveal fallback.
@@ -18,12 +18,6 @@ export interface RevealOpts {
 }
 
 type IntersectCb = (visible: boolean) => void;
-
-const supportsViewTimeline =
-  !isGecko &&
-  typeof CSS !== 'undefined' &&
-  typeof CSS.supports === 'function' &&
-  CSS.supports('animation-timeline: view()');
 
 let io: IntersectionObserver | null = null;
 const callbacks = new Map<Element, { cb: IntersectCb; once: boolean }>();
@@ -108,5 +102,3 @@ export function useReveal<T extends HTMLElement>(
 
   return ref;
 }
-
-export { supportsViewTimeline };

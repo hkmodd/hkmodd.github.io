@@ -1076,6 +1076,108 @@ html.gecko * {
   .arsenal-group__label { transform: none; }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   ARSENAL — kinetic typography on view() timelines
+
+   The section was a static poster. The giant outlined group words, the
+   title's chromatic split and the colour wash all sat at fixed offsets and
+   never acknowledged where the reader was. Each is now a function of its own
+   crossing of the viewport, run by the compositor.
+
+   Only these three elements, and deliberately so: they are the ones that own
+   none of the transform properties already spoken for. `.arsenal-card` is off
+   limits — `transform` belongs to useHolographicTilt (written inline from JS),
+   `rotate` to the static sticker tilt and its hover reset, `translate` to
+   .reveal. An animation on any of those outranks the hover rule in the
+   cascade and would silently kill the de-rotate on pointer-over.
+
+   Nothing here touches a property that costs layout or paint. No
+   font-variation-settings — both faces are wght-only and changing weight
+   re-flows the line every frame — and no box-shadow. Transform and opacity
+   only, which is the whole point.
+
+   Longhands, not the `animation:` shorthand: see the note above the
+   scroll-driven block for what the minifier does to a literal shorthand
+   sitting next to `animation-timeline`.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* The outlined word drifts against the cards standing in front of it, and
+   surfaces as the group centres. */
+@keyframes arsenal-ghost-drift {
+  from { translate: -2rem 0; opacity: 0.07; }
+  50%  { opacity: 0.26; }
+  to   { translate: 4rem 0; opacity: 0.07; }
+}
+
+/* The RGB split converges as the title centres and blows apart at either end
+   of the crossing, so the aberration reads as focus rather than decoration.
+   Resting values match the static declarations these override. */
+@keyframes arsenal-split-warm {
+  from { transform: translate(-20px, 7px); opacity: 0.30; }
+  50%  { transform: translate(-4px, 2px);  opacity: 0.72; }
+  to   { transform: translate(-20px, 7px); opacity: 0.30; }
+}
+
+@keyframes arsenal-split-cool {
+  from { transform: translate(20px, -7px); opacity: 0.30; }
+  50%  { transform: translate(4px, -2px);  opacity: 0.72; }
+  to   { transform: translate(20px, -7px); opacity: 0.30; }
+}
+
+/* Cached blurred layer, translated — the blur is not re-run per frame. */
+@keyframes arsenal-wash-drift {
+  from { translate: -2% -1.5%; }
+  to   { translate: 2% 1.5%; }
+}
+
+@supports (animation-timeline: view()) {
+  .arsenal[data-scroll-driven] .arsenal-group__ghost {
+    animation-name: arsenal-ghost-drift;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 100%;
+  }
+
+  .arsenal[data-scroll-driven] .arsenal-title::before {
+    animation-name: arsenal-split-warm;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 100%;
+  }
+
+  .arsenal[data-scroll-driven] .arsenal-title::after {
+    animation-name: arsenal-split-cool;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 100%;
+  }
+
+  .arsenal[data-scroll-driven] .arsenal__wash {
+    animation-name: arsenal-wash-drift;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 100%;
+  }
+
+  /* Back to the static composition — the resting frame of every keyframe
+     above is the value the plain declaration already sets. */
+  @media (prefers-reduced-motion: reduce) {
+    .arsenal[data-scroll-driven] .arsenal-group__ghost,
+    .arsenal[data-scroll-driven] .arsenal-title::before,
+    .arsenal[data-scroll-driven] .arsenal-title::after,
+    .arsenal[data-scroll-driven] .arsenal__wash {
+      animation-name: none;
+    }
+  }
+}
 
 /* Category header dot */
 .category-dot {
