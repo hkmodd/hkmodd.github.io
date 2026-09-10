@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useMemo, useRef, useCallback, useState } from 'react';
 import * as THREE from 'three/webgpu';
 import {
   Fn,
@@ -43,8 +43,8 @@ import { getSimQuality } from '@/lib/quality';
 import { createNeuralLayout } from '@/lib/neuralLayout';
 import { getInitialDpr, MIN_DPR } from '@/lib/quality';
 import { neuralStats } from '@/lib/neuralStats';
-import { getScrollProgress } from '@/lib/scrollProgress';
-import { useScrollProgress } from '@/hooks/useScrollProgress';
+import { supportsScrollTimeline } from '@/lib/runtime';
+import { useNeuralFade } from '@/hooks/useNeuralFade';
 
 /* ═══════════════════════════════════════════════════════════════════
    NEURAL MESH v5 — GPU-resident simulation (WebGPU / TSL compute).
@@ -650,37 +650,8 @@ export default function NeuralMeshGPU() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const theme = useAppStore((s) => s.theme);
 
-  // Keep the GPU context mounted across theme toggles. Light only zeros
-  // opacity + pauses the frameloop — unmounting left canvasVisible=false
-  // and a remounted wasVisibleRef that never wrote the store back to true.
-  const applyFade = useCallback((progress: number) => {
-    const el = wrapperRef.current;
-    if (!el) return;
-    const t = Math.min(progress / 0.7, 1);
-    const isLightTheme = useAppStore.getState().theme === 'light';
-    const baseOpacity = isLightTheme ? 0 : 0.8;
-    const opacity = baseOpacity * (1 - t);
-    el.style.opacity = String(Math.max(opacity, 0));
-    el.style.transform = `translateY(${t * -120}px)`;
-    const isVisible = !isLightTheme && opacity > 0.01 && !document.hidden;
-    if (useAppStore.getState().canvasVisible !== isVisible) {
-      useAppStore.getState().setCanvasVisible(isVisible);
-    }
-  }, []);
-
-  useScrollProgress((progress) => applyFade(progress));
-  useLayoutEffect(() => {
-    applyFade(getScrollProgress());
-  }, [theme, applyFade]);
-
-  useEffect(() => {
-    const sync = () => {
-      document.documentElement.classList.toggle('tab-hidden', document.hidden);
-      applyFade(getScrollProgress());
-    };
-    document.addEventListener('visibilitychange', sync);
-    return () => document.removeEventListener('visibilitychange', sync);
-  }, [applyFade]);
+  // ── Scroll-synced fade ── see useNeuralFade; identical to the GL path.
+  useNeuralFade(wrapperRef, theme);
 
   const canvasVisible = useAppStore((s) => s.canvasVisible);
   const reducedMotion = useAppStore((s) => s.reducedMotion);
@@ -690,7 +661,11 @@ export default function NeuralMeshGPU() {
   if (reducedMotion) return null;
 
   return (
-    <div ref={wrapperRef} className="neural-canvas fixed inset-0 z-0 pointer-events-none">
+    <div
+      ref={wrapperRef}
+      className="neural-canvas fixed inset-0 z-0 pointer-events-none"
+      {...(supportsScrollTimeline ? { 'data-scroll-driven': '' } : null)}
+    >
       <Canvas
         camera={{ position: [0, 0, 10], fov: 55, near: 0.1, far: 50 }}
         dpr={dpr}

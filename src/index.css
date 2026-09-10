@@ -2293,6 +2293,14 @@ html.gecko * {
      btt   threshold scrollY > 0.8 * vh                         →  72vh … 88vh ramp
    ══════════════════════════════════════════════════════════════════ */
 
+/* One constant for the whole dissolve system: the hero copy, the neural
+   background behind it, and the IntersectionObserver sentinel in
+   lib/neuralVisibility.ts all read this, so the canvas frameloop pauses on
+   exactly the frame the animation reaches zero. */
+:root {
+  --dissolve-end: 70vh;
+}
+
 @keyframes hero-dissolve {
   from { opacity: 1; translate: 0 0; }
   to   { opacity: 0; translate: 0 -120px; }
@@ -2315,6 +2323,17 @@ html.gecko * {
   to   { opacity: 1; visibility: visible; }
 }
 
+/* 0.8 is the canvas' resting opacity — it never renders fully opaque. */
+@keyframes neural-dissolve {
+  from { opacity: 0.8; translate: 0 0; }
+  to   { opacity: 0;   translate: 0 -120px; }
+}
+
+@keyframes neural-dissolve-flat {
+  from { opacity: 0.8; }
+  to   { opacity: 0; }
+}
+
 /* ⚠ LONGHANDS ARE LOAD-BEARING — do not collapse into `animation:`.
    Lightning CSS (Tailwind v4's minifier) folds a literal `animation:`
    shorthand together with `animation-timeline` into a single
@@ -2332,7 +2351,7 @@ html.gecko * {
     animation-timing-function: linear;
     animation-fill-mode: both;
     animation-timeline: scroll(root block);
-    animation-range: 0px 70vh;
+    animation-range: 0px var(--dissolve-end);
   }
 
   /* `both` fill is what replaces the mount/unmount: before the range the
@@ -2354,9 +2373,28 @@ html.gecko * {
       transform 0.25s ease;
   }
 
+  /* The background canvas rides the same curve as the hero copy, so the two
+     stay locked together. Handing it to the compositor also stops JS from
+     invalidating a layer that holds a live WebGL/WebGPU surface every frame. */
+  .neural-canvas[data-scroll-driven] {
+    animation-name: neural-dissolve;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+    animation-range: 0px var(--dissolve-end);
+  }
+
+  /* Light theme keeps the white background pristine. An important author
+     declaration is the one thing that outranks an animation in the cascade. */
+  [data-theme="light"] .neural-canvas[data-scroll-driven] {
+    opacity: 0 !important;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .hero-dissolve[data-scroll-driven] { animation-name: hero-dissolve-flat; }
-    .back-to-top[data-scroll-driven]   { animation-name: back-to-top-rise-flat; }
+    .hero-dissolve[data-scroll-driven]  { animation-name: hero-dissolve-flat; }
+    .back-to-top[data-scroll-driven]    { animation-name: back-to-top-rise-flat; }
+    .neural-canvas[data-scroll-driven]  { animation-name: neural-dissolve-flat; }
   }
 }
 
