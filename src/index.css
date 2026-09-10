@@ -85,7 +85,11 @@ body {
      container, found it here, and got a zero-length range: frozen progress.
      That silently killed all 43 .reveal animations (they reported `finished`
      and painted their end state, so the page merely looked eager rather than
-     broken). `clip` does the same overflow job without creating a scroller. */
+     broken). `clip` does the same overflow job without creating a scroller.
+
+     Fallback for engines without `clip` lives in an @supports block below —
+     a plain duplicate declaration does not survive: the minifier drops the
+     shadowed one. */
   overflow-x: clip;
   min-height: 100dvh;
   line-height: 1.6;
@@ -119,6 +123,20 @@ html.cyber-cursor-active * {
   overflow-x: clip;
   width: 100%;
   max-width: 100vw;
+}
+
+/* Engines too old for `overflow: clip` (Safari < 16) would be left with
+   nothing containing the horizontal overflow — `.arsenal-group__ghost` is
+   built to bleed past its container and counts on it. Give them back the
+   old `hidden`. They have no scroll-driven timelines for it to break.
+
+   This has to be a feature query: written as a plain duplicate declaration
+   the minifier drops the shadowed one and the fallback silently disappears. */
+@supports not (overflow-x: clip) {
+  body,
+  .app-root {
+    overflow-x: hidden;
+  }
 }
 
 /* Fixed hero + R3F canvas used to eat the mobile pan (R3F sets
