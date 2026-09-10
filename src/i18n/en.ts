@@ -143,8 +143,8 @@ export interface Translations {
 
 const en: Translations = {
   boot: {
-    hint: 'Trace the S',
-    hintTap: 'Tap the S',
+    hint: 'Slide to enter',
+    hintTap: 'Tap to enter',
   },
 
   hero: {

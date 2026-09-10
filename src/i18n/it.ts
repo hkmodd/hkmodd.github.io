@@ -2,8 +2,8 @@ import type { Translations } from './en';
 
 const it: Translations = {
   boot: {
-    hint: 'Traccia la S',
-    hintTap: 'Tocca la S',
+    hint: 'Scorri per entrare',
+    hintTap: 'Tocca per entrare',
   },
 
   hero: {

@@ -206,184 +206,351 @@ html.gecko * {
 }
 
 /* ── Lock — lightning S, ground → sky ───────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   THRESHOLD — the lock screen
+
+   One object on one axis. No shape to trace, no failure state, no
+   iconography inside the lens: material, light and a single hairline latch.
+
+   Depth is a real perspective. `.lock` is the camera, `.lock__plate`
+   preserves 3D, and the lens rides at a higher translateZ than its own
+   shadow — so tilting the plate parallaxes them against each other rather
+   than faking depth with a blur.
+
+   Everything reads `--p` (0 at rest, 1 open), written once per frame from
+   the component onto the plate. No React render is involved in the drag.
+   ══════════════════════════════════════════════════════════════════ */
+
 .lock {
-  --lock-p: 0;
+  --p: 0;
+  --lock-accent: #00e5ff;
+  --lock-accent-soft: rgba(0, 229, 255, 0.42);
   position: fixed;
   inset: 0;
   z-index: 10001;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1.1rem;
+  display: grid;
+  place-items: center;
   width: 100vw;
   height: 100dvh;
-  padding-bottom: 7vh;
   overflow: hidden;
   touch-action: none;
-  cursor: crosshair;
   user-select: none;
   -webkit-user-select: none;
-  background: #020206;
+  background: #04040a;
+  /* Tighter perspective than a photographic one: at this object size a long
+     lens gives no foreshortening at all, and the depth stops reading. */
+  perspective: 620px;
+  perspective-origin: 50% 47%;
 }
-.lock__sky {
+
+/* Ambient depth. Breathes with the travel — the room brightens as the
+   latch approaches, which is the only progress indicator besides the well.
+
+   The vertical column is what stops the control from floating in nothing.
+   An object needs somewhere to stand; without it the composition reads as
+   abandoned rather than focused. */
+.lock__field {
+  position: absolute;
+  inset: -12%;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 30%, color-mix(in srgb, var(--lock-accent) 7%, transparent) 50%, transparent 70%),
+    radial-gradient(ellipse 42% 30% at 50% 50%, color-mix(in srgb, var(--lock-accent) 17%, transparent), transparent 66%),
+    radial-gradient(ellipse 90% 55% at 50% 118%, rgba(255, 42, 109, 0.1), transparent 62%),
+    linear-gradient(180deg, #05050c 0%, #04040a 52%, #01080f 100%);
+  opacity: calc(0.86 + var(--p) * 0.14);
+  transform: scale(calc(1 + var(--p) * 0.035));
+  transition: opacity 120ms linear;
+}
+
+/* Fine grain over the void. Without it the gradient bands and the black
+   reads as empty canvas instead of as a room. */
+.lock__grain {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 80% 45% at 50% 100%, rgba(0, 229, 255, 0.16), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 70% 8%, rgba(255, 42, 109, 0.1), transparent 50%),
-    linear-gradient(180deg, #000 0%, #07070e 55%, #021018 100%);
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0.5px, transparent 0.6px);
+  background-size: 3px 3px;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
 }
-.lock__ground {
+
+/* A single horizon line behind the plate. It gives the object somewhere
+   to stand without drawing a floor. */
+.lock__horizon {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 28vh;
+  left: 50%;
+  top: 50%;
+  width: min(96vw, 900px);
+  height: 1px;
+  translate: -50% 92px;
   pointer-events: none;
-  background: radial-gradient(ellipse 70% 80% at 50% 100%, rgba(0, 229, 255, 0.22), transparent 70%);
-  filter: blur(8px);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--lock-accent) 26%, transparent), transparent);
+  opacity: calc(0.35 + var(--p) * 0.45);
 }
-.lock__stage {
+
+.lock__plate {
+  --tx: 0deg;
+  --ty: 0deg;
   position: relative;
   z-index: 1;
-  width: min(92vw, 520px);
-  height: min(78vh, 760px);
-  pointer-events: none;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tx)) rotateY(var(--ty));
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
-.lock__svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.lock__bloom {
-  stroke: #00e5ff;
-  stroke-width: 22;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-  stroke-miterlimit: 12;
-  opacity: 0.1;
-  filter: blur(8px);
-}
-.lock__guide {
-  stroke: rgba(255, 255, 255, 0.18);
-  stroke-width: 9;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-  stroke-miterlimit: 12;
-}
-.lock__shimmer {
-  stroke: rgba(255, 255, 255, 0.5);
-  stroke-width: 9;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-  stroke-miterlimit: 12;
-  stroke-dasharray: 0.1 0.9;
-  stroke-dashoffset: 1;
-  animation: lock-shimmer 2.4s linear infinite;
-}
-.lock__ink {
-  stroke: url(#boltInk);
-  stroke-width: 10;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-  stroke-miterlimit: 12;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-}
-.lock__core {
-  stroke: #fff;
-  stroke-width: 2.4;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-  stroke-miterlimit: 12;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  opacity: 0.95;
-}
-.lock__bead {
-  fill: #f4fbff;
-  stroke: #00e5ff;
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 10px #00e5ff);
-}
-.lock__hint {
+/* While the finger is down the plate must not lag behind it. */
+.lock__plate[data-dragging] { transition: none; }
+
+.lock__track {
   position: relative;
-  z-index: 1;
+  width: min(84vw, 480px);
+  height: 76px;
+  border-radius: 999px;
+  transform-style: preserve-3d;
+  cursor: grab;
+  outline: none;
+}
+.lock__plate[data-dragging] .lock__track { cursor: grabbing; }
+.lock__track:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--lock-accent) 70%, transparent);
+}
+
+/* The channel: a recess, not a pill sitting on top. The inset shadow does
+   the work — this is the one place the object is allowed to look machined. */
+.lock__well {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.62) 0%, rgba(255, 255, 255, 0.025) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.8),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.07),
+    0 26px 64px rgba(0, 0, 0, 0.62);
+}
+
+.lock__fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--p));
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--lock-accent) 52%, transparent) 0%,
+    color-mix(in srgb, var(--lock-accent) 14%, transparent) 100%
+  );
+  opacity: calc(0.3 + var(--p) * 0.7);
+}
+
+/* The sheen is the whole instruction. It travels left to right; nothing
+   else tells you which way to go, and nothing else needs to. */
+.lock__label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
   margin: 0;
-  min-height: 1.2em;
+  padding-left: 56px;
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 700;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.34em;
   text-transform: uppercase;
-  color: rgba(0, 229, 255, 0.45);
-}
-.lock__stage.is-open .lock__ink,
-.lock__stage.is-open .lock__core {
-  stroke-dashoffset: 0;
-}
-.lock__stage.is-open .lock__bloom {
-  opacity: 0.55;
-  stroke: #fff;
-}
-.lock__stage.is-open .lock__shimmer { animation: none; opacity: 0; }
-.lock__stage.is-open .lock__bead {
-  fill: #fff;
-  stroke: #fff;
-  filter: drop-shadow(0 0 22px #fff);
+  white-space: nowrap;
+  color: transparent;
+  background-image: linear-gradient(
+    100deg,
+    var(--lock-accent-soft) 0%,
+    var(--lock-accent-soft) 38%,
+    #ffffff 50%,
+    var(--lock-accent-soft) 62%,
+    var(--lock-accent-soft) 100%
+  );
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: lock-sheen 3.4s linear infinite;
+  /* Consumed by the lens as it passes. */
+  opacity: calc(1 - var(--p) * 1.5);
 }
 
-.lock.is-unlocking {
-  animation: lock-veil 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+@keyframes lock-sheen {
+  from { background-position: 140% 0; }
+  to   { background-position: -140% 0; }
+}
+
+/* Where the latch closes. One hairline, lit by proximity. */
+.lock__latch {
+  position: absolute;
+  right: 17px;
+  top: 50%;
+  width: 2px;
+  height: 16px;
+  margin-top: -8px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--lock-accent) calc(30% + var(--p) * 70%), transparent);
+  box-shadow: 0 0 calc(4px + var(--p) * 14px) color-mix(in srgb, var(--lock-accent) calc(var(--p) * 85%), transparent);
+  transform: translateZ(4px);
+}
+
+/* Cast at a lower Z than the lens. This is what makes the tilt read as
+   an object with height instead of a picture of one. */
+.lock__shadow {
+  position: absolute;
+  top: 50%;
+  left: 7px;
+  width: 62px;
+  height: 62px;
+  margin-top: -24px;
+  border-radius: 50%;
   pointer-events: none;
-}
-.lock.is-unlocking .lock__stage {
-  animation: lock-s-rise 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-.lock.is-unlocking .lock__hint { opacity: 0; transition: opacity 0.2s linear; }
-.lock.is-unlocking .lock__ground {
-  opacity: 0;
-  transition: opacity 0.5s ease;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.8), transparent 66%);
+  filter: blur(10px);
+  transform: translate3d(calc(var(--p) * var(--travel, 0px)), 13px, 2px) scale(0.9);
 }
 
-@keyframes lock-veil {
-  0% { opacity: 1; }
-  35% { opacity: 1; }
+.lock__lens {
+  position: absolute;
+  top: 50%;
+  left: 7px;
+  width: 62px;
+  height: 62px;
+  margin-top: -31px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate3d(calc(var(--p) * var(--travel, 0px)), 0, 34px);
+  background:
+    /* key highlight */
+    radial-gradient(circle at 33% 25%, rgba(255, 255, 255, 0.99), rgba(255, 255, 255, 0.32) 30%, transparent 54%),
+    /* the fill, refracted up through the underside — this is the difference
+       between a sphere of glass and a painted ball */
+    radial-gradient(circle at 50% 118%, color-mix(in srgb, var(--lock-accent) 85%, transparent), transparent 58%),
+    radial-gradient(circle at 78% 74%, color-mix(in srgb, var(--lock-accent) calc(30% + var(--p) * 40%), transparent), transparent 46%),
+    linear-gradient(180deg, #f8fcff 0%, #d6e9f4 42%, #6f9cb2 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -3px 9px rgba(0, 0, 0, 0.34),
+    /* rim light: the shaded edge picks up the channel it sits in */
+    inset -3px -1px 8px color-mix(in srgb, var(--lock-accent) 55%, transparent),
+    0 12px 26px rgba(0, 0, 0, 0.55),
+    0 0 calc(18px + var(--p) * 38px) color-mix(in srgb, var(--lock-accent) calc(26% + var(--p) * 52%), transparent);
+}
+
+/* Structure, not iconography. */
+.lock__lens-ring {
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  opacity: calc(0.32 + var(--p) * 0.5);
+}
+
+/* ── Opening: a camera move through the plate, not a fade ─────── */
+.lock.is-unlocking {
+  pointer-events: none;
+  animation: lock-dissolve 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.lock.is-unlocking .lock__plate {
+  animation: lock-through 900ms cubic-bezier(0.5, 0, 0.2, 1) forwards;
+}
+.lock.is-unlocking .lock__label { opacity: 0; }
+.lock.is-unlocking .lock__horizon {
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+
+@keyframes lock-through {
+  0%   { transform: rotateX(0deg) rotateY(0deg) translateZ(0) scale(1); filter: blur(0px); opacity: 1; }
+  30%  { transform: rotateX(1.5deg) rotateY(0deg) translateZ(44px) scale(1.035); filter: blur(0px); opacity: 1; }
+  100% { transform: rotateX(-7deg) rotateY(0deg) translateZ(540px) scale(1.55); filter: blur(15px); opacity: 0; }
+}
+@keyframes lock-dissolve {
+  0%   { opacity: 1; }
+  48%  { opacity: 1; }
   100% { opacity: 0; }
 }
-@keyframes lock-s-rise {
-  0% { transform: translateY(0) scale(1); opacity: 1; }
-  28% { transform: translateY(-10px) scale(1.045); opacity: 1; }
-  100% { transform: translateY(-56px) scale(1.12); opacity: 0; }
-}
 
-@keyframes lock-shimmer {
-  to { stroke-dashoffset: 0; }
-}
-
+/* ── Themes ───────────────────────────────────────────────────── */
+/* Light is not "everything pale". The first pass compressed the whole value
+   range into the top sixth of the scale: no darks, so the well stopped
+   reading as a recess and the lens was white on white. A light interface
+   still needs a ground, real shadows and a mid-tone on the shaded side. */
 [data-theme="light"] .lock {
-  background: #e8eef4;
+  --lock-accent: #0e7490;
+  --lock-accent-soft: rgba(14, 116, 144, 0.62);
+  background: #ccd7e2;
 }
-[data-theme="light"] .lock__sky {
+[data-theme="light"] .lock__field {
   background:
-    radial-gradient(ellipse 80% 45% at 50% 100%, rgba(14, 116, 144, 0.18), transparent 55%),
-    linear-gradient(180deg, #eef3f8 0%, #d5dde6 100%);
+    linear-gradient(90deg, transparent 30%, rgba(14, 116, 144, 0.1) 50%, transparent 70%),
+    radial-gradient(ellipse 42% 30% at 50% 50%, rgba(255, 255, 255, 0.75), transparent 66%),
+    linear-gradient(180deg, #e4ebf2 0%, #cbd6e1 55%, #b3c2d1 100%);
 }
-[data-theme="light"] .lock__guide { stroke: rgba(15, 23, 42, 0.14); }
-[data-theme="light"] .lock__core { stroke: #0c1920; }
-[data-theme="light"] .lock__hint { color: rgba(14, 116, 144, 0.55); }
-[data-theme="light"] .lock__bead {
-  fill: #fff;
-  stroke: #0e7490;
+[data-theme="light"] .lock__grain {
+  background-image: radial-gradient(circle, rgba(15, 23, 42, 0.55) 0.5px, transparent 0.6px);
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+}
+[data-theme="light"] .lock__horizon {
+  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.22), transparent);
+}
+[data-theme="light"] .lock__well {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.22) 0%, rgba(15, 23, 42, 0.05) 55%, rgba(255, 255, 255, 0.55) 100%);
+  border-color: rgba(15, 23, 42, 0.16);
+  box-shadow:
+    inset 0 4px 10px rgba(15, 23, 42, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.95),
+    0 22px 48px rgba(15, 23, 42, 0.22);
+}
+[data-theme="light"] .lock__fill {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--lock-accent) 72%, transparent) 0%,
+    color-mix(in srgb, var(--lock-accent) 26%, transparent) 100%
+  );
+}
+[data-theme="light"] .lock__lens {
+  background:
+    radial-gradient(circle at 33% 24%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.55) 30%, transparent 54%),
+    radial-gradient(circle at 50% 118%, color-mix(in srgb, var(--lock-accent) 60%, transparent), transparent 58%),
+    linear-gradient(180deg, #ffffff 0%, #dbe7f0 40%, #7f9db2 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -3px 9px rgba(15, 23, 42, 0.24),
+    inset -3px -1px 8px color-mix(in srgb, var(--lock-accent) 42%, transparent),
+    0 12px 24px rgba(15, 23, 42, 0.34),
+    0 0 calc(12px + var(--p) * 26px) color-mix(in srgb, var(--lock-accent) calc(18% + var(--p) * 42%), transparent);
+}
+[data-theme="light"] .lock__lens-ring {
+  border-color: rgba(15, 23, 42, 0.16);
+}
+[data-theme="light"] .lock__shadow {
+  background: radial-gradient(circle, rgba(15, 23, 42, 0.5), transparent 64%);
 }
 
-[data-theme="redteam"] .lock__ground {
-  background: radial-gradient(ellipse 70% 80% at 50% 100%, rgba(255, 0, 51, 0.22), transparent 70%);
+[data-theme="redteam"] .lock {
+  --lock-accent: #ff0033;
+  --lock-accent-soft: rgba(255, 0, 51, 0.45);
 }
-[data-theme="redteam"] .lock__origin { fill: #ff0033; }
+
+/* ── Reduced motion: no tilt, no sheen, no spring. Tap to enter. ── */
+@media (prefers-reduced-motion: reduce) {
+  .lock__plate {
+    transform: none;
+    transition: none;
+  }
+  .lock__field { transform: none; }
+  .lock__grain { display: none; }
+  .lock__label { animation: none; }
+  .lock__track { cursor: pointer; }
+  .lock.is-unlocking,
+  .lock.is-unlocking .lock__plate {
+    animation: lock-dissolve 320ms linear forwards;
+  }
+}
+
 
 /* ── Main Content - Scrolls over fixed hero ───────────────── */
 .main-content {
@@ -695,7 +862,7 @@ html.gecko * {
   background: rgba(255, 0, 51, 0.035);
 }
 .tab-hidden .crt-scanline,
-.tab-hidden .lock__shimmer {
+.tab-hidden .lock__label {
   animation-play-state: paused;
 }
 

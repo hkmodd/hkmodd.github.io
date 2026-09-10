@@ -5,34 +5,34 @@ import { useAppStore } from '@/store/useAppStore';
 import { haptic } from '@/lib/haptic';
 import { sfx } from '@/lib/audio';
 
-/**
- * Three-stroke S. Ground → sky.
- * 1. diagonal up-right  2. waist left  3. diagonal up-right.
- * Tips are pointed markers, not round caps.
- */
-const S_D = 'M 54 358 L 186 232 L 54 232 L 186 52';
+/* ═══════════════════════════════════════════════════════════════════
+   THRESHOLD — the lock screen.
 
-const SAMPLE = 64;
-const GRAB_R = 74;
-const RAIL_R = 62;
-const UNLOCK_AT = 0.8;
-const BANDS = [0.18, 0.4, 0.66, 0.8];
+   One object, one axis, direct manipulation. There is no shape to trace
+   and no way to fail: releasing early is not an error, it is a spring
+   returning the lens to rest. The only instruction is the sheen crossing
+   the label, which states the direction without saying a word.
 
-type Pt = { x: number; y: number };
+   Depth is real. The plate carries `perspective`, and the lens sits at a
+   higher translateZ than its own shadow, so tilting parallaxes one against
+   the other instead of faking it with a blur.
+   ═══════════════════════════════════════════════════════════════════ */
 
-function dist(a: Pt, b: Pt) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-function samplePath(path: SVGPathElement): Pt[] {
-  const len = path.getTotalLength();
-  const out: Pt[] = [];
-  for (let i = 0; i <= SAMPLE; i++) {
-    const p = path.getPointAtLength((len * i) / SAMPLE);
-    out.push({ x: p.x, y: p.y });
-  }
-  return out;
-}
+/** Travel required to open. Near the end, like a well-made physical latch. */
+const COMMIT = 0.94;
+/** Point of no return — the one detent you feel on the way across. */
+const ARM = 0.55;
+/** Max plate tilt in degrees. 5.5 measured as two pixels of foreshortening —
+    technically 3D, perceptually flat. This plus the tighter perspective is
+    what makes the object read as an object. */
+const TILT = 11;
+/** Under-damped on purpose: one small overshoot as it seats. */
+const SPRING_K = 210;
+const SPRING_C = 21;
+/** Grab radius around the lens, in px. Generous — this is a door, not a target. */
+const GRAB = 46;
+/** How far the lens hops when you press somewhere else. ~26px of 352. */
+const NUDGE = 0.075;
 
 export default function BootScreen() {
   const { t } = useTranslation();
@@ -44,141 +44,210 @@ export default function BootScreen() {
   const [done, setDone] = useState(skipLock);
   const [unlocked, setUnlocked] = useState(skipLock);
 
-  const svgRef = useRef<SVGSVGElement>(null);
-  const guideRef = useRef<SVGPathElement>(null);
-  const inkRef = useRef<SVGPathElement>(null);
-  const coreRef = useRef<SVGPathElement>(null);
-  const beadRef = useRef<SVGCircleElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const plateRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  const holding = useRef(false);
-  const cursor = useRef(0);
-  const lastBand = useRef(-1);
-  const template = useRef<Pt[]>([]);
-  const unlocking = useRef(false);
+  /* Progress lives in a ref and reaches the DOM as one custom property.
+     Dragging must not re-render React — the neural mesh is already running
+     behind this screen. */
+  const p = useRef(0);
+  const vel = useRef(0);
+  const travel = useRef(1);
+  const dragging = useRef(false);
+  const grabDx = useRef(0);
+  const armed = useRef(false);
+  const opening = useRef(false);
+  const raf = useRef(0);
+  const tiltRaf = useRef(0);
+  const pendingTilt = useRef<{ x: number; y: number } | null>(null);
 
-  const toSvg = useCallback((clientX: number, clientY: number): Pt | null => {
-    const svg = svgRef.current;
-    if (!svg) return null;
-    const pt = svg.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return null;
-    const p = pt.matrixTransform(ctm.inverse());
-    return { x: p.x, y: p.y };
+  const writeP = useCallback((v: number) => {
+    p.current = v;
+    plateRef.current?.style.setProperty('--p', String(v));
+    rootRef.current?.style.setProperty('--p', String(v));
   }, []);
 
-  const placeBead = useCallback((i: number) => {
-    const p = template.current[i];
-    const bead = beadRef.current;
-    if (!p || !bead) return;
-    bead.setAttribute('cx', String(p.x));
-    bead.setAttribute('cy', String(p.y));
+  const measure = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const lens = track.querySelector<HTMLElement>('.lock__lens');
+    const w = track.clientWidth;
+    const lensW = lens?.offsetWidth ?? 62;
+    // 7px inset either side, matching the CSS.
+    travel.current = Math.max(1, w - lensW - 14);
+    track.style.setProperty('--travel', `${travel.current}px`);
   }, []);
 
-  const paint = useCallback((progress: number) => {
-    const off = String(1 - progress);
-    if (inkRef.current) inkRef.current.style.strokeDashoffset = off;
-    if (coreRef.current) coreRef.current.style.strokeDashoffset = off;
-    placeBead(cursor.current);
-    stageRef.current?.style.setProperty('--lock-p', String(progress));
-  }, [placeBead]);
-
-  const resetStroke = useCallback(() => {
-    holding.current = false;
-    cursor.current = 0;
-    lastBand.current = -1;
-    if (inkRef.current) inkRef.current.style.strokeDashoffset = '1';
-    if (coreRef.current) coreRef.current.style.strokeDashoffset = '1';
-    placeBead(0);
-    stageRef.current?.style.setProperty('--lock-p', '0');
-  }, [placeBead]);
-
-  const unlock = useCallback(() => {
-    if (unlocking.current) return;
-    unlocking.current = true;
-    cursor.current = Math.max(0, template.current.length - 1);
-    paint(1);
+  /* ── Opening ─────────────────────────────────────────────────── */
+  const open = useCallback(() => {
+    if (opening.current) return;
+    opening.current = true;
+    dragging.current = false;
+    cancelAnimationFrame(raf.current);
+    writeP(1);
     setUnlocked(true);
     haptic('success');
     sfx.confirm();
     sfx.open();
     window.setTimeout(() => setBooted(true), 90);
-    window.setTimeout(() => setDone(true), 1100);
-  }, [paint, setBooted]);
+    // Reduced motion gets the 320ms dissolve, so it must also get out in
+    // 320ms. Holding the teardown at the full camera-move duration left the
+    // viewer looking at an already-faded plate for two thirds of a second.
+    window.setTimeout(() => setDone(true), reducedMotion ? 340 : 1000);
+  }, [reducedMotion, setBooted, writeP]);
 
-  const advance = useCallback((p: Pt) => {
-    const tpl = template.current;
-    if (tpl.length < 2) return 0;
-    let best = RAIL_R + 1;
-    let bestI = cursor.current;
-    for (let k = 0; k <= 16; k++) {
-      const j = cursor.current + k;
-      if (j >= tpl.length) break;
-      const d = dist(p, tpl[j]);
-      if (d < best) {
-        best = d;
-        bestI = j;
+  /* ── Spring: the lens has mass and finds its way home ─────────── */
+  const settle = useCallback(() => {
+    cancelAnimationFrame(raf.current);
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 1 / 30);
+      last = now;
+      const a = -SPRING_K * p.current - SPRING_C * vel.current;
+      vel.current += a * dt;
+      const next = p.current + vel.current * dt;
+      writeP(Math.max(0, Math.min(1, next)));
+
+      if (Math.abs(p.current) < 0.0015 && Math.abs(vel.current) < 0.02) {
+        const travelled = armed.current;
+        // Exactly zero, not "close enough": a lens resting a pixel off its
+        // seat is the kind of thing you feel before you can name it.
+        writeP(0);
+        vel.current = 0;
+        armed.current = false;
+        // A real knob clicks when it seats. Only after a real trip, and
+        // never as a punishment — there is no failure here to report.
+        if (travelled) haptic('light');
+        return;
       }
-    }
-    if (best > RAIL_R) return cursor.current / (tpl.length - 1);
-    cursor.current = bestI;
-    const progress = cursor.current / (tpl.length - 1);
-    const band = BANDS.findIndex((b) => progress >= b);
-    if (band > lastBand.current) {
-      lastBand.current = band;
-      haptic(band >= 3 ? 'medium' : 'light');
-      sfx.hover();
-    }
-    return progress;
+      raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+  }, [writeP]);
+
+  /* ── Tilt: coalesced, one write per frame ────────────────────── */
+  const flushTilt = useCallback(() => {
+    tiltRaf.current = 0;
+    const v = pendingTilt.current;
+    const plate = plateRef.current;
+    if (!v || !plate) return;
+    plate.style.setProperty('--ty', `${v.x * TILT}deg`);
+    plate.style.setProperty('--tx', `${-v.y * TILT}deg`);
+  }, []);
+
+  const aimTilt = useCallback(
+    (clientX: number, clientY: number) => {
+      if (reducedMotion) return;
+      const r = rootRef.current?.getBoundingClientRect();
+      if (!r) return;
+      // Normalised to -1..1 so TILT reads as the real maximum in degrees.
+      pendingTilt.current = {
+        x: ((clientX - r.left) / r.width - 0.5) * 2,
+        y: ((clientY - r.top) / r.height - 0.5) * 2,
+      };
+      if (!tiltRaf.current) tiltRaf.current = requestAnimationFrame(flushTilt);
+    },
+    [flushTilt, reducedMotion],
+  );
+
+  /* ── Pointer ─────────────────────────────────────────────────── */
+  const localX = useCallback((clientX: number) => {
+    const r = trackRef.current?.getBoundingClientRect();
+    if (!r) return 0;
+    return clientX - r.left - 7; // 7px inset
   }, []);
 
   const onDown = useCallback(
     (e: React.PointerEvent) => {
-      if (unlocking.current) return;
+      if (opening.current) return;
       if (reducedMotion) {
-        unlock();
+        open();
         return;
       }
-      const p = toSvg(e.clientX, e.clientY);
-      if (!p || template.current.length === 0) return;
-      if (dist(p, template.current[0]) > GRAB_R) return;
-      cursor.current = 0;
-      holding.current = true;
-      lastBand.current = -1;
+      measure();
+      aimTilt(e.clientX, e.clientY);
+
+      const x = localX(e.clientX);
+      const lensX = p.current * travel.current;
+      const lensCentre = lensX + 31;
+
+      if (Math.abs(x - lensCentre) > GRAB) {
+        // Pressed away from the lens. Don't teleport it — hop it forward and
+        // let the spring bring it back. The object shows you where it is
+        // instead of a message telling you.
+        //
+        // This is a displacement, not a velocity impulse: at this damping an
+        // impulse is eaten inside two frames and the hop never becomes
+        // visible (measured peak 0.001 — under half a pixel of travel).
+        cancelAnimationFrame(raf.current);
+        vel.current = 0;
+        armed.current = false;
+        writeP(NUDGE);
+        settle();
+        haptic('light');
+        return;
+      }
+
+      cancelAnimationFrame(raf.current);
+      dragging.current = true;
+      armed.current = false;
+      vel.current = 0;
+      grabDx.current = x - lensX;
+      plateRef.current?.setAttribute('data-dragging', '');
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-      paint(0);
       haptic('light');
+      sfx.hover();
     },
-    [paint, reducedMotion, toSvg, unlock],
+    [aimTilt, localX, measure, open, reducedMotion, settle, writeP],
   );
 
   const onMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!holding.current || unlocking.current) return;
-      const p = toSvg(e.clientX, e.clientY);
-      if (!p) return;
-      const progress = advance(p);
-      paint(progress);
-      if (progress >= UNLOCK_AT) {
-        holding.current = false;
-        unlock();
+      if (opening.current) return;
+      aimTilt(e.clientX, e.clientY);
+      if (!dragging.current) return;
+
+      const next = Math.max(0, Math.min(1, (localX(e.clientX) - grabDx.current) / travel.current));
+      vel.current = (next - p.current) * 24; // carry momentum into the spring
+      writeP(next);
+
+      if (!armed.current && next >= ARM) {
+        armed.current = true;
+        haptic('light');
+        sfx.hover();
       }
+      if (next >= COMMIT) open();
     },
-    [advance, paint, toSvg, unlock],
+    [aimTilt, localX, open, writeP],
   );
 
   const onUp = useCallback(() => {
-    if (!holding.current || unlocking.current) return;
-    const progress = cursor.current / Math.max(1, template.current.length - 1);
-    if (progress >= UNLOCK_AT) unlock();
-    else {
-      haptic('error');
-      resetStroke();
-    }
-  }, [resetStroke, unlock]);
+    if (!dragging.current || opening.current) return;
+    dragging.current = false;
+    plateRef.current?.removeAttribute('data-dragging');
+    if (p.current >= COMMIT) open();
+    else settle();
+  }, [open, settle]);
 
+  const onLeave = useCallback(() => {
+    if (reducedMotion) return;
+    pendingTilt.current = { x: 0, y: 0 };
+    if (!tiltRaf.current) tiltRaf.current = requestAnimationFrame(flushTilt);
+  }, [flushTilt, reducedMotion]);
+
+  const onKey = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (opening.current) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        open();
+      }
+    },
+    [open],
+  );
+
+  /* ── Lifecycle ───────────────────────────────────────────────── */
   useEffect(() => {
     if (!skipLock) return;
     localStorage.setItem('hkmodd-theme', 'default');
@@ -205,16 +274,15 @@ export default function BootScreen() {
   }, [done]);
 
   useEffect(() => {
-    const path = guideRef.current;
-    if (!path) return;
-    template.current = samplePath(path);
-    for (const el of [inkRef.current, coreRef.current]) {
-      if (!el) continue;
-      el.style.strokeDasharray = '1';
-      el.style.strokeDashoffset = '1';
-    }
-    placeBead(0);
-  }, [placeBead]);
+    if (done) return;
+    measure();
+    window.addEventListener('resize', measure, { passive: true });
+    return () => {
+      window.removeEventListener('resize', measure);
+      cancelAnimationFrame(raf.current);
+      cancelAnimationFrame(tiltRaf.current);
+    };
+  }, [done, measure]);
 
   const hint = reducedMotion ? t.boot.hintTap : t.boot.hint;
 
@@ -222,74 +290,41 @@ export default function BootScreen() {
     <AnimatePresence>
       {!done && (
         <motion.div
+          ref={rootRef}
           className={`lock${unlocked ? ' is-unlocking' : ''}`}
           data-theme={theme !== 'default' ? theme : undefined}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
+          onPointerLeave={onLeave}
         >
-          <div className="lock__sky" aria-hidden />
-          <div className="lock__ground" aria-hidden />
+          <div className="lock__field" aria-hidden />
+          <div className="lock__grain" aria-hidden />
+          <div className="lock__horizon" aria-hidden />
 
-          <div ref={stageRef} className={`lock__stage${unlocked ? ' is-open' : ''}`}>
-            <svg
-              ref={svgRef}
-              className="lock__svg"
-              viewBox="0 0 240 400"
-              preserveAspectRatio="xMidYMax meet"
+          <div ref={plateRef} className="lock__plate">
+            <div
+              ref={trackRef}
+              className="lock__track"
+              role="button"
+              tabIndex={0}
               aria-label={hint}
+              onKeyDown={onKey}
             >
-              <defs>
-                <linearGradient id="boltInk" x1="0.15" y1="1" x2="0.85" y2="0">
-                  <stop offset="0%" stopColor="#00e5ff" />
-                  <stop offset="50%" stopColor="#f4fbff" />
-                  <stop offset="100%" stopColor="#ff2a6d" />
-                </linearGradient>
-                <filter id="boltBloom" x="-30%" y="-12%" width="160%" height="124%">
-                  <feGaussianBlur stdDeviation="4" result="b" />
-                  <feMerge>
-                    <feMergeNode in="b" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-                <marker id="sTipEnd" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="3.2" markerHeight="3.2" orient="auto">
-                  <path d="M 0 0 L 12 6 L 0 12 Z" fill="#f4fbff" />
-                </marker>
-                <marker id="sTipStart" viewBox="0 0 12 12" refX="1" refY="6" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
-                  <path d="M 0 0 L 12 6 L 0 12 Z" fill="#00e5ff" />
-                </marker>
-              </defs>
-
-              <path className="lock__bloom" d={S_D} fill="none" />
-              <path
-                ref={guideRef}
-                className="lock__guide"
-                d={S_D}
-                fill="none"
-                pathLength={1}
-                markerStart="url(#sTipStart)"
-                markerEnd="url(#sTipEnd)"
-              />
-              <path className="lock__shimmer" d={S_D} fill="none" pathLength={1} />
-              <path
-                ref={inkRef}
-                className="lock__ink"
-                d={S_D}
-                fill="none"
-                pathLength={1}
-                filter="url(#boltBloom)"
-                markerStart="url(#sTipStart)"
-                markerEnd="url(#sTipEnd)"
-              />
-              <path ref={coreRef} className="lock__core" d={S_D} fill="none" pathLength={1} />
-              <circle ref={beadRef} className="lock__bead" cx="54" cy="358" r="9" />
-            </svg>
+              <div className="lock__well" aria-hidden>
+                <div className="lock__fill" />
+                <p className="lock__label">{hint}</p>
+              </div>
+              <span className="lock__latch" aria-hidden />
+              <span className="lock__shadow" aria-hidden />
+              <span className="lock__lens" aria-hidden>
+                <span className="lock__lens-ring" />
+              </span>
+            </div>
           </div>
-
-          <p className="lock__hint">{unlocked ? '' : hint}</p>
         </motion.div>
       )}
     </AnimatePresence>
