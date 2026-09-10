@@ -41,7 +41,7 @@ const LOOKAHEAD = 26;
 const GRAB = 96;
 const COMMIT = 0.9;
 /** The one detent you feel on the way up. */
-const ARM = 0.55;
+const ARM = 0.5;
 const TILT = 11;
 /** Charge drain on release. A duration, not a rate: integrating a rate with a
     clamped dt makes the animation run slower the slower the device is, and
@@ -72,6 +72,7 @@ export default function BootScreen() {
   const cursor = useRef(0);
   const holding = useRef(false);
   const armed = useRef(false);
+  const tick = useRef(-1);
   const opening = useRef(false);
   const template = useRef<Pt[]>([]);
   const spineLen = useRef(0);
@@ -127,6 +128,8 @@ export default function BootScreen() {
       if (k >= 1) {
         cursor.current = 0;
         armed.current = false;
+        tick.current = -1;
+        plateRef.current?.removeAttribute('data-armed');
         paint(0);
         return;
       }
@@ -217,7 +220,9 @@ export default function BootScreen() {
       holding.current = true;
       armed.current = false;
       cursor.current = 0;
+      tick.current = -1;
       plateRef.current?.setAttribute('data-holding', '');
+      plateRef.current?.removeAttribute('data-armed');
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
       paint(0);
       haptic('light');
@@ -235,10 +240,17 @@ export default function BootScreen() {
       if (!at) return;
       const v = advance(at);
       paint(v);
+      // Rising ladder of ticks: audio only. Haptics stay at three, sound is
+      // free to give the climb texture.
+      const step = Math.floor(v * 7);
+      if (step > tick.current) {
+        tick.current = step;
+        sfx.hover();
+      }
       if (!armed.current && v >= ARM) {
         armed.current = true;
         haptic('light');
-        sfx.hover();
+        plateRef.current?.setAttribute('data-armed', '');
       }
       if (v >= COMMIT) open();
     },
@@ -337,6 +349,7 @@ export default function BootScreen() {
           onPointerLeave={onLeave}
         >
           <div className="lock__field" aria-hidden />
+          <div className="lock__flash" aria-hidden />
           <div className="lock__grain" aria-hidden />
 
           <div ref={plateRef} className="lock__plate">

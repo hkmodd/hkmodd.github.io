@@ -258,6 +258,30 @@ html.gecko * {
   transition: opacity 120ms linear;
 }
 
+/* The strike. A full-frame blow-out on contact — this is the payoff, and it
+   should be felt before it is understood. */
+.lock__flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 55% 45% at 50% 46%, #ffffff, color-mix(in srgb, var(--lock-accent) 60%, #fff) 42%, transparent 72%);
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+.lock.is-unlocking .lock__flash { animation: lock-flash 620ms cubic-bezier(0.1, 0.9, 0.2, 1) forwards; }
+@keyframes lock-flash {
+  0%   { opacity: 0; transform: scale(0.7); }
+  9%   { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* Armed: the mark starts to buzz. Anticipation is most of the hit. */
+.lock__plate[data-armed] .lock__face { animation: bolt-buzz 0.16s steps(2, end) infinite; }
+@keyframes bolt-buzz {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(0.9px, -0.9px, 6px); }
+}
+
 .lock__grain {
   position: absolute;
   inset: 0;
@@ -346,7 +370,9 @@ html.gecko * {
   stroke: url(#boltHot);
 }
 .lock__bolt-hot {
-  filter: drop-shadow(0 0 calc(6px + var(--p) * 20px) color-mix(in srgb, var(--lock-accent) calc(30% + var(--p) * 50%), transparent));
+  filter:
+    drop-shadow(0 0 calc(4px + var(--p) * var(--p) * 34px) color-mix(in srgb, var(--lock-accent) calc(30% + var(--p) * 60%), transparent))
+    drop-shadow(0 0 calc(var(--p) * var(--p) * 60px) color-mix(in srgb, #ffffff calc(var(--p) * 45%), transparent));
 }
 .lock__stop-a { stop-color: var(--lock-accent); }
 .lock__stop-b { stop-color: #ffffff; }
@@ -362,8 +388,12 @@ html.gecko * {
 .lock__spark {
   fill: #ffffff;
   opacity: calc(var(--p) * 0.9 + 0.1);
-  filter: drop-shadow(0 0 10px var(--lock-accent)) drop-shadow(0 0 22px var(--lock-accent));
-  transform: translateZ(8px);
+  filter:
+    drop-shadow(0 0 calc(6px + var(--p) * 14px) var(--lock-accent))
+    drop-shadow(0 0 calc(14px + var(--p) * 34px) var(--lock-accent));
+  transform: translateZ(8px) scale(calc(1 + var(--p) * 0.85));
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .lock__hint {
@@ -417,7 +447,8 @@ html.gecko * {
 }
 @keyframes lock-through {
   0%   { transform: rotateX(0deg) rotateY(0deg) translateZ(0) scale(1); filter: blur(0px); opacity: 1; }
-  26%  { transform: rotateX(1.5deg) rotateY(0deg) translateZ(52px) scale(1.05); filter: blur(0px); opacity: 1; }
+  7%   { transform: rotateX(0deg) rotateY(0deg) translateZ(0) scale(0.965); filter: blur(0px); opacity: 1; }
+  26%  { transform: rotateX(1.5deg) rotateY(0deg) translateZ(52px) scale(1.12); filter: blur(0px); opacity: 1; }
   100% { transform: rotateX(-7deg) rotateY(0deg) translateZ(620px) scale(1.7); filter: blur(16px); opacity: 0; }
 }
 @keyframes lock-dissolve {
@@ -470,7 +501,9 @@ html.gecko * {
   .lock__field { transform: none; }
   .lock__grain { display: none; }
   .lock__hint { animation: none; }
-  .lock__plate[data-hint] .lock__face { animation: none; }
+  .lock__plate[data-hint] .lock__face,
+  .lock__plate[data-armed] .lock__face { animation: none; }
+  .lock.is-unlocking .lock__flash { animation: none; }
   .lock.is-unlocking,
   .lock.is-unlocking .lock__plate {
     animation: lock-dissolve 320ms linear forwards;
