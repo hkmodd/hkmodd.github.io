@@ -78,7 +78,15 @@ body {
   font-family: var(--font-sans);
   background: var(--color-bg);
   color: var(--color-text);
-  overflow-x: hidden;
+  /* `clip`, not `hidden`. Per spec, `overflow-x: hidden` against a `visible`
+     other axis forces overflow-y to compute to `auto`, which makes this
+     element a scroll container. It never scrolls — the root does — but every
+     `animation-timeline: view()` inside resolves against the NEAREST scroll
+     container, found it here, and got a zero-length range: frozen progress.
+     That silently killed all 43 .reveal animations (they reported `finished`
+     and painted their end state, so the page merely looked eager rather than
+     broken). `clip` does the same overflow job without creating a scroller. */
+  overflow-x: clip;
   min-height: 100dvh;
   line-height: 1.6;
   -webkit-overflow-scrolling: touch;
@@ -104,9 +112,11 @@ html.cyber-cursor-active * {
   }
 }
 
-/* Prevent ANY horizontal overflow */
+/* Prevent ANY horizontal overflow — `clip` for the same reason as body:
+   `hidden` here would make .app-root a scroll container and shadow the root
+   for every view() timeline in the tree. */
 .app-root {
-  overflow-x: hidden;
+  overflow-x: clip;
   width: 100%;
   max-width: 100vw;
 }
@@ -1065,6 +1075,7 @@ html.gecko * {
   .arsenal-stamp,
   .arsenal-group__label { transform: none; }
 }
+
 
 /* Category header dot */
 .category-dot {
