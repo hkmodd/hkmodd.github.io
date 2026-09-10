@@ -207,64 +207,57 @@ html.gecko * {
 
 /* ── Lock — lightning S, ground → sky ───────────────────────── */
 /* ══════════════════════════════════════════════════════════════════
-   THRESHOLD — the lock screen
+   THE BOLT — lock screen
 
-   One object on one axis. No shape to trace, no failure state, no
-   iconography inside the lens: material, light and a single hairline latch.
+   An S drawn as a lightning strike. The mark is a filled, tapering polygon,
+   not a stroke: the points are geometry, so there is nothing to glue onto
+   the tips.
 
-   Depth is a real perspective. `.lock` is the camera, `.lock__plate`
-   preserves 3D, and the lens rides at a higher translateZ than its own
-   shadow — so tilting the plate parallaxes them against each other rather
-   than faking depth with a blur.
-
-   Everything reads `--p` (0 at rest, 1 open), written once per frame from
-   the component onto the plate. No React render is involved in the drag.
+   Depth is built. Cast shadow, three extrusion steps and the lit face are
+   separate layers at different translateZ inside one preserve-3d plate, so
+   tilting parallaxes them instead of faking thickness with a blur.
    ══════════════════════════════════════════════════════════════════ */
 
 .lock {
   --p: 0;
   --lock-accent: #00e5ff;
+  --lock-accent-2: #ff2a6d;
   --lock-accent-soft: rgba(0, 229, 255, 0.42);
   position: fixed;
   inset: 0;
   z-index: 10001;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.2rem;
   width: 100vw;
   height: 100dvh;
   overflow: hidden;
   touch-action: none;
+  cursor: crosshair;
   user-select: none;
   -webkit-user-select: none;
   background: #04040a;
-  /* Tighter perspective than a photographic one: at this object size a long
-     lens gives no foreshortening at all, and the depth stops reading. */
-  perspective: 620px;
-  perspective-origin: 50% 47%;
+  /* Short enough that the extrusion actually foreshortens at this scale. */
+  perspective: 900px;
+  perspective-origin: 50% 46%;
 }
 
-/* Ambient depth. Breathes with the travel — the room brightens as the
-   latch approaches, which is the only progress indicator besides the well.
-
-   The vertical column is what stops the control from floating in nothing.
-   An object needs somewhere to stand; without it the composition reads as
-   abandoned rather than focused. */
 .lock__field {
   position: absolute;
   inset: -12%;
   pointer-events: none;
   background:
     linear-gradient(90deg, transparent 30%, color-mix(in srgb, var(--lock-accent) 7%, transparent) 50%, transparent 70%),
-    radial-gradient(ellipse 42% 30% at 50% 50%, color-mix(in srgb, var(--lock-accent) 17%, transparent), transparent 66%),
-    radial-gradient(ellipse 90% 55% at 50% 118%, rgba(255, 42, 109, 0.1), transparent 62%),
+    radial-gradient(ellipse 42% 40% at 50% 48%, color-mix(in srgb, var(--lock-accent) 16%, transparent), transparent 66%),
+    radial-gradient(ellipse 90% 55% at 50% 118%, color-mix(in srgb, var(--lock-accent-2) 12%, transparent), transparent 62%),
     linear-gradient(180deg, #05050c 0%, #04040a 52%, #01080f 100%);
-  opacity: calc(0.86 + var(--p) * 0.14);
-  transform: scale(calc(1 + var(--p) * 0.035));
+  opacity: calc(0.84 + var(--p) * 0.16);
+  transform: scale(calc(1 + var(--p) * 0.04));
   transition: opacity 120ms linear;
 }
 
-/* Fine grain over the void. Without it the gradient bands and the black
-   reads as empty canvas instead of as a room. */
 .lock__grain {
   position: absolute;
   inset: 0;
@@ -273,20 +266,6 @@ html.gecko * {
   background-size: 3px 3px;
   opacity: 0.035;
   mix-blend-mode: overlay;
-}
-
-/* A single horizon line behind the plate. It gives the object somewhere
-   to stand without drawing a floor. */
-.lock__horizon {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: min(96vw, 900px);
-  height: 1px;
-  translate: -50% 92px;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--lock-accent) 26%, transparent), transparent);
-  opacity: calc(0.35 + var(--p) * 0.45);
 }
 
 .lock__plate {
@@ -299,60 +278,99 @@ html.gecko * {
   transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
-/* While the finger is down the plate must not lag behind it. */
-.lock__plate[data-dragging] { transition: none; }
+.lock__plate[data-holding] { transition: none; }
 
-.lock__track {
+/* Pressed away from the striking point: the mark answers instead of a
+   message telling you where to start. */
+.lock__plate[data-hint] .lock__face { animation: bolt-hint 0.62s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes bolt-hint {
+  0%, 100% { transform: translateZ(0) scale(1); }
+  32%      { transform: translateZ(14px) scale(1.035); }
+}
+
+.lock__stage {
   position: relative;
-  width: min(84vw, 480px);
-  height: 76px;
-  border-radius: 999px;
+  width: min(62vw, 300px);
+  height: min(70vh, 500px);
   transform-style: preserve-3d;
-  cursor: grab;
   outline: none;
 }
-.lock__plate[data-dragging] .lock__track { cursor: grabbing; }
-.lock__track:focus-visible {
+.lock__stage:focus-visible {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--lock-accent) 70%, transparent);
+  border-radius: 12px;
 }
 
-/* The channel: a recess, not a pill sitting on top. The inset shadow does
-   the work — this is the one place the object is allowed to look machined. */
-.lock__well {
+.lock__layer {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  overflow: hidden;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.62) 0%, rgba(255, 255, 255, 0.025) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.075);
-  box-shadow:
-    inset 0 3px 8px rgba(0, 0, 0, 0.8),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.07),
-    0 26px 64px rgba(0, 0, 0, 0.62);
+  pointer-events: none;
 }
+.lock__layer svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
-.lock__fill {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
-  transform: scaleX(var(--p));
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--lock-accent) 52%, transparent) 0%,
-    color-mix(in srgb, var(--lock-accent) 14%, transparent) 100%
+.lock__cast {
+  transform: translate3d(14px, 26px, -46px);
+  filter: blur(16px);
+  opacity: calc(0.55 + var(--p) * 0.2);
+}
+.lock__cast path { fill: #000; }
+
+/* Body of the extrusion. Darker the deeper it sits, and it warms slightly as
+   the charge climbs so the solid reads as lit from inside. */
+/* Offset away from the key light as well as back in Z. Sitting squarely
+   behind the face they were invisible — an extrusion has to show a side. */
+.lock__extrude {
+  transform: translate3d(calc(10px - var(--i) * 3px), calc(14px - var(--i) * 4px), var(--z));
+}
+.lock__extrude path {
+  fill: color-mix(
+    in srgb,
+    var(--lock-accent) calc(6% + var(--i) * 5% + var(--p) * 14%),
+    #05070d
   );
-  opacity: calc(0.3 + var(--p) * 0.7);
 }
 
-/* The sheen is the whole instruction. It travels left to right; nothing
-   else tells you which way to go, and nothing else needs to. */
-.lock__label {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
+.lock__face { transform: translateZ(0); }
+
+/* Unlit metal. The mark is fully present before you touch it — you are
+   charging something that already exists, not drawing it into being. */
+.lock__bolt-cold {
+  /* Present, not hidden: you are charging a mark that is already there. */
+  fill: #171d28;
+  stroke: color-mix(in srgb, var(--lock-accent) 34%, transparent);
+  stroke-width: 1.5;
+  stroke-linejoin: miter;
+}
+
+/* The charge: a wide stroke down the spine, clipped to the mark. */
+.lock__bolt-hot path {
+  stroke: url(#boltHot);
+}
+.lock__bolt-hot {
+  filter: drop-shadow(0 0 calc(6px + var(--p) * 20px) color-mix(in srgb, var(--lock-accent) calc(30% + var(--p) * 50%), transparent));
+}
+.lock__stop-a { stop-color: var(--lock-accent); }
+.lock__stop-b { stop-color: #ffffff; }
+.lock__stop-c { stop-color: var(--lock-accent-2); }
+
+.lock__bolt-rim {
+  fill: none;
+  stroke: color-mix(in srgb, #ffffff calc(18% + var(--p) * 62%), transparent);
+  stroke-width: 1.2;
+  stroke-linejoin: miter;
+}
+
+.lock__spark {
+  fill: #ffffff;
+  opacity: calc(var(--p) * 0.9 + 0.1);
+  filter: drop-shadow(0 0 10px var(--lock-accent)) drop-shadow(0 0 22px var(--lock-accent));
+  transform: translateZ(8px);
+}
+
+.lock__hint {
+  position: relative;
+  z-index: 1;
   margin: 0;
-  padding-left: 56px;
+  min-height: 1.2em;
   font-family: var(--font-mono);
   font-size: 0.64rem;
   font-weight: 700;
@@ -372,8 +390,8 @@ html.gecko * {
   -webkit-background-clip: text;
   background-clip: text;
   animation: lock-sheen 3.4s linear infinite;
-  /* Consumed by the lens as it passes. */
-  opacity: calc(1 - var(--p) * 1.5);
+  opacity: calc(1 - var(--p) * 1.4);
+  filter: brightness(1.35);
 }
 
 @keyframes lock-sheen {
@@ -381,73 +399,7 @@ html.gecko * {
   to   { background-position: -140% 0; }
 }
 
-/* Where the latch closes. One hairline, lit by proximity. */
-.lock__latch {
-  position: absolute;
-  right: 17px;
-  top: 50%;
-  width: 2px;
-  height: 16px;
-  margin-top: -8px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--lock-accent) calc(30% + var(--p) * 70%), transparent);
-  box-shadow: 0 0 calc(4px + var(--p) * 14px) color-mix(in srgb, var(--lock-accent) calc(var(--p) * 85%), transparent);
-  transform: translateZ(4px);
-}
-
-/* Cast at a lower Z than the lens. This is what makes the tilt read as
-   an object with height instead of a picture of one. */
-.lock__shadow {
-  position: absolute;
-  top: 50%;
-  left: 7px;
-  width: 62px;
-  height: 62px;
-  margin-top: -24px;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(circle, rgba(0, 0, 0, 0.8), transparent 66%);
-  filter: blur(10px);
-  transform: translate3d(calc(var(--p) * var(--travel, 0px)), 13px, 2px) scale(0.9);
-}
-
-.lock__lens {
-  position: absolute;
-  top: 50%;
-  left: 7px;
-  width: 62px;
-  height: 62px;
-  margin-top: -31px;
-  border-radius: 50%;
-  pointer-events: none;
-  transform: translate3d(calc(var(--p) * var(--travel, 0px)), 0, 34px);
-  background:
-    /* key highlight */
-    radial-gradient(circle at 33% 25%, rgba(255, 255, 255, 0.99), rgba(255, 255, 255, 0.32) 30%, transparent 54%),
-    /* the fill, refracted up through the underside — this is the difference
-       between a sphere of glass and a painted ball */
-    radial-gradient(circle at 50% 118%, color-mix(in srgb, var(--lock-accent) 85%, transparent), transparent 58%),
-    radial-gradient(circle at 78% 74%, color-mix(in srgb, var(--lock-accent) calc(30% + var(--p) * 40%), transparent), transparent 46%),
-    linear-gradient(180deg, #f8fcff 0%, #d6e9f4 42%, #6f9cb2 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -3px 9px rgba(0, 0, 0, 0.34),
-    /* rim light: the shaded edge picks up the channel it sits in */
-    inset -3px -1px 8px color-mix(in srgb, var(--lock-accent) 55%, transparent),
-    0 12px 26px rgba(0, 0, 0, 0.55),
-    0 0 calc(18px + var(--p) * 38px) color-mix(in srgb, var(--lock-accent) calc(26% + var(--p) * 52%), transparent);
-}
-
-/* Structure, not iconography. */
-.lock__lens-ring {
-  position: absolute;
-  inset: 9px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  opacity: calc(0.32 + var(--p) * 0.5);
-}
-
-/* ── Opening: a camera move through the plate, not a fade ─────── */
+/* ── The strike: a camera move through the plate, not a fade ──── */
 .lock.is-unlocking {
   pointer-events: none;
   animation: lock-dissolve 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -455,16 +407,18 @@ html.gecko * {
 .lock.is-unlocking .lock__plate {
   animation: lock-through 900ms cubic-bezier(0.5, 0, 0.2, 1) forwards;
 }
-.lock.is-unlocking .lock__label { opacity: 0; }
-.lock.is-unlocking .lock__horizon {
-  opacity: 0;
-  transition: opacity 420ms ease;
-}
+.lock.is-unlocking .lock__bolt-hot path { animation: bolt-flash 520ms ease-out forwards; }
+.lock.is-unlocking .lock__hint { opacity: 0; }
 
+@keyframes bolt-flash {
+  0%   { stroke: url(#boltHot); }
+  12%  { stroke: #ffffff; }
+  100% { stroke: #ffffff; }
+}
 @keyframes lock-through {
   0%   { transform: rotateX(0deg) rotateY(0deg) translateZ(0) scale(1); filter: blur(0px); opacity: 1; }
-  30%  { transform: rotateX(1.5deg) rotateY(0deg) translateZ(44px) scale(1.035); filter: blur(0px); opacity: 1; }
-  100% { transform: rotateX(-7deg) rotateY(0deg) translateZ(540px) scale(1.55); filter: blur(15px); opacity: 0; }
+  26%  { transform: rotateX(1.5deg) rotateY(0deg) translateZ(52px) scale(1.05); filter: blur(0px); opacity: 1; }
+  100% { transform: rotateX(-7deg) rotateY(0deg) translateZ(620px) scale(1.7); filter: blur(16px); opacity: 0; }
 }
 @keyframes lock-dissolve {
   0%   { opacity: 1; }
@@ -473,19 +427,16 @@ html.gecko * {
 }
 
 /* ── Themes ───────────────────────────────────────────────────── */
-/* Light is not "everything pale". The first pass compressed the whole value
-   range into the top sixth of the scale: no darks, so the well stopped
-   reading as a recess and the lens was white on white. A light interface
-   still needs a ground, real shadows and a mid-tone on the shaded side. */
 [data-theme="light"] .lock {
   --lock-accent: #0e7490;
+  --lock-accent-2: #b91c4b;
   --lock-accent-soft: rgba(14, 116, 144, 0.62);
   background: #ccd7e2;
 }
 [data-theme="light"] .lock__field {
   background:
     linear-gradient(90deg, transparent 30%, rgba(14, 116, 144, 0.1) 50%, transparent 70%),
-    radial-gradient(ellipse 42% 30% at 50% 50%, rgba(255, 255, 255, 0.75), transparent 66%),
+    radial-gradient(ellipse 42% 38% at 50% 48%, rgba(255, 255, 255, 0.8), transparent 66%),
     linear-gradient(180deg, #e4ebf2 0%, #cbd6e1 55%, #b3c2d1 100%);
 }
 [data-theme="light"] .lock__grain {
@@ -493,58 +444,33 @@ html.gecko * {
   opacity: 0.05;
   mix-blend-mode: multiply;
 }
-[data-theme="light"] .lock__horizon {
-  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.22), transparent);
+[data-theme="light"] .lock__cast { opacity: calc(0.3 + var(--p) * 0.15); }
+[data-theme="light"] .lock__cast path { fill: #0f172a; }
+[data-theme="light"] .lock__extrude path {
+  fill: color-mix(in srgb, var(--lock-accent) calc(10% + var(--i) * 8% + var(--p) * 16%), #94a7b8);
 }
-[data-theme="light"] .lock__well {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.22) 0%, rgba(15, 23, 42, 0.05) 55%, rgba(255, 255, 255, 0.55) 100%);
-  border-color: rgba(15, 23, 42, 0.16);
-  box-shadow:
-    inset 0 4px 10px rgba(15, 23, 42, 0.3),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.95),
-    0 22px 48px rgba(15, 23, 42, 0.22);
+[data-theme="light"] .lock__bolt-cold {
+  fill: #e9eff5;
+  stroke: rgba(15, 23, 42, 0.28);
 }
-[data-theme="light"] .lock__fill {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--lock-accent) 72%, transparent) 0%,
-    color-mix(in srgb, var(--lock-accent) 26%, transparent) 100%
-  );
-}
-[data-theme="light"] .lock__lens {
-  background:
-    radial-gradient(circle at 33% 24%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.55) 30%, transparent 54%),
-    radial-gradient(circle at 50% 118%, color-mix(in srgb, var(--lock-accent) 60%, transparent), transparent 58%),
-    linear-gradient(180deg, #ffffff 0%, #dbe7f0 40%, #7f9db2 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -3px 9px rgba(15, 23, 42, 0.24),
-    inset -3px -1px 8px color-mix(in srgb, var(--lock-accent) 42%, transparent),
-    0 12px 24px rgba(15, 23, 42, 0.34),
-    0 0 calc(12px + var(--p) * 26px) color-mix(in srgb, var(--lock-accent) calc(18% + var(--p) * 42%), transparent);
-}
-[data-theme="light"] .lock__lens-ring {
-  border-color: rgba(15, 23, 42, 0.16);
-}
-[data-theme="light"] .lock__shadow {
-  background: radial-gradient(circle, rgba(15, 23, 42, 0.5), transparent 64%);
+[data-theme="light"] .lock__bolt-rim {
+  stroke: color-mix(in srgb, #0f172a calc(22% + var(--p) * 40%), transparent);
 }
 
 [data-theme="redteam"] .lock {
   --lock-accent: #ff0033;
+  --lock-accent-2: #ff8a00;
   --lock-accent-soft: rgba(255, 0, 51, 0.45);
 }
 
-/* ── Reduced motion: no tilt, no sheen, no spring. Tap to enter. ── */
+/* ── Reduced motion: the mark, a tap, and out ─────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .lock__plate {
-    transform: none;
-    transition: none;
-  }
+  .lock { cursor: pointer; }
+  .lock__plate { transform: none; transition: none; }
   .lock__field { transform: none; }
   .lock__grain { display: none; }
-  .lock__label { animation: none; }
-  .lock__track { cursor: pointer; }
+  .lock__hint { animation: none; }
+  .lock__plate[data-hint] .lock__face { animation: none; }
   .lock.is-unlocking,
   .lock.is-unlocking .lock__plate {
     animation: lock-dissolve 320ms linear forwards;

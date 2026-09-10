@@ -2,7 +2,7 @@ import type { Translations } from './en';
 
 const it: Translations = {
   boot: {
-    hint: 'Scorri per entrare',
+    hint: 'Traccia il fulmine',
     hintTap: 'Tocca per entrare',
   },
 
