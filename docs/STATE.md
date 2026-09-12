@@ -64,6 +64,8 @@ Nessuno. Il terreno è in scena e verificato a occhio e coi numeri.
 | blocco | sblocca |
 |---|---|
 | ~~Altezze degli edifici~~ | **RISOLTO** — GeoDBT `UN_VOL`, 4859 corpi con gronda e piede al 100% |
+| **Facciate degli edifici** | nessun dato pubblico le dà. Kit modulare + trim sheet + materiali TSL + foto dell'Architetto |
+| **Cortili interni** | il mio import li riempie: usa solo l'anello esterno. Risolto passando a `importgis.shapefile` |
 | **Roccia della Rocca** | non è nel dato a 5 m, e un 1 m su Garda non esiste. Va scolpita su fotografia |
 | GDAL | non bloccante oggi. Lo diventa solo se si vuole che sia BlenderGIS a reproiettare EPSG:6876 |
 
@@ -71,7 +73,13 @@ Nessuno. Il terreno è in scena e verificato a occhio e coi numeri.
 
 ## PROSSIMO — uno solo
 
-**I tetti a falda.** Tutti i dati ci sono: terreno rilevato, piante rilevate,
+**Rifare l'import degli edifici con `importgis.shapefile`.** Misurato: 30.7 s
+per tutto il lotto, estrusione nativa da `UN_VOL_AV` (che coincide esattamente
+con gronda − piede), e soprattutto **gestisce gli anelli interni**. Il codice a
+mano usa solo l'anello esterno: gli edifici con cortile escono pieni. È un
+difetto vero, trovato confrontando l'addon col mio codice invece di difenderlo.
+
+Poi i tetti a falda. Tutti i dati ci sono: terreno rilevato, piante rilevate,
 gronda e piede rilevati. Manca l'alzato vero della copertura — oggi i corpi
 hanno il tetto piatto. La regola della v1 vale ancora e va applicata sulla
 pianta: falda a 21 gradi, gronda a sbalzo 38 cm, una sola formula che genera
@@ -87,7 +95,9 @@ budget. Solo allora l'ottimizzazione ha senso.
 - **Perimetro dal brief visivo, bbox dai dati** — San Vigilio + Luppia + Rocca, confine comunale, mai a occhio.
 - **Terreno = heightmap con LOD**, non mesh unica. La base è a 5 m e costa poco; tiling e LOD servono per gli edifici e per il dettaglio d'autore.
 - **Edifici da CTRN, mai da `Get OSM`** — 0 altezze su 1728. È la differenza fra Garda e una Garda inventata.
-- **La reproiezione la fa il nostro codice**, verificato, non l'addon. BlenderGIS resta per import e vista.
+- **La reproiezione la fa il nostro codice**, verificato, non l'addon. Ma **l'import lo fa l'addon**: shapefile con estrusione e quota da campo, gestione degli anelli interni inclusa.
+- **`elevSource='FIELD'` con `UN_VOL_QB`, mai `'OBJ'`** — il raycast sul terreno appiattirebbe la quota di piede rilevata su quella del DTM, buttando il dato migliore.
+- **L'ortofoto non è la texture ravvicinata** — a 0.25 m/px l'arena farebbe 239 Mpx. Serve a 1 m/px per il fondale, e come sorgente di maschere che pilotano materiali procedurali.
 - **La v1 resta nel repo** — archivio, non zavorra.
 - **Niente mesh estratte da Google** — vincolo di licenza, dal giorno uno.
 

@@ -378,6 +378,94 @@ entrambe le cose, DTM e CTRN, in un gesto solo.
 
 ---
 
+## 3quinquies. Quanto BlenderGIS sta davvero facendo — e la correzione
+
+Conta onesta dopo la prima passata:
+
+| passo | chi |
+|---|---|
+| download DTM ed edifici | REST IDT2 — l'addon non ha operatori per i dati regionali italiani |
+| reproiezione | codice nostro — senza GDAL l'addon non fa EPSG:6876 |
+| mosaico | codice nostro |
+| **import del terreno** | **`importgis.asc_file`** |
+| estrusione edifici | `from_pydata` — **sbagliato, vedi sotto** |
+
+**L'import degli edifici andava fatto con l'addon.** Misurato:
+
+```python
+bpy.ops.importgis.shapefile(filepath=UN_VOL.shp, shpCRS='EPSG:6876',
+    elevSource='FIELD', fieldElevName='UN_VOL_QB',
+    fieldExtrudeName='UN_VOL_AV', extrusionAxis='Z')
+```
+
+→ **30.7 s**, 4 246 615 vertici, 2 273 895 facce, quote −73.7..2047.7 m, tutto
+il lotto. Il campo `UN_VOL_AV` **coincide esattamente** con `QG − QB`
+(differenza 0.00 a p10, mediana e p90 su 156 209 record): l'estrusione nativa
+usa la stessa altezza che avevo calcolato a mano.
+
+**E il codice a mano ha un difetto vero**: usa solo `anelli[0]`, l'anello
+esterno. Gli edifici con **cortile interno escono pieni**. BlenderGIS gestisce
+le parti correttamente.
+
+Correzione: import nativo, poi ritaglio all'arena in Blender. `elevSource='OBJ'`
+esiste e proietta sul terreno via raycast, ma **non va usato qui**: appiattirebbe
+la quota di piede rilevata su quella del DTM, buttando via il dato migliore.
+`FIELD` con `UN_VOL_QB` tiene il rilievo.
+
+---
+
+## 3sexies. Mesh e texture — il piano, con i numeri
+
+**BlenderGIS non fa texture.** Finisce il suo lavoro all'import. Da lì in poi:
+
+### Mesh
+
+| cosa | come | stato |
+|---|---|---|
+| terreno | heightmap → tile 256 m + quadtree LOD | dato pronto |
+| volumi edifici | `importgis.shapefile`, estrusione da `UN_VOL_AV` | fatto, da rifare nativo |
+| **tetti a falda** | regola v1: `z = gronda + min(dist dal bordo, rientranza) · tan 21°`, anelli di `inset_region` da 1.25 m | codice v1 riusabile |
+| la Rocca | scultura a mano su fotografia — a 5 m la parete esce a gradini | da fare |
+
+### Texture del terreno
+
+Ortofoto **2023 regionale a 0.25 m/px**, WMS verificato vivo oggi
+(`geonode:ortomosaico_veneto_2023_utm32_comp2`). Ma i conti dicono come si usa:
+
+| risoluzione | pixel sull'arena | verdetto |
+|---|---:|---|
+| 0.25 m/px | 22 120 × 10 800 = **239 Mpx** | impossibile da spedire |
+| 0.5 m/px | 11 060 × 5 400 = 60 Mpx | ancora troppo |
+| **1 m/px** | 5 530 × 2 700 = **15 Mpx** | ~2 tile 4096², spedibile in KTX2 |
+
+Quindi **l'ortofoto non è la texture ravvicinata**: da vicino, a 25 cm/px, si
+vede una fotografia sfocata e il gioco sembra una mappa. Si usa in tre modi:
+
+1. **fondale e media distanza** — a 1 m/px, dove l'occhio non chiede dettaglio;
+2. **maschere di classificazione** — bosco, prato, roccia, costruito, strada,
+   estratte dal colore come `orto.mjs` della v1 già faceva per la riva. Le
+   maschere pilotano i **materiali procedurali** ravvicinati, che hanno
+   dettaglio infinito e pesano zero;
+3. **riferimento per l'autore**.
+
+### Texture degli edifici
+
+**Nessun dato pubblico dà le facciate.** Qui finisce il rilievo e comincia il
+mestiere:
+
+- **kit modulare + trim sheet**: una texture sola con intonaco, pietra, coppi,
+  persiane, zoccolature; le facciate si compongono da quella. È il metodo che
+  regge 4831 corpi senza 4831 texture;
+- **materiali TSL procedurali** — la v1 ha già `materials.ts` con coppi,
+  intonaco e selciato, e `textures.mjs` che li genera;
+- **foto dell'Architetto** per i punti che si guardano da vicino: Piazza
+  Catullo, il lungolago, la Rocca.
+
+Il vincolo di licenza non cambia: le foto di Street View si guardano, **le mesh
+di Google non si toccano**.
+
+---
+
 ## 4. Routing BlenderGIS — dove è primario e dove no
 
 BlenderGIS 2.2.15 è lo strumento cartografico primario. Gira su Blender 5.2:
