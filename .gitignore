@@ -26,3 +26,17 @@ tmp/
 wasm/target/
 wasm/pkg/          # leftover wasm-pack default out-dir — unused
 src/wasm/pkg/      # live artifact, rebuilt by npm run build:wasm / CI
+
+# Garda: artefatti Blender (13 MB di .blend e render) e cache di rete.
+# La cache si ricostruisce con `node tools/garda/fetch.mjs`, i render con
+# greybox.py. Cio' che serve al sito sta in public/garda/ ed e' versionato.
+tools/garda/out/
+tools/garda/cache/
+
+# dati GIS scaricati: si rigenerano con tools/gis/fetch-dtm.mjs
+tools/gis/cache/
+/tools/garda/gltf
+
+# GIS: sorgenti scaricate (oltre 700 MB) e artefatti Blender.
+# Si rigenerano con tools/gis/fetch-dtm.mjs, mosaic.mjs, import_dtm.py.
+tools/gis/out/
