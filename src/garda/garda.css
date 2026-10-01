@@ -1,0 +1,162 @@
+/* Interfaccia del portale. Fuori dal design system del portfolio di
+   proposito: questo modulo deve poter essere staccato senza portarsi
+   dietro un foglio di stile che non gli appartiene. */
+
+@import '@fontsource-variable/jetbrains-mono';
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #05070b;
+  overflow: hidden;
+  font-family: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
+}
+
+#garda {
+  position: fixed;
+  inset: 0;
+}
+
+.garda-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+.garda-canvas:active {
+  cursor: grabbing;
+}
+
+/* ── HUD ─────────────────────────────────────────────────────────────── */
+
+.garda-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: #e7edf4;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 55%);
+}
+
+.garda-hud__corner {
+  position: absolute;
+  padding: 22px 26px;
+  opacity: 0.72;
+  transition: opacity 400ms ease;
+}
+
+.garda-hud__tl { top: 0; left: 0; display: grid; gap: 4px; }
+.garda-hud__tr { top: 0; right: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.garda-hud__bl { bottom: 0; left: 0; max-width: 46ch; opacity: 0.4; text-transform: none; letter-spacing: 0.02em; }
+.garda-hud__br { bottom: 0; right: 0; text-align: right; }
+
+.garda-hud__title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.42em;
+}
+
+.garda-hud__sub {
+  color: #22d3ee;
+  opacity: 0.9;
+}
+
+.garda-hud[data-mode='sopralluogo'] .garda-hud__sub {
+  color: #f0abfc;
+}
+
+/* Il mirino esiste solo dentro il sopralluogo: in modalita' plastico non
+   c'e' niente da mirare. */
+.garda-hud[data-mode='sopralluogo']::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 50%;
+  background: #e7edf4;
+  opacity: 0.55;
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid rgb(231 237 244 / 28%);
+  border-radius: 3px;
+  font: inherit;
+  font-size: 10px;
+  opacity: 0.9;
+}
+
+/* ── schermata di attesa ─────────────────────────────────────────────── */
+
+#garda-boot {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  justify-items: center;
+  background: #05070b;
+  color: #e7edf4;
+  z-index: 10;
+  transition: opacity 800ms ease;
+}
+
+#garda-boot[data-state='done'] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#garda-boot[data-state='error'] .garda-boot__bar { display: none; }
+#garda-boot[data-state='error'] .garda-boot__phase { color: #fb7185; }
+
+.garda-boot__title {
+  font-size: 13px;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.garda-boot__phase {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.garda-boot__bar {
+  width: 190px;
+  height: 1px;
+  background: rgb(231 237 244 / 14%);
+  overflow: hidden;
+}
+
+.garda-boot__bar::after {
+  content: '';
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: #22d3ee;
+  animation: garda-sweep 1400ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes garda-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(350%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .garda-boot__bar::after { animation: none; width: 100%; opacity: 0.4; }
+}

@@ -97,6 +97,10 @@ export default defineConfig(() => {
       outDir: 'dist',
       sourcemap: false,
       target: 'esnext',
+      // Il portale Garda e' una pagina a se'. Entry separata, non lazy chunk
+      // del portfolio: cosi' il grafo dei moduli e' fisicamente disgiunto e
+      // "il portfolio non si porta dietro un byte del gioco" e' verificabile
+      // guardando il bundle, non promesso a parole.
       modulePreload: {
         resolveDependencies(filename, deps) {
           return deps.filter(
@@ -108,6 +112,10 @@ export default defineConfig(() => {
         },
       },
       rollupOptions: {
+        input: {
+          main: path.resolve(import.meta.dirname, 'index.html'),
+          garda: path.resolve(import.meta.dirname, 'garda.html'),
+        },
         output: {
           manualChunks(id) {
             if (
@@ -123,6 +131,14 @@ export default defineConfig(() => {
             // not re-exported through an r3f chunk (that hoists 3D into
             // the entry and modulepreload).
             if (id.includes('node_modules/three')) {
+              // three/examples (GLTFLoader, DRACOLoader, Sky…) li usa solo il
+              // portale Garda. Lasciandoli cadere nel chunk `three` finivano
+              // dentro il bundle che carica anche il portfolio: misurato, il
+              // chunk condiviso si portava dietro il loader glTF e gli URL
+              // degli asset Draco. Restano col loro importatore.
+              if (id.includes('examples/jsm') || id.includes('examples\\jsm')) {
+                return undefined;
+              }
               if (
                 id.includes('three/webgpu') ||
                 id.includes('three/tsl') ||
@@ -140,7 +156,9 @@ export default defineConfig(() => {
       },
     },
     optimizeDeps: {
-      exclude: ['neural-engine'],
+      // Rapier importa il proprio .wasm come modulo ESM: il prebundle di Vite
+      // lo romperebbe. Lo gestisce vite-plugin-wasm, gia' nella lista plugin.
+      exclude: ['neural-engine', '@dimforge/rapier3d-simd'],
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',

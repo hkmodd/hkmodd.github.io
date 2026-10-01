@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Garda — grey-box giocabile del centro storico e della Rocca, da dati OpenStreetMap e EU-DEM." />
+    <meta name="theme-color" content="#05070b" />
+    <meta name="robots" content="noindex" />
+    <title>Garda — plastico</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- Il glTF e il file di collisione partono in parallelo al modulo:
+         senza questo il fetch comincia solo dopo il parse dello script. -->
+    <link rel="preload" as="fetch" href="/garda/garda.glb" type="model/gltf-binary" crossorigin />
+    <link rel="preload" as="fetch" href="/garda/garda.nav.json" type="application/json" crossorigin />
+  </head>
+  <body>
+    <div id="garda"></div>
+
+    <div id="garda-boot">
+      <span class="garda-boot__title">Garda</span>
+      <span class="garda-boot__bar"></span>
+      <span class="garda-boot__phase" data-role="phase">apertura</span>
+    </div>
+
+    <script type="module" src="/src/garda/main.ts"></script>
+  </body>
+</html>
