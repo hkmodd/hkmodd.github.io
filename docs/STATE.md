@@ -3,7 +3,7 @@
 Fonte di verità per turno. Si **legge prima** di agire, si **aggiorna dopo**.
 Il contesto della chat è volatile; questo file no.
 
-Ultimo aggiornamento: **2026-09-12**, sessione "il terreno vero".
+Ultimo aggiornamento: **2026-10-02**, sessione "portfolio: sblocco e frame budget" (Garda non toccato).
 
 ---
 
@@ -30,6 +30,8 @@ Ultimo aggiornamento: **2026-09-12**, sessione "il terreno vero".
 - **Sagome degli edifici** — layer 13337 "Edifici del Veneto" per comune: **2181 edifici nell'arena**, agg. feb 2022. Senza quote (`tools/gis/ctrn.mjs`).
 - **ALTEZZE RILEVATE** — GeoDBT classe `UN_VOL`: **4859 corpi di fabbrica nell'arena, 100% con gronda e piede**. Mediana 4.9 m. Controllo incrociato piede-vs-LiDAR: **mediana -0.60 m** (`tools/gis/edifici.mjs`).
 - **Città in scena** — 4831 corpi estrusi fra le loro due quote rilevate, 176 616 vertici, nessuna altezza inventata (`tools/gis/import_citta.py`).
+- **PORTFOLIO — sblocco ridisegnato + frame budget** (2026-10-02). Lock "strumento": lastra di vetro, rotta tratteggiata, nodo di contatto, cornice editoriale, lettura `000→100`. Zero filtri su ciò che cambia, una scrittura DOM per frame, strike solo transform/opacity. Sezioni montate sotto il lucchetto (`staged`), hero/sezioni dietro `startTransition` su stato React (zustand è sync), `Sections` memo. Hero idle + scroll bead su compositor, DataCore plasma senza trig per pixel (0 diff su 567k canali), animazioni infinite in pausa fuori schermo (`src/lib/offscreenAnimations.ts`), React separato da motion (`codeSplitting.groups`), preload solo font latin. Bench: `scripts/perf.mjs`, `scripts/perf-lock.mjs`, `scripts/trace.mjs` su `npm run build && npm run preview`.
+- **PORTFOLIO — motore neurale + igiene** (2026-10-02). Upload GPU gated su `NeuralFrame.seq` (nessun re-upload di frame identici a 120/144 Hz), header parsato una volta per frame, canvas GL/WebGPU senza depth buffer (tutto additivo), cresta dell'onda per-vertex (`varying`) come il riferimento GLSL, compute WebGPU in un solo submit. `DprGovernor` con warmup/pausa (un hitch di boot non inchioda più dpr=1). Auto-update confronta `/version.json` con `__BUILD_VERSION__` del codice in esecuzione e ricarica solo a tab nascosta. CSS morto rimosso (95.2→87.9 KB). Fix deadlock latente in `useNeuralSource`: `source` era letto da un ref al render → path GL fermo su "boot" senza un re-render esterno. Smoke test: `node scripts/verify.mjs`.
 - **Terreno mosaicato e in scena in Blender** — 1106 × 540 celle da 5 m, **zero buchi a terra**, lago separato dalla maschera d'acqua; import via `importgis.asc_file`: 597 240 vertici, quote 64.0–416.1 m, render guardati (`tools/gis/mosaic.mjs`, `tools/gis/import_dtm.py`).
 
 ---
@@ -100,10 +102,12 @@ budget. Solo allora l'ottimizzazione ha senso.
 - **L'ortofoto non è la texture ravvicinata** — a 0.25 m/px l'arena farebbe 239 Mpx. Serve a 1 m/px per il fondale, e come sorgente di maschere che pilotano materiali procedurali.
 - **La v1 resta nel repo** — archivio, non zavorra.
 - **Niente mesh estratte da Google** — vincolo di licenza, dal giorno uno.
+- **Portfolio: frame economici, mai cap di FPS.** Si misura con metriche CPU (layout, style, script, long task) quando la GPU è condivisa: i tempi-frame headless con un gioco aperto sono rumore.
 
 ---
 
 ## TRAPPOLE PAGATE IN QUESTA SESSIONE — non ripagarle
+- Un hook che ritorna `ref.current` scritto in un effect consegna `null` al primo render e non causa re-render: se il consumer sblocca solo leggendolo, è deadlock mascherato da re-render incidentali. Stato, non ref.
 
 - **EPSG:6876 ha `k0 = 1`, non 0.9996.** Applicare il fattore di scala UTM al
   fuso 12 sposta la northing di **~2 km**: abbastanza da mettere la Rocca in
@@ -122,6 +126,8 @@ budget. Solo allora l'ottimizzazione ha senso.
 - **`predefCrsJson` è una lista di triple**, non un dizionario. Senza registrarci
   il CRS, l'enum `fileCRS` dell'import resta vuoto.
 - **Blender 5.2: l'engine è `BLENDER_EEVEE`**, non `BLENDER_EEVEE_NEXT`.
+- **`manualChunks` su Rolldown cattura le dipendenze del gruppo**: `motion` si era preso React. Usare `codeSplitting.groups` con `priority`.
+- **`startTransition` attorno a un `set` di zustand non fa nulla** (useSyncExternalStore è sempre sincrono): la soglia va specchiata in `useState`.
 - **Senza materiale EEVEE usa un diffuse quasi bianco**: con luce radente il
   render va in clipping e sembra che il terreno non abbia rilievo.
 

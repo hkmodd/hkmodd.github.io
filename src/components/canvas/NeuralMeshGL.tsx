@@ -304,6 +304,8 @@ function NeuralMeshScene() {
   // Boot-screen handshake: a few produced frames = shaders compiled,
   // worker (or inline WASM) alive, first-use hitches absorbed.
   const warmFrames = useRef(0);
+  /** Last simulated frame uploaded to the GPU (see NeuralFrame.seq). */
+  const uploadedSeq = useRef(-1);
 
   // ── Node buffers ──
   const nodeMatRef = useRef<THREE.ShaderMaterial>(null!);
@@ -349,6 +351,8 @@ function NeuralMeshScene() {
       transparent: true,
       opacity: 1,
       blending: THREE.AdditiveBlending,
+      // Additive light does not occlude; matches the WebGPU path.
+      depthWrite: false,
     }),
     []
   );
@@ -405,13 +409,19 @@ function NeuralMeshScene() {
       useAppStore.getState().setEngineReady(true);
     }
 
+    // Same simulated frame as last refresh → the GPU already holds it.
+    const fresh = frame.seq !== uploadedSeq.current;
+    uploadedSeq.current = frame.seq;
+
     // ══ NODES ══
-    (nodePosAttr.array as Float32Array).set(frame.positions);
-    (nodeOpacAttr.array as Float32Array).set(frame.opacities);
-    (nodeSizeAttr.array as Float32Array).set(frame.sizes);
-    nodePosAttr.needsUpdate = true;
-    nodeOpacAttr.needsUpdate = true;
-    nodeSizeAttr.needsUpdate = true;
+    if (fresh) {
+      (nodePosAttr.array as Float32Array).set(frame.positions);
+      (nodeOpacAttr.array as Float32Array).set(frame.opacities);
+      (nodeSizeAttr.array as Float32Array).set(frame.sizes);
+      nodePosAttr.needsUpdate = true;
+      nodeOpacAttr.needsUpdate = true;
+      nodeSizeAttr.needsUpdate = true;
+    }
 
     nodeUniforms.uColor.value.setRGB(frame.colorR, frame.colorG, frame.colorB);
     const nodeMat = nodeMatRef.current;
@@ -422,15 +432,17 @@ function NeuralMeshScene() {
     nodeUniforms.uMinAlpha.value = 0.0;
 
     // ══ CONNECTIONS ══
-    const used = frame.connCount * 6; // active floats; the rest is stale/never drawn
-    (connPosAttr.array as Float32Array).set(frame.connPositions.subarray(0, used));
-    (connColAttr.array as Float32Array).set(frame.connColors.subarray(0, used));
-    connPosAttr.clearUpdateRanges();
-    connPosAttr.addUpdateRange(0, used);
-    connPosAttr.needsUpdate = true;
-    connColAttr.clearUpdateRanges();
-    connColAttr.addUpdateRange(0, used);
-    connColAttr.needsUpdate = true;
+    if (fresh) {
+      const used = frame.connCount * 6; // active floats; the rest is stale/never drawn
+      (connPosAttr.array as Float32Array).set(frame.connPositions.subarray(0, used));
+      (connColAttr.array as Float32Array).set(frame.connColors.subarray(0, used));
+      connPosAttr.clearUpdateRanges();
+      connPosAttr.addUpdateRange(0, used);
+      connPosAttr.needsUpdate = true;
+      connColAttr.clearUpdateRanges();
+      connColAttr.addUpdateRange(0, used);
+      connColAttr.needsUpdate = true;
+    }
 
     // Light mode: hide connections entirely — they compound into gray.
     connGeometry.setDrawRange(0, theme === 'light' ? 0 : frame.connCount * 2);
@@ -443,8 +455,10 @@ function NeuralMeshScene() {
     // ══ PULSES ══
     const mesh = pulseMeshRef.current;
     if (mesh) {
-      (mesh.instanceMatrix.array as Float32Array).set(frame.pulseMatrices);
-      mesh.instanceMatrix.needsUpdate = true;
+      if (fresh) {
+        (mesh.instanceMatrix.array as Float32Array).set(frame.pulseMatrices);
+        mesh.instanceMatrix.needsUpdate = true;
+      }
 
       const cMul = theme === 'light' ? 0.08 : 2.0;
       const colorKey = `${(frame.colorR * 100) | 0},${(frame.colorG * 100) | 0},${(frame.colorB * 100) | 0},${theme}`;
@@ -561,7 +575,10 @@ export default function NeuralMesh() {
           alpha: true,
           powerPreference: 'high-performance',
           stencil: false,
-          depth: true,
+          // Nothing in this scene writes depth: every layer is additive light
+          // with depthWrite off. A full-screen depth attachment (≈33 MB at
+          // 2× on a 4K panel) would only be cleared and tested every frame.
+          depth: false,
         }}
         style={{ background: canvasBg, pointerEvents: IS_COARSE ? 'none' : 'auto', touchAction: 'pan-y' }}
         frameloop={canvasVisible ? 'always' : 'demand'}

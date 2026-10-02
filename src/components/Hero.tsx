@@ -8,10 +8,11 @@ import { useScrollProgress } from '@/hooks/useScrollProgress';
 import { haptic } from '@/lib/haptic';
 import { supportsScrollTimeline } from '@/lib/runtime';
 
-export default function Hero() {
+/** `entered` comes from App as transition state: the hero's first render is
+    interruptible, so it slices itself between the lock's strike frames. */
+export default function Hero({ entered }: { entered: boolean }) {
   const { t } = useTranslation();
   const theme = useAppStore((s) => s.theme);
-  const booted = useAppStore((s) => s.booted);
   const transitioning = useAppStore((s) => s.redTeamTransitioning);
   const toggleRedTeam = useAppStore((s) => s.toggleRedTeam);
 
@@ -103,7 +104,7 @@ export default function Hero() {
   const firstName = displayName.split(' ')[0];
   const lastName = displayName.split(' ').slice(1).join(' ');
 
-  if (!booted) return null;
+  if (!entered) return null;
 
   // Boot dissolve reveals the canvas; this stagger is the entrance into the
   // scene. LCP skeleton is already gone (html.booted) so we fade from empty.
@@ -130,6 +131,7 @@ export default function Hero() {
         id="hero"
         className="fixed inset-0 flex items-center justify-center px-6"
         style={{ zIndex: 1 }}
+        data-anim-proxy=".hero-spacer"
       >
         {/* Ambient backdrop glow */}
         <div
@@ -151,41 +153,34 @@ export default function Hero() {
             {/* Profile image - spinning conic gradient ring + float + glitch + dopamine tap */}
             {/* Ring uses REAL DOM elements (not CSS pseudo-elements) for iOS Safari compatibility */}
             <motion.div variants={item} className="flex justify-center mb-5 sm:mb-8">
-              <motion.div
-                className="relative hero-avatar-wrap"
+              {/* Float, ring spin and halo breathe are CSS keyframes on
+                  transform/opacity — compositor-only. As motion `y`/`rotate`
+                  they were JS-driven: two inline-style writes and a style
+                  recalc on every frame, forever, even with the page idle. */}
+              <div
+                className="relative hero-avatar-wrap hero-avatar-float"
                 onClick={handleAvatarTap}
                 style={{ cursor: isMobileRef.current ? 'pointer' : 'default', borderRadius: '50%' }}
-                initial={{ scale: 1 }}
-                animate={{
-                  y: [0, -6, 0, 4, 0],
-                }}
-                transition={{
-                  y: { duration: 5, ease: 'easeInOut', repeat: Infinity },
-                }}
               >
                 {/* Spinning conic-gradient ring - REAL DOM element */}
-                <motion.div
+                <div
                   aria-hidden
-                  className="absolute rounded-full pointer-events-none"
+                  className="hero-avatar-ring absolute rounded-full pointer-events-none"
                   style={{
                     inset: -4,
                     background: `conic-gradient(from 0deg, ${accent}, transparent 30%, ${theme === 'redteam' ? '#00d4ff' : theme === 'light' ? '#4299e1' : '#ff0033'} 50%, transparent 70%, ${accent} 100%)`,
                     opacity: 0.7,
                   }}
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 6, ease: 'linear', repeat: Infinity }}
                 />
 
                 {/* Soft outer glow - REAL DOM element */}
-                <motion.div
+                <div
                   aria-hidden
-                  className="absolute rounded-full pointer-events-none"
+                  className="hero-avatar-halo absolute rounded-full pointer-events-none"
                   style={{
                     inset: -12,
                     background: `radial-gradient(circle, ${accentGlow} 0%, transparent 70%)`,
                   }}
-                  animate={{ opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 4, ease: 'easeInOut', repeat: Infinity }}
                 />
 
                 {/* Actual avatar image */}
@@ -207,7 +202,7 @@ export default function Hero() {
                 />
 
                 {/* Dots removed — easter egg should be truly hidden */}
-              </motion.div>
+              </div>
             </motion.div>
 
             <motion.div variants={item} className="hero-status-wrap flex justify-center mb-4 sm:mb-6">

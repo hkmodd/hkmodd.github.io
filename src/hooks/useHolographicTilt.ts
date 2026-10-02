@@ -17,6 +17,9 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
   const activeRef = useRef(false); // tracks if tilt is currently applied
   const rectCache = useRef<DOMRect | null>(null); // cached rect for touch perf
   const rafId = useRef(0); // rAF ID for touch throttling
+  const dropRect = useCallback(() => {
+    rectCache.current = null;
+  }, []);
 
   /* ── Shared math ──────────────────────────────────────────── */
   const applyTilt = useCallback(
@@ -49,7 +52,8 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
     delete el.dataset.tilting;
     activeRef.current = false;
     rectCache.current = null;
-  }, []);
+    window.removeEventListener('scroll', dropRect);
+  }, [dropRect]);
 
   /* ── Desktop handlers ─────────────────────────────────────── */
   const onMouseMove = useCallback(
@@ -59,13 +63,17 @@ export function useHolographicTilt<T extends HTMLElement = HTMLDivElement>(
       if (!rectCache.current) {
         rectCache.current = el.getBoundingClientRect();
         el.style.willChange = 'transform';
+        // Wheel-scrolling under a resting pointer moves the card, not the
+        // pointer: a rect cached for the whole hover tilted it against where
+        // it used to be. Drop it on the next scroll; re-measured on demand.
+        window.addEventListener('scroll', dropRect, { passive: true, once: true });
       }
       const x = e.clientX;
       const y = e.clientY;
       cancelAnimationFrame(rafId.current);
       rafId.current = requestAnimationFrame(() => applyTilt(x, y, rectCache.current ?? undefined));
     },
-    [applyTilt]
+    [applyTilt, dropRect]
   );
 
   const onMouseLeave = useCallback(() => {

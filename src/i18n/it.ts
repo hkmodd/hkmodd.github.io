@@ -4,6 +4,9 @@ const it: Translations = {
   boot: {
     hint: 'Traccia il fulmine',
     hintTap: 'Tocca per entrare',
+    from: 'Dal basso verso l’alto',
+    key: 'oppure premi Invio',
+    site: 'Portfolio',
   },
 
   hero: {

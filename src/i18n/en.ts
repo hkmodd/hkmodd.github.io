@@ -44,7 +44,7 @@ export interface CertModuleCopy {
 }
 
 export interface Translations {
-  boot: { hint: string; hintTap: string };
+  boot: { hint: string; hintTap: string; from: string; key: string; site: string };
   hero: {
     name: string;
     realName: string;
@@ -145,6 +145,9 @@ const en: Translations = {
   boot: {
     hint: 'Trace the bolt',
     hintTap: 'Tap to enter',
+    from: 'Ground to sky',
+    key: 'or press Enter',
+    site: 'Portfolio',
   },
 
   hero: {

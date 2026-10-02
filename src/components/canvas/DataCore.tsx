@@ -63,42 +63,98 @@ function project(x: number, y: number, z: number, f: number, cx: number, cy: num
   return { x, y, z, s, px: cx + x * s * scale, py: cy + y * s * scale };
 }
 
+/**
+ * Per-pixel constants of the plasma sphere, built once per size.
+ *
+ * The field is  e = sy(row) · sx(col) · (0.35·sin(0.9t + k) + 0.75)  with
+ * k = 6z + 8·nx·ny. sy depends only on the row and sx only on the column, so
+ * they cost one sin per row/column, not per pixel; the third term expands as
+ * sin(a)cos(k) + cos(a)sin(k) with cos k / sin k fixed per pixel. The pixel
+ * loop is pure multiply-add — same field, no trigonometry in the hot loop.
+ */
+interface PlasmaLut {
+  size: number;
+  mask: Uint8Array;
+  /** 1 − fresnel */
+  a: Float32Array;
+  /** (1.55 + 2.4·fresnel) · fresnel */
+  b: Float32Array;
+  cosK: Float32Array;
+  sinK: Float32Array;
+  /** (0.55 + 0.45·fresnel) · 255 */
+  alpha: Float32Array;
+  ny5: Float32Array;
+  nx4: Float32Array;
+  row: Float32Array;
+  col: Float32Array;
+}
+
+function buildPlasmaLut(size: number): PlasmaLut {
+  const n = size * size;
+  const lut: PlasmaLut = {
+    size,
+    mask: new Uint8Array(n),
+    a: new Float32Array(n),
+    b: new Float32Array(n),
+    cosK: new Float32Array(n),
+    sinK: new Float32Array(n),
+    alpha: new Float32Array(n),
+    ny5: new Float32Array(size),
+    nx4: new Float32Array(size),
+    row: new Float32Array(size),
+    col: new Float32Array(size),
+  };
+  const c = (size - 1) * 0.5;
+  const R = c * 0.98;
+  for (let j = 0; j < size; j++) {
+    const ny = (j - c) / R;
+    lut.ny5[j] = ny * 5;
+    for (let i = 0; i < size; i++) {
+      const nx = (i - c) / R;
+      if (j === 0) lut.nx4[i] = nx * 4;
+      const r2 = nx * nx + ny * ny;
+      const q = j * size + i;
+      if (r2 > 1) continue;
+      const z = Math.sqrt(1 - r2);
+      const fres = (1 - z) * (1 - z);
+      const k = z * 6 + nx * ny * 8;
+      lut.mask[q] = 1;
+      lut.a[q] = 1 - fres;
+      lut.b[q] = (1.55 + fres * 2.4) * fres;
+      lut.cosK[q] = Math.cos(k);
+      lut.sinK[q] = Math.sin(k);
+      lut.alpha[q] = (0.55 + fres * 0.45) * 255;
+    }
+  }
+  return lut;
+}
+
 function paintPlasma(
   img: ImageData,
+  lut: PlasmaLut,
   t: number,
   rgb: [number, number, number],
   intensity: number,
 ) {
-  const { data, width, height } = img;
+  const { data } = img;
+  const { size, mask, a, b, cosK, sinK, alpha, row, col } = lut;
   const [cr, cg, cb] = rgb;
-  const cx = (width - 1) * 0.5;
-  const cy = (height - 1) * 0.5;
-  const R = Math.min(cx, cy) * 0.98;
-  for (let j = 0; j < height; j++) {
-    const ny = (j - cy) / R;
-    for (let i = 0; i < width; i++) {
-      const nx = (i - cx) / R;
-      const r2 = nx * nx + ny * ny;
-      const o = (j * width + i) * 4;
-      if (r2 > 1) {
-        data[o] = data[o + 1] = data[o + 2] = data[o + 3] = 0;
-        continue;
-      }
-      const z = Math.sqrt(1 - r2);
-      const fres = (1 - z) * (1 - z);
-      let e = Math.sin(t * 2.5 + ny * 5.0) * 0.5 + 0.5;
-      e *= Math.sin(t * 1.7 + nx * 4.0) * 0.5 + 0.5;
-      e *= Math.sin(t * 0.9 + z * 6.0 + nx * ny * 8) * 0.35 + 0.75;
-      const ir = cr * (0.28 + e * 0.62);
-      const ig = cg * (0.28 + e * 0.62);
-      const ib = cb * (0.28 + e * 0.62);
-      const rr = cr * (1.55 + fres * 2.4);
-      const rg = cg * (1.55 + fres * 2.4);
-      const rb = cb * (1.55 + fres * 2.4);
-      data[o] = Math.min(255, ir + (rr - ir) * fres);
-      data[o + 1] = Math.min(255, ig + (rg - ig) * fres);
-      data[o + 2] = Math.min(255, ib + (rb - ib) * fres);
-      data[o + 3] = Math.min(255, (0.55 + fres * 0.45) * intensity * 255);
+  for (let j = 0; j < size; j++) row[j] = Math.sin(t * 2.5 + lut.ny5[j]) * 0.5 + 0.5;
+  for (let i = 0; i < size; i++) col[i] = Math.sin(t * 1.7 + lut.nx4[i]) * 0.5 + 0.5;
+  const sa = Math.sin(t * 0.9);
+  const ca = Math.cos(t * 0.9);
+  // Outside the disc the buffer stays at its zero-initialised value forever.
+  for (let j = 0, q = 0; j < size; j++) {
+    const sy = row[j];
+    for (let i = 0; i < size; i++, q++) {
+      if (!mask[q]) continue;
+      const e = sy * col[i] * ((sa * cosK[q] + ca * sinK[q]) * 0.35 + 0.75);
+      const m = (0.28 + e * 0.62) * a[q] + b[q];
+      const o = q << 2;
+      data[o] = Math.min(255, cr * m);
+      data[o + 1] = Math.min(255, cg * m);
+      data[o + 2] = Math.min(255, cb * m);
+      data[o + 3] = Math.min(255, alpha[q] * intensity);
     }
   }
 }
@@ -126,7 +182,11 @@ export default function DataCore() {
     let t0 = performance.now();
     let elapsed = 0;
     let plasma: ImageData | null = null;
-    let plasmaSize = 96;
+    let lut: PlasmaLut | null = null;
+    // Box size cached by the ResizeObserver: reading clientWidth in the frame
+    // forced a synchronous layout whenever anything else had dirtied style.
+    let W = 0;
+    let H = 0;
 
     const onEnter = () => { hover.current = true; };
     const onLeave = () => { hover.current = false; };
@@ -146,8 +206,13 @@ export default function DataCore() {
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      plasmaSize = coarse ? 72 : 112;
-      plasma = ctx.createImageData(plasmaSize, plasmaSize);
+      W = w;
+      H = h;
+      const size = coarse ? 72 : 112;
+      if (!lut || lut.size !== size) {
+        lut = buildPlasmaLut(size);
+        plasma = ctx.createImageData(size, size);
+      }
     };
 
     const drawRing = (
@@ -230,9 +295,17 @@ export default function DataCore() {
       }
     };
 
-    const frame = (now: number) => {
+    // The loop only exists while the armilla is on screen: off screen there
+    // is no rAF at all, not one that wakes every frame to return early.
+    const start = () => {
+      if (raf || !visible || document.hidden) return;
+      t0 = performance.now();
       raf = requestAnimationFrame(frame);
+    };
+    const frame = (now: number) => {
+      raf = 0;
       if (!visible || document.hidden) return;
+      raf = requestAnimationFrame(frame);
 
       const dt = Math.min(0.05, (now - t0) / 1000);
       t0 = now;
@@ -254,8 +327,8 @@ export default function DataCore() {
       tilt.y += (ptr.x * tTilt - tilt.y) * 0.08;
       const rotA: [number, number] = [ax + tilt.x, ay + tilt.y];
 
-      const w = wrap.clientWidth;
-      const h = wrap.clientHeight;
+      const w = W;
+      const h = H;
       const cx = w * 0.5;
       const cy = h * 0.5 + Math.sin(elapsed * 0.7) * (hover.current ? 2 : 5);
       const scale = Math.min(w, h) * 0.38 * (hover.current ? 1.06 : 1);
@@ -313,8 +386,8 @@ export default function DataCore() {
       });
 
       // Plasma core
-      if (plasma) {
-        paintPlasma(plasma, elapsed, rgb, intensity);
+      if (plasma && lut) {
+        paintPlasma(plasma, lut, elapsed, rgb, intensity);
         const coreR = scale * 0.46;
         ctx.save();
         if (!light) ctx.globalCompositeOperation = 'lighter';
@@ -421,19 +494,23 @@ export default function DataCore() {
     const ro = new ResizeObserver(resize);
     ro.observe(wrap);
     const io = new IntersectionObserver(
-      ([e]) => { visible = e.isIntersecting; },
+      ([e]) => {
+        visible = e.isIntersecting;
+        start();
+      },
       { rootMargin: '120px' },
     );
     io.observe(wrap);
+    document.addEventListener('visibilitychange', start);
     wrap.addEventListener('pointerenter', onEnter);
     wrap.addEventListener('pointerleave', onLeave);
     wrap.addEventListener('pointermove', onMove, { passive: true });
-    raf = requestAnimationFrame(frame);
 
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
       io.disconnect();
+      document.removeEventListener('visibilitychange', start);
       wrap.removeEventListener('pointerenter', onEnter);
       wrap.removeEventListener('pointerleave', onLeave);
       wrap.removeEventListener('pointermove', onMove);

@@ -11,7 +11,9 @@ import {
   select,
   uv,
   positionLocal,
+  positionGeometry,
   positionView,
+  varying,
   float,
   int,
   uint,
@@ -370,6 +372,8 @@ function createEngine() {
       uConnOpacity, uPulseColor, uPulseOpacity, uSeed, uProjFactor,
     },
     kernels: { computeNodes, computeClearGrid, computeScatter, computeConnections, computePulses },
+    /** Dispatch order = data dependency order. */
+    pipeline: [computeNodes, computeClearGrid, computeScatter, computeConnections, computePulses],
     materials: { nodeMat, connMat, pulseMat },
   };
 }
@@ -390,9 +394,14 @@ function createGridMaterial() {
   mat.side = THREE.DoubleSide;
   mat.blending = THREE.AdditiveBlending;
 
+  // Height field, evaluated per VERTEX — exactly where the reference GLSL
+  // shader computes it. The first TSL port called this from colorNode too,
+  // which re-ran four sins, an exp and a ripple sin for every fragment of a
+  // half-screen plane at native DPR. positionGeometry (the raw attribute),
+  // not positionLocal: it cannot be affected by the positionNode assignment.
   const waveH = Fn(() => {
     const t = uGridTime;
-    const p = positionLocal;
+    const p = positionGeometry;
     const x = p.x;
     const y = p.y;
     const w1 = sin(x.mul(0.28).add(t.mul(0.72))).mul(1.15);
@@ -404,16 +413,14 @@ function createGridMaterial() {
     const ripple = exp(pDist.mul(-3.4)).mul(sin(t.mul(2.8).sub(pDist.mul(16)))).mul(0.55);
     return w1.add(w2).add(w3).add(w4).add(ripple);
   });
+  const h = waveH();
+  // = the GLSL `varying float vCrest`: clamped per vertex, interpolated.
+  const vCrest = varying(clamp(h.mul(0.5).add(0.38), 0, 1), 'vCrest');
 
-  mat.positionNode = Fn(() => {
-    const h = waveH();
-    return positionLocal.add(vec3(0, h.mul(0.45), h.mul(0.22)));
-  })();
+  mat.positionNode = positionLocal.add(vec3(0, h.mul(0.45), h.mul(0.22)));
 
   mat.colorNode = Fn(() => {
-    const h = waveH();
-    const crest = clamp(h.mul(0.5).add(0.38), 0, 1);
-    const dist = length(uv().sub(0.5)).mul(2);
+    const crest = vCrest;
     const band = smoothstep(float(0), float(0.12), uv().y).mul(smoothstep(float(0.82), float(0.36), uv().y));
     const sides = smoothstep(float(0), float(0.08), uv().x).mul(smoothstep(float(1), float(0.92), uv().x));
     const fade = band.mul(sides);
@@ -600,12 +607,10 @@ function NeuralMeshGPUScene() {
       computeAsync?: (n: unknown) => Promise<void>;
     };
     try {
+      // One call, one compute pass, one submit. WebGPU orders dispatches in
+      // a pass and makes each one's storage writes visible to the next.
       const dispatch = (renderer.compute ?? renderer.computeAsync)!.bind(renderer);
-      dispatch(engine.kernels.computeNodes);
-      dispatch(engine.kernels.computeClearGrid);
-      dispatch(engine.kernels.computeScatter);
-      dispatch(engine.kernels.computeConnections);
-      dispatch(engine.kernels.computePulses);
+      dispatch(engine.pipeline);
       if (warmFrames.current < 3 && ++warmFrames.current === 3) {
         useAppStore.getState().setEngineReady(true);
       }
@@ -676,6 +681,9 @@ export default function NeuralMeshGPU() {
             ...(glProps as ConstructorParameters<typeof THREE.WebGPURenderer>[0]),
             antialias: false,
             alpha: true,
+            // Every material here is additive with depthWrite off: no depth
+            // attachment to clear, store and test every frame.
+            depth: false,
             powerPreference: 'high-performance',
             forceWebGL:
               typeof navigator !== 'undefined' &&

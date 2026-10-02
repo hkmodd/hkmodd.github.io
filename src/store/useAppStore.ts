@@ -23,6 +23,10 @@ interface AppState {
   // Boot
   booted: boolean;
   setBooted: (v: boolean) => void;
+  /** Sections are mounted under the lock while it waits for the user, so the
+      strike never pays for a full-page commit. Set once, never cleared. */
+  staged: boolean;
+  setStaged: () => void;
 
   // Terminal
   terminalOpen: boolean;
@@ -133,6 +137,8 @@ export const useAppStore = create<AppState>((set) => ({
   // Boot
   booted: false,
   setBooted: (booted) => set({ booted }),
+  staged: false,
+  setStaged: () => set({ staged: true }),
 
   // Terminal
   terminalOpen: false,

@@ -75,9 +75,8 @@ function IntelCard({
 export default function AIIntel() {
   const { t } = useTranslation();
   const theme = useAppStore((s) => s.theme);
-  const booted = useAppStore((s) => s.booted);
 
-  if (!booted || !t.aiIntel) return null;
+  if (!t.aiIntel) return null;
 
   const accent = theme === 'redteam' ? '#ff0033' : theme === 'light' ? '#0066cc' : '#00d4ff';
   const accentGlow = theme === 'redteam' ? 'rgba(255,0,51,0.08)' : theme === 'light' ? 'rgba(0,102,204,0.06)' : 'rgba(0,212,255,0.08)';

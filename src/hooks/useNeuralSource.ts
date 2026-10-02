@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { NeuralEngine } from '@/wasm/pkg/neural_engine';
 import { loadInlineEngine } from '@/hooks/useNeuralEngine';
 import {
@@ -40,6 +40,11 @@ export interface NeuralFrame {
   colorR: number;
   colorG: number;
   colorB: number;
+  /** Bumps once per simulated frame. The renderer uploads to the GPU only
+      when it changes: on a 120/144 Hz display the worker round-trip often
+      spans more than one refresh, and re-uploading an identical ~100 KB
+      frame every vsync was pure bus traffic. */
+  seq: number;
 }
 
 export interface NeuralSource {
@@ -48,6 +53,10 @@ export interface NeuralSource {
   update(inputs: FrameInputs): NeuralFrame | null;
   dispose(): void;
 }
+
+/** Module-wide, so a remounted source never reuses a seq the renderer has
+    already marked as uploaded. */
+let seq = 0;
 
 function createNeuralSource(onReady: () => void): NeuralSource {
   let mode: NeuralSource['mode'] = 'pending';
@@ -76,6 +85,8 @@ function createNeuralSource(onReady: () => void): NeuralSource {
 
   const q = getSimQuality();
 
+  /** Views + header, parsed once when the frame arrives — not re-read (and
+      re-allocated) on every display refresh. */
   function buildFrame(buf: ArrayBuffer): NeuralFrame {
     const a = new Float32Array(buf);
     return {
@@ -85,10 +96,11 @@ function createNeuralSource(onReady: () => void): NeuralSource {
       connPositions: a.subarray(CONN_POS_OFF, CONN_POS_OFF + q.maxConnections * 6),
       connColors: a.subarray(CONN_COL_OFF, CONN_COL_OFF + q.maxConnections * 6),
       pulseMatrices: a.subarray(PULSE_OFF, PULSE_OFF + q.pulses * 16),
-      connCount: 0,
-      colorR: 0,
-      colorG: 0,
-      colorB: 0,
+      connCount: Math.round(a[0]),
+      colorR: a[1],
+      colorG: a[2],
+      colorB: a[3],
+      seq: ++seq,
     };
   }
 
@@ -209,10 +221,12 @@ function createNeuralSource(onReady: () => void): NeuralSource {
               colorR: 0,
               colorG: 0,
               colorB: 0,
+              seq: 0,
             },
           };
         }
         const f = inlineCache.frame;
+        f.seq = ++seq; // ticked synchronously: every call is a fresh frame
         f.connCount = e.conn_count();
         f.colorR = e.color_r();
         f.colorG = e.color_g();
@@ -230,13 +244,6 @@ function createNeuralSource(onReady: () => void): NeuralSource {
         worker.postMessage({ type: 'tick', inputs: send, buffer: buf } as ToWorker, [buf]);
       }
 
-      if (frame && latestBuf) {
-        const header = new Float32Array(latestBuf, 0, 4);
-        frame.connCount = Math.round(header[0]);
-        frame.colorR = header[1];
-        frame.colorG = header[2];
-        frame.colorB = header[3];
-      }
       return frame;
     },
 
@@ -252,19 +259,25 @@ function createNeuralSource(onReady: () => void): NeuralSource {
  * and re-renders once when it becomes ready.
  */
 export function useNeuralSource(): { source: NeuralSource | null; ready: boolean } {
-  const sourceRef = useRef<NeuralSource | null>(null);
+  // State, not a ref read at render time: the source is created in the
+  // effect, AFTER the first render. A ref left `source` null until some
+  // unrelated re-render — and `ready` can only flip once update() has
+  // ticked the worker, which needs `source`. Without an incidental parent
+  // re-render the GL path deadlocked on "boot".
+  const [source, setSource] = useState<NeuralSource | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const src = createNeuralSource(() => setReady(true));
-    sourceRef.current = src;
+    setSource(src);
     // Guard against StrictMode double-invoke seeing a stale ready.
     if (src.ready) setReady(true);
     return () => {
       src.dispose();
-      sourceRef.current = null;
+      setSource(null);
+      setReady(false);
     };
   }, []);
 
-  return { source: sourceRef.current, ready };
+  return { source, ready };
 }

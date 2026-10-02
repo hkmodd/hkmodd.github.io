@@ -30,9 +30,31 @@ export function useSnapScroll() {
     return Array.from(document.querySelectorAll<HTMLElement>(SNAP_SELECTOR));
   }, []);
 
+  /* Document-space tops of every target, cached. syncIndex runs on every
+     native scroll frame (trackpad, scrollbar drag); reading eight bounding
+     rects there could force a synchronous layout per frame. A target's top
+     only moves when some target's SIZE changes — one ResizeObserver over
+     all of them (and the viewport) invalidates the cache. */
+  const tops = useRef<number[] | null>(null);
+  const ro = useRef<ResizeObserver | null>(null);
+
   const updateTargets = useCallback(() => {
     cachedTargets.current = getTargets();
+    tops.current = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro.current ??= new ResizeObserver(() => { tops.current = null; });
+      ro.current.disconnect();
+      for (const el of cachedTargets.current) ro.current.observe(el);
+    }
   }, [getTargets]);
+
+  const getTops = useCallback((targets: HTMLElement[]): number[] => {
+    if (!tops.current || tops.current.length !== targets.length) {
+      const y = window.scrollY;
+      tops.current = targets.map((el) => el.getBoundingClientRect().top + y);
+    }
+    return tops.current;
+  }, []);
 
   /**
    * Which snap range contains the viewport probe — not "nearest top".
@@ -41,13 +63,12 @@ export function useSnapScroll() {
    */
   const syncIndex = useCallback((targets: HTMLElement[]) => {
     if (targets.length === 0) return;
+    const t = getTops(targets);
     const probe = window.scrollY + window.innerHeight * 0.35;
     let best = 0;
     for (let i = 0; i < targets.length; i++) {
-      const top = targets[i].getBoundingClientRect().top + window.scrollY;
-      const next = i + 1 < targets.length
-        ? targets[i + 1].getBoundingClientRect().top + window.scrollY
-        : Number.POSITIVE_INFINITY;
+      const top = t[i];
+      const next = i + 1 < targets.length ? t[i + 1] : Number.POSITIVE_INFINITY;
       if (probe >= top && probe < next) {
         currentIdx.current = i;
         return;
@@ -55,7 +76,7 @@ export function useSnapScroll() {
       if (probe >= top) best = i;
     }
     currentIdx.current = best;
-  }, []);
+  }, [getTops]);
 
   /** Page inside a tall snap target instead of jumping to the next one. */
   const pageInside = useCallback((el: HTMLElement, direction: 1 | -1, cooldown: number): boolean => {
@@ -220,15 +241,21 @@ export function useSnapScroll() {
       }
     };
 
+    // Viewport height feeds the hero spacer (100vh) and so every top below.
+    const invalidate = () => { tops.current = null; };
+
     window.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', invalidate, { passive: true });
 
     return () => {
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', invalidate);
       observer.disconnect();
+      ro.current?.disconnect();
     };
   }, [getTargets, syncIndex, snapTo, pageInside]);
 }
