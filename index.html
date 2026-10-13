@@ -17,6 +17,8 @@
     <meta name="twitter:image" content="https://hkmodd.github.io/og-card.png" />
     <title>hkmodd | Sebastiano Gelmetti</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- Operations lists live repos: open the API connection during the lock. -->
+    <link rel="preconnect" href="https://api.github.com" crossorigin />
     <!-- Preload hero avatar: fetched during the boot sequence so it paints instantly -->
     <link rel="preload" as="image" href="/foto_profilo.webp" type="image/webp" fetchpriority="high" />
     <!-- Fonts are self-hosted variable woff2 (bundled via index.css).
@@ -89,6 +91,7 @@
         background: rgba(0, 255, 136, 0.04);
         margin-bottom: 2.5rem;
       }
+      html.lock-up #hero-lcp .hero-lcp-badge { visibility: hidden; }
       #hero-lcp .hero-lcp-dot {
         width: 6px; height: 6px; border-radius: 50%; background: #00ff88;
       }

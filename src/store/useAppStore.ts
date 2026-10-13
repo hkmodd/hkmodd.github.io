@@ -48,8 +48,9 @@ interface AppState {
   hudOpen: boolean;
   toggleHud: () => void;
 
-  // True once the neural engine has produced frames (telemetry / HUD).
-  // Unlock no longer waits on this — the lock-screen S is the gate.
+  // True once the neural engine has produced frames. Unlock never waits on
+  // this — the lock-screen S is the gate. Section staging does: the canvas
+  // and the first section must not land in the same commit.
   engineReady: boolean;
   setEngineReady: (v: boolean) => void;
 

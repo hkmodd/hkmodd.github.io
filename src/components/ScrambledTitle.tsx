@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { useScrambleText } from '@/hooks/useScrambleText';
 import { observeIntersect } from '@/hooks/useReveal';
+import { useAppStore } from '@/store/useAppStore';
 
 interface ScrambledTitleProps {
   text: string;
@@ -12,6 +13,10 @@ export default function ScrambledTitle({ text, className, style }: ScrambledTitl
   const ref = useRef<HTMLSpanElement>(null);
   const [isInView, setIsInView] = useState(false);
   const [wave, setWave] = useState(0);
+  // Under the lock the hero is not mounted yet, so the first title sits "in
+  // view" behind an opaque plate. Scrambling there is work nobody sees; the
+  // observer fires again when the reader actually reaches it.
+  const booted = useAppStore((s) => s.booted);
 
   useEffect(() => {
     return observeIntersect(
@@ -25,7 +30,7 @@ export default function ScrambledTitle({ text, className, style }: ScrambledTitl
   }, []);
 
   const scrambled = useScrambleText(text, {
-    enabled: isInView,
+    enabled: isInView && booted,
     trigger: wave,
     speed: 30,
   });

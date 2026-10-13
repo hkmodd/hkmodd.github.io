@@ -3,7 +3,7 @@
 Fonte di verità per turno. Si **legge prima** di agire, si **aggiorna dopo**.
 Il contesto della chat è volatile; questo file no.
 
-Ultimo aggiornamento: **2026-10-02**, sessione "portfolio: sblocco e frame budget" (Garda non toccato).
+Ultimo aggiornamento: **2026-10-13**, sessione "portfolio: ottimizzazione totale" su branch `perf/total` (Garda non toccato).
 
 ---
 
@@ -32,6 +32,7 @@ Ultimo aggiornamento: **2026-10-02**, sessione "portfolio: sblocco e frame budge
 - **Città in scena** — 4831 corpi estrusi fra le loro due quote rilevate, 176 616 vertici, nessuna altezza inventata (`tools/gis/import_citta.py`).
 - **PORTFOLIO — sblocco ridisegnato + frame budget** (2026-10-02). Lock "strumento": lastra di vetro, rotta tratteggiata, nodo di contatto, cornice editoriale, lettura `000→100`. Zero filtri su ciò che cambia, una scrittura DOM per frame, strike solo transform/opacity. Sezioni montate sotto il lucchetto (`staged`), hero/sezioni dietro `startTransition` su stato React (zustand è sync), `Sections` memo. Hero idle + scroll bead su compositor, DataCore plasma senza trig per pixel (0 diff su 567k canali), animazioni infinite in pausa fuori schermo (`src/lib/offscreenAnimations.ts`), React separato da motion (`codeSplitting.groups`), preload solo font latin. Bench: `scripts/perf.mjs`, `scripts/perf-lock.mjs`, `scripts/trace.mjs` su `npm run build && npm run preview`.
 - **PORTFOLIO — motore neurale + igiene** (2026-10-02). Upload GPU gated su `NeuralFrame.seq` (nessun re-upload di frame identici a 120/144 Hz), header parsato una volta per frame, canvas GL/WebGPU senza depth buffer (tutto additivo), cresta dell'onda per-vertex (`varying`) come il riferimento GLSL, compute WebGPU in un solo submit. `DprGovernor` con warmup/pausa (un hitch di boot non inchioda più dpr=1). Auto-update confronta `/version.json` con `__BUILD_VERSION__` del codice in esecuzione e ricarica solo a tab nascosta. CSS morto rimosso (95.2→87.9 KB). Fix deadlock latente in `useNeuralSource`: `source` era letto da un ref al render → path GL fermo su "boot" senza un re-render esterno. Smoke test: `node scripts/verify.mjs`.
+- **PORTFOLIO — ottimizzazione totale** (2026-10-13, branch `perf/total`). Lighthouse mobile da 69/96/100/92 a **96/100/96*/100** (desktop 99–100); FCP 1.8 s, LCP 2.4 s, TBT 90–140 ms, CLS 0. Probe WebGPU in un worker (`gpuProbe.worker.ts`): il primo `navigator.gpu` sul main thread bloccava ~70 ms. Staging in tre onde (first paint → hero/motore → motore assestato → sezioni) con predicato `engineReady || !canvasVisible` + deadline 3 s. Terminal: autoscroll in rAF (niente layout forzato nel commit). Badge dello skeleton ritirato sotto il lucchetto (`html.lock-up`), audio solo dopo user activation, scramble solo `inView && booted`, robots.txt + sitemap.xml, aria-label sull'input terminale. *BP 96 locale = solo 403 della GitHub API per rate limit esaurito dai test. E2E Playwright 12/12 PASS.
 - **Terreno mosaicato e in scena in Blender** — 1106 × 540 celle da 5 m, **zero buchi a terra**, lago separato dalla maschera d'acqua; import via `importgis.asc_file`: 597 240 vertici, quote 64.0–416.1 m, render guardati (`tools/gis/mosaic.mjs`, `tools/gis/import_dtm.py`).
 
 ---
@@ -107,6 +108,9 @@ budget. Solo allora l'ottimizzazione ha senso.
 ---
 
 ## TRAPPOLE PAGATE IN QUESTA SESSIONE — non ripagarle
+- **Lighthouse (lantern) conta nel grafo LCP pessimista ogni richiesta partita prima dell'FCP osservato**: i moduli JS dominano FCP/LCP simulati. CSS asincrono + mount differito misurato **peggiore** (perf 92–95, CLS 0.019): scartato.
+- **`'gpu' in navigator` non invoca il getter; `navigator.gpu` sì**, e a freddo sincronizza col processo GPU (~70 ms main thread).
+- **Playwright con `colorScheme: light`**: il tema chiaro mette `canvasVisible=false`, il frameloop non produce frame, `engineReady` non arriva mai. Lo staging deve accettarlo.
 - Un hook che ritorna `ref.current` scritto in un effect consegna `null` al primo render e non causa re-render: se il consumer sblocca solo leggendolo, è deadlock mascherato da re-render incidentali. Stato, non ref.
 
 - **EPSG:6876 ha `k0 = 1`, non 0.9996.** Applicare il fattore di scala UTM al

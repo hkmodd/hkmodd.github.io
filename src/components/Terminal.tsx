@@ -49,10 +49,16 @@ export default function Terminal() {
     setLines(engineRef.current.getHistory());
   }, [t.terminal.greeting, ctfSolved]);
 
+  // In the frame, not the commit: read here, scrollHeight forced a layout of
+  // the whole freshly staged page inside React's task. rAF runs before that
+  // frame paints, so the new line is never seen unscrolled.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
   }, [lines]);
 
   const handleSubmit = useCallback(
@@ -182,6 +188,7 @@ export default function Terminal() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             className="terminal-input"
+            aria-label={t.terminal.subtitle}
             style={{
               flex: 1,
               background: 'transparent',

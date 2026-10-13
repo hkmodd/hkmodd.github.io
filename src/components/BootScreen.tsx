@@ -351,6 +351,9 @@ export default function BootScreen() {
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
+    // The opaque plate covers the pre-JS skeleton from here on; `lock-up`
+    // lets index.html retire its 9px badge, which nobody can see any more.
+    html.classList.toggle('lock-up', !done);
     if (done) {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       html.style.overflow = '';

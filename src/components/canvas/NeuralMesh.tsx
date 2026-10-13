@@ -21,12 +21,35 @@ import { preferWebGPU } from '@/lib/runtime';
    Test hooks: ?neural=gl forces WebGL, ?neural=gpu forces the TSL path.
    ═══════════════════════════════════════════════════════════════════ */
 
+/** Resolves the worker's answer, or null when it cannot give one. */
+function probeInWorker(): Promise<boolean | null> {
+  return new Promise((resolve) => {
+    let worker: Worker;
+    try {
+      worker = new Worker(new URL('./gpuProbe.worker.ts', import.meta.url), { type: 'module' });
+    } catch {
+      return resolve(null);
+    }
+    // An adapter request that never settles must not strand the background.
+    const timer = window.setTimeout(() => done(false), 3000);
+    function done(v: boolean | null) {
+      window.clearTimeout(timer);
+      worker.terminate();
+      resolve(v);
+    }
+    worker.onmessage = (e: MessageEvent<boolean | null>) => done(e.data);
+    worker.onerror = () => done(null);
+  });
+}
+
 async function probeWebGPU(): Promise<boolean> {
   try {
-    if (!preferWebGPU()) return false;
+    // `in` does not run the getter — touching navigator.gpu is what blocks.
+    if (!preferWebGPU() || !('gpu' in navigator)) return false;
+    const answer = await probeInWorker();
+    if (answer !== null) return answer;
     const gpu = (navigator as { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
-    if (!gpu) return false;
-    return !!(await gpu.requestAdapter());
+    return !!(gpu && (await gpu.requestAdapter()));
   } catch {
     return false;
   }

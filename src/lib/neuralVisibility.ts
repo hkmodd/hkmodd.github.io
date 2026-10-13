@@ -16,20 +16,16 @@
    custom property.
    ═══════════════════════════════════════════════════════════════════ */
 
-/** Mirrors `--dissolve-end` (70vh) for the synchronous first read. */
-const DISSOLVE_END_VH = 0.7;
-
 type InViewListener = (inView: boolean) => void;
 
 const listeners = new Set<InViewListener>();
 let sentinel: HTMLDivElement | null = null;
 let observer: IntersectionObserver | null = null;
+// Seeded optimistic: the page opens at the top under the lock. Reading
+// scrollY here instead forced a synchronous layout of whatever the staged
+// sections had just mounted (~45 ms on a throttled phone). A deep link or a
+// restored scroll is corrected by the observer's first callback, one frame on.
 let inView = true;
-
-function measure(): boolean {
-  if (typeof window === 'undefined') return true;
-  return window.scrollY < (window.innerHeight || 1) * DISSOLVE_END_VH;
-}
 
 function mount(): void {
   if (sentinel || typeof document === 'undefined') return;
@@ -44,10 +40,6 @@ function mount(): void {
     'top:var(--dissolve-end,70vh)';
   document.body.appendChild(el);
   sentinel = el;
-
-  // IO's first callback is async; seed synchronously so the first paint after
-  // a reload (or a deep link mid-page) already has the right frameloop state.
-  inView = measure();
 
   observer = new IntersectionObserver((entries) => {
     const next = entries[entries.length - 1].isIntersecting;
@@ -69,7 +61,7 @@ function unmount(): void {
 
 /** True while the dissolve has not yet reached zero opacity. */
 export function isCanvasInView(): boolean {
-  return sentinel ? inView : measure();
+  return inView;
 }
 
 /**

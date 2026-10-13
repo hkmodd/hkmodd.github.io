@@ -21,6 +21,9 @@ const INTERACTIVE =
 
 function initAudio(): AudioContext | null {
   if (audioCtx) return audioCtx;
+  // Before the first gesture the browser keeps any context suspended: nothing
+  // would be heard, and constructing one costs a long task on the main thread.
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return null;
   try {
     audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     master = audioCtx.createGain();

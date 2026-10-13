@@ -490,7 +490,9 @@ export default function DataCore() {
       return plasmaScratch;
     };
 
-    resize();
+    // No synchronous resize() here: on mount it forced a layout of the whole
+    // freshly staged section. The observer's initial callback runs after
+    // layout — and before the first IntersectionObserver-driven frame.
     const ro = new ResizeObserver(resize);
     ro.observe(wrap);
     const io = new IntersectionObserver(

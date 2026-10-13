@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState, lazy, Suspense, startTransition } from 'react';
+import { Fragment, memo, useCallback, useEffect, useState, lazy, Suspense, startTransition } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import { useKonamiCode } from '@/hooks/useKonamiCode';
@@ -8,6 +8,7 @@ import { haptic } from '@/lib/haptic';
 import { applyThemeToDom } from '@/lib/themeDom';
 import { stampRuntimeClass } from '@/lib/runtime';
 import { startOffscreenAnimationPause } from '@/lib/offscreenAnimations';
+import { afterFirstPaint, hasFirstPaint } from '@/lib/firstPaint';
 
 import BootScreen from '@/components/BootScreen';
 import CyberCursor from '@/components/CyberCursor';
@@ -28,8 +29,9 @@ const loadContact = () => import('@/components/Contact');
 
 // Everything that animates with `motion` is off the entry chunk: the lock
 // renders without waiting on the animation library (43 KB gzip). The hero
-// and the controls are rendered — suspended — from the first frame, so their
-// chunks stream in while the lock is up and resolve long before the strike.
+// and the controls are rendered — suspended — from the frame after the first
+// paint, so their chunks stream in while the lock is up and resolve long
+// before the strike.
 const loadFooter = () => import('@/components/Footer');
 const Hero = lazy(() => import('@/components/Hero'));
 const Footer = lazy(loadFooter);
@@ -46,9 +48,24 @@ const AIIntel = lazy(loadAIIntel);
 const Terminal = lazy(loadTerminal);
 const Contact = lazy(loadContact);
 
+/** True once the first paint is on screen — see lib/firstPaint. */
+function useAfterFirstPaint(): boolean {
+  const [done, setDone] = useState(hasFirstPaint);
+  useEffect(() => {
+    if (done) return;
+    let live = true;
+    afterFirstPaint().then(() => live && setDone(true));
+    return () => {
+      live = false;
+    };
+  }, [done]);
+  return done;
+}
+
 export default function App() {
   const booted = useAppStore((s) => s.booted);
   const staged = useAppStore((s) => s.staged);
+  const painted = useAfterFirstPaint();
 
   // The store is read through useSyncExternalStore, whose updates always
   // render synchronously — startTransition around a zustand `set` does
@@ -88,50 +105,76 @@ export default function App() {
     applyThemeToDom(theme);
   }, [theme]);
 
+  // No background engine → nothing to wait for before staging.
   useEffect(() => {
-    // Lock screen is the gate. Engine compiles behind it; never block reveal.
-    useAppStore.getState().setEngineReady(true);
-  }, []);
+    if (reducedData || reducedMotion) useAppStore.getState().setEngineReady(true);
+  }, [reducedData, reducedMotion]);
 
   // Fetch every section chunk during the lock, then MOUNT them under it.
   // The lock is opaque and the user is reading it: the main thread is idle.
   // Mounting on `booted` instead put a full-page commit (~290 ms on a
   // throttled phone) inside the strike animation. As a transition, React
   // yields between sections, so the lock's own frames are never held up.
+  //
+  // Three waves, never overlapping: first paint → hero, controls and the
+  // neural engine → (engine producing frames) → section chunks → staging.
+  // Requested together, all of those modules could land in one evaluation
+  // task, and the canvas' context creation in the same commit as a section.
   useEffect(() => {
     const ric =
       (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number })
         .requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 300));
     let cancelled = false;
-    ric(() => {
-      Promise.all([
-        loadArsenal(),
-        loadOperations(),
-        loadIdentity(),
-        loadCertVault(),
-        loadAIIntel(),
-        loadTerminal(),
-        loadContact(),
-        loadFooter(),
-      ])
-        .then(() => {
-          if (cancelled) return;
-          // Never commit under a finger: the drag on the lock is the one
-          // thing on screen that must hold its frame rate.
-          const stage = () => {
+    let unsub = () => {};
+    let deadline = 0;
+    // A paused frameloop (light theme, hidden tab) produces no frames by
+    // design — the engine has mounted, that is the wave. A context that never
+    // comes up (no GPU, blocked WebGL) must not hold the sections back long.
+    const settled = (s: { engineReady: boolean; canvasVisible: boolean }) => s.engineReady || !s.canvasVisible;
+    const engineWarm = afterFirstPaint().then(
+      () =>
+        new Promise<void>((resolve) => {
+          if (settled(useAppStore.getState())) return resolve();
+          deadline = window.setTimeout(resolve, 3000);
+          unsub = useAppStore.subscribe((s) => settled(s) && resolve());
+        }),
+    );
+    engineWarm.then(() => {
+      unsub();
+      window.clearTimeout(deadline);
+      if (cancelled) return;
+      ric(() => {
+        Promise.all([
+          loadArsenal(),
+          loadOperations(),
+          loadIdentity(),
+          loadCertVault(),
+          loadAIIntel(),
+          loadTerminal(),
+          loadContact(),
+          loadFooter(),
+        ])
+          .then(() => {
             if (cancelled) return;
-            if (document.querySelector('.lock__plate[data-holding]')) {
-              window.setTimeout(() => ric(stage, { timeout: 1500 }), 250);
-              return;
-            }
-            useAppStore.getState().setStaged();
-          };
-          ric(stage, { timeout: 1500 });
-        })
-        .catch(() => {});
+            // Never commit under a finger: the drag on the lock is the one
+            // thing on screen that must hold its frame rate.
+            const stage = () => {
+              if (cancelled) return;
+              if (document.querySelector('.lock__plate[data-holding]')) {
+                window.setTimeout(() => ric(stage, { timeout: 1500 }), 250);
+                return;
+              }
+              useAppStore.getState().setStaged();
+            };
+            ric(stage, { timeout: 1500 });
+          })
+          .catch(() => {});
+      });
     });
     return () => {
       cancelled = true;
+      unsub();
+      window.clearTimeout(deadline);
     };
   }, []);
 
@@ -156,7 +199,7 @@ export default function App() {
       <BootScreen />
 
       {/* 3D particle background — skipped on reduced-data / reduced-motion */}
-      {!reducedData && !reducedMotion && (
+      {painted && !reducedData && !reducedMotion && (
         <ErrorBoundary>
           <Suspense fallback={null}>
             <NeuralMesh />
@@ -168,9 +211,11 @@ export default function App() {
       <CyberCursor />
 
       {/* Floating lang + theme controls */}
-      <Suspense fallback={null}>
-        <FloatingControls />
-      </Suspense>
+      {painted && (
+        <Suspense fallback={null}>
+          <FloatingControls />
+        </Suspense>
+      )}
 
       {/* Engine telemetry overlay (` key / `hud` terminal command) */}
       <TelemetryHUD />
@@ -193,9 +238,11 @@ export default function App() {
 
       {/* Hero – sticky, fades out on scroll (renders nothing until entered) */}
       <div data-snap>
-        <Suspense fallback={null}>
-          <Hero entered={entered} />
-        </Suspense>
+        {painted && (
+          <Suspense fallback={null}>
+            <Hero entered={entered} />
+          </Suspense>
+        )}
       </div>
 
       {/* Main content — staged under the opaque lock, or on boot at the latest */}
@@ -209,49 +256,62 @@ export default function App() {
  * theme flash and friends, and none of that may cascade into ~1200 nodes of
  * already-mounted sections — each section subscribes to what it reads.
  */
+const SECTIONS = [Arsenal, Operations, Identity, CertVault, AIIntel, Terminal, Contact];
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
+  cancelIdleCallback?: (id: number) => void;
+};
+const requestIdle = (cb: () => void) =>
+  (window as IdleWindow).requestIdleCallback?.(cb, { timeout: 1500 }) ?? window.setTimeout(cb, 120);
+const cancelIdle = (id: number) =>
+  (window as IdleWindow).cancelIdleCallback ? (window as IdleWindow).cancelIdleCallback!(id) : window.clearTimeout(id);
+
 const Sections = memo(function Sections() {
+  // Under the lock, one section per idle slot: a single commit of all seven
+  // was a ~270 ms task (style + layout of ~1200 nodes) on a throttled phone.
+  // Once the lock is open whatever is left mounts in one go.
+  const booted = useAppStore((s) => s.booted);
+  const [count, setCount] = useState(booted ? SECTIONS.length : 1);
+  useEffect(() => {
+    if (count >= SECTIONS.length) return;
+    if (booted) {
+      startTransition(() => setCount(SECTIONS.length));
+      return;
+    }
+    let id = 0;
+    let retry = 0;
+    const step = () => {
+      // Never commit under a finger: the drag on the lock holds its frames.
+      if (document.querySelector('.lock__plate[data-holding]')) {
+        retry = window.setTimeout(() => (id = requestIdle(step)), 250);
+        return;
+      }
+      startTransition(() => setCount((c) => c + 1));
+    };
+    id = requestIdle(step);
+    return () => {
+      cancelIdle(id);
+      window.clearTimeout(retry);
+    };
+  }, [count, booted]);
+
   return (
     <ErrorBoundary>
       <Suspense fallback={null}>
         {/* Main content – sits on top of faded hero */}
         <main className="main-content relative z-10">
-          <div className="section-divider" />
-          <div data-snap>
-            <Arsenal />
-          </div>
-
-          <div className="section-divider" />
-          <div data-snap>
-            <Operations />
-          </div>
-
-          <div className="section-divider" />
-          <div data-snap>
-            <Identity />
-          </div>
-
-          <div className="section-divider" />
-          <div data-snap>
-            <CertVault />
-          </div>
-
-          <div className="section-divider" />
-          <div data-snap>
-            <AIIntel />
-          </div>
-
-          <div className="section-divider" />
-          <div data-snap>
-            <Terminal />
-          </div>
-
-          <div className="section-divider" />
-          <div data-snap>
-            <Contact />
-          </div>
+          {SECTIONS.slice(0, count).map((Section, i) => (
+            <Fragment key={i}>
+              <div className="section-divider" />
+              <div data-snap>
+                <Section />
+              </div>
+            </Fragment>
+          ))}
         </main>
 
-        <Footer />
+        {count === SECTIONS.length && <Footer />}
 
         {/* Floating reset button (red team only) */}
         <ResetButton />

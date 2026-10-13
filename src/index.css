@@ -700,6 +700,14 @@ html.gecko * {
   overflow: clip;
   isolation: isolate;
 }
+/* Sections are mounted under the opaque lock (staged) so the strike never
+   pays for their commit. Until the lock opens they are laid out but not
+   painted: nobody can see them, and their paint would otherwise land as the
+   page's LCP seconds after the lock was already readable. */
+html:not(.booted) .main-content,
+html:not(.booted) .app-root > footer {
+  visibility: hidden;
+}
 .main-content > .section-divider:first-child {
   display: none;
 }
